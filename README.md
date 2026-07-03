@@ -1,36 +1,89 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Felix Manufacturing Portfolio
 
-## Getting Started
+Independent portfolio website for Felix Zuo.
 
-First, run the development server:
+This is not a conventional developer portfolio. It presents Felix as a manufacturing project coordination and digital process improvement professional, with public sanitized evidence for trial production improvement, production notice standardization, and supply-production-delivery visibility.
 
-```bash
+## Positioning
+
+Core identity:
+
+> Manufacturing Project Coordination & Digital Process Improvement
+
+The site emphasizes:
+
+- manufacturing project coordination
+- trial production and changeover improvement
+- production notice workflow standardization
+- supply-production-delivery visibility
+- PPAP and launch readiness support
+- DFMEA-related follow-up
+- audit support and corrective action closure
+- Lean/Six Sigma thinking and PDCA
+- practical digital tools as evidence, not as the main identity
+
+## Key Pages
+
+- `/` - homepage with impact metrics, full-cycle project map, case studies, Portfolio Lab, methodology, about, and CTA.
+- `/case-studies/production-notice-workflow-standardization`
+- `/case-studies/trial-production-takt-simulation-changeover-improvement`
+- `/case-studies/supply-production-delivery-operations-visibility`
+
+## Content Model
+
+Structured content lives under `src/data`:
+
+- `profile.ts`
+- `metrics.ts`
+- `caseStudies.ts`
+- `portfolioProjects.ts`
+- `methodology.ts`
+- `navigation.ts`
+
+Core UI components live under `src/components`.
+
+## Public Data Boundary
+
+All public-facing content uses sanitized or synthetic data. Do not add customer names, private BOMs, supplier records, internal ERP/WMS/MES exports, production routes, machine parameters, shipment data, or confidential factory files.
+
+## Development
+
+```powershell
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Build and lint:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```powershell
+npm run lint
+npm run build
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Evidence Sources
 
-## Learn More
+The v1 site uses public-safe screenshots copied from local public showcase repositories into `public/evidence`.
 
-To learn more about Next.js, take a look at the following resources:
+Primary public evidence:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Factory Takt Simulator
+- Structured Operations Notice Workbench
+- Factory Excel Ops Dashboard
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Supporting public evidence:
 
-## Deploy on Vercel
+- Operations Intelligence Platform
+- Factory Data Pocket Lab
+- Six Sigma Study App
+- HulunGuard
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+BOM/material readiness is represented through public synthetic examples in v1. A dedicated BOM toolkit should not be presented as public evidence until it is public and data-safety reviewed.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Handoff Files
+
+- `docs/DISCOVERY_REPORT.md`
+- `docs/CONTENT_STRATEGY.md`
+- `docs/PROJECT_PLAN.md`
+- `CLAUDE_BRIEF.md`
+- `AGENTS.md`
+

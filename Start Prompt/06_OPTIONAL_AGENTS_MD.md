@@ -1,10 +1,6 @@
-<!-- BEGIN:nextjs-agent-rules -->
-# This is NOT the Next.js you know
+# AGENTS.md
 
-This project uses a current Next.js App Router release. Read the relevant guide in `node_modules/next/dist/docs/` before changing routing, layouts, metadata, server/client component boundaries, or global CSS. Heed deprecation notices.
-<!-- END:nextjs-agent-rules -->
-
-# Project Mission
+## Project Mission
 
 Build and maintain Felix Zuo's independent manufacturing project improvement portfolio website.
 
@@ -32,7 +28,7 @@ Felix's strongest positioning:
 - Maintain a professional industrial visual style.
 - Use public links and synthetic-data portfolio projects as evidence.
 - Keep confidentiality boundaries visible and professional.
-- Run available build, lint, and browser checks before marking work complete.
+- Run available build, lint, and test checks before marking work complete.
 
 ## Content Principles
 
@@ -55,11 +51,11 @@ Public content should use sanitized or synthetic data and should not expose cust
 ## Key Pages
 
 - Home
-- Case study detail pages
+- Case Studies
 - Portfolio Lab
 - Methodology
 - About
-- Resume / Contact CTA
+- Resume / Contact
 
 ## Key Case Studies
 
@@ -72,14 +68,11 @@ Public content should use sanitized or synthetic data and should not expose cust
 - Factory Takt Simulator
 - Structured Operations Notice Workbench
 - Factory Excel Ops Dashboard
+- BOM Knowledge Base
 - Operations Intelligence Platform
-- Factory Data Pocket Lab
 - Six Sigma Study App
 - HulunGuard
-
-Do not show private repositories as public evidence. BOM/material readiness can be represented through public synthetic examples until a dedicated BOM toolkit is public and safety reviewed.
 
 ## Handoff
 
 Keep `CLAUDE_BRIEF.md` updated when major structure or content changes happen so another AI collaborator can quickly understand the project.
-

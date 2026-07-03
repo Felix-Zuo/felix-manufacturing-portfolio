@@ -1,65 +1,241 @@
 import Image from "next/image";
+import Link from "next/link";
+import { ArrowDown, ArrowUpRight, Factory, GitBranch, ShieldCheck } from "lucide-react";
+
+import { BeforeAfterWorkflow } from "@/components/BeforeAfterWorkflow";
+import { CaseStudyCard } from "@/components/CaseStudyCard";
+import { ConfidentialityNotice } from "@/components/ConfidentialityNotice";
+import { CTA } from "@/components/CTA";
+import { MethodologyGrid } from "@/components/MethodologyGrid";
+import { MetricCard } from "@/components/MetricCard";
+import { PortfolioProjectCard } from "@/components/PortfolioProjectCard";
+import { ProjectMap } from "@/components/ProjectMap";
+import { Reveal } from "@/components/Reveal";
+import { SectionHeader } from "@/components/SectionHeader";
+import { caseStudies } from "@/data/caseStudies";
+import { metrics } from "@/data/metrics";
+import { navigation } from "@/data/navigation";
+import { portfolioProjects } from "@/data/portfolioProjects";
+import { profile } from "@/data/profile";
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
+    <main className="bg-slate-50 text-slate-950">
+      <header className="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/95 text-white backdrop-blur">
+        <nav className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4">
+          <Link className="flex items-center gap-3 font-semibold" href="/">
+            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-amber-400 text-slate-950">
+              <Factory className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <span>Felix Zuo</span>
+          </Link>
+          <div className="hidden items-center gap-5 lg:flex">
+            {navigation.map((item) => (
+              <a className="text-sm text-slate-300 transition hover:text-white" href={item.href} key={item.href}>
+                {item.label}
+              </a>
+            ))}
+          </div>
           <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+            className="inline-flex items-center gap-2 rounded-md border border-slate-700 px-3 py-2 text-sm font-semibold text-white transition hover:border-blue-300 hover:text-blue-200"
+            href={profile.github}
             target="_blank"
-            rel="noopener noreferrer"
+            rel="noreferrer"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
+            <GitBranch className="h-4 w-4" aria-hidden="true" />
+            GitHub
           </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        </nav>
+      </header>
+
+      <section className="bg-slate-950 text-white">
+        <div className="mx-auto grid max-w-7xl gap-10 px-5 py-14 lg:grid-cols-[1.02fr_0.98fr] lg:items-center">
+          <Reveal>
+            <p className="text-sm font-semibold uppercase text-amber-300">Manufacturing improvement portfolio</p>
+            <h1 className="mt-5 text-5xl font-semibold leading-[1.08] text-white">
+              {profile.headline}
+            </h1>
+            <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-300">{profile.summary}</p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <a
+                className="inline-flex items-center gap-2 rounded-md bg-emerald-500 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400"
+                href="#case-studies"
+              >
+                View case studies
+                <ArrowDown className="h-4 w-4" aria-hidden="true" />
+              </a>
+              <a
+                className="inline-flex items-center gap-2 rounded-md border border-slate-600 px-4 py-3 text-sm font-semibold text-white transition hover:border-blue-300 hover:text-blue-200"
+                href={profile.github}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Public evidence
+                <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+              </a>
+            </div>
+            <div className="mt-8 flex flex-wrap gap-2 text-sm text-slate-300">
+              {profile.targetDirections.slice(0, 4).map((direction) => (
+                <span className="rounded-md border border-slate-700 px-3 py-2" key={direction}>
+                  {direction}
+                </span>
+              ))}
+            </div>
+          </Reveal>
+
+          <Reveal delay={0.12}>
+            <div className="overflow-hidden rounded-lg border border-slate-700 bg-slate-900 shadow-2xl">
+              <div className="flex items-center justify-between border-b border-slate-700 px-4 py-3">
+                <span className="text-sm font-semibold text-slate-200">Public sanitized evidence</span>
+                <span className="rounded-md bg-emerald-500 px-2 py-1 text-xs font-semibold text-slate-950">
+                  No private factory data
+                </span>
+              </div>
+              <div className="relative aspect-[16/10] bg-slate-950">
+                <Image
+                  src="/evidence/factory-takt-showcase.png"
+                  alt="Factory Takt Simulator public showcase screenshot"
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  className="object-cover"
+                  loading="eager"
+                  priority
+                />
+              </div>
+              <div className="grid gap-0 border-t border-slate-700 md:grid-cols-3">
+                <div className="border-slate-700 p-4 md:border-r">
+                  <strong className="block text-2xl text-white">3</strong>
+                  <span className="text-sm text-slate-300">Primary manufacturing cases</span>
+                </div>
+                <div className="border-slate-700 p-4 md:border-r">
+                  <strong className="block text-2xl text-white">7</strong>
+                  <span className="text-sm text-slate-300">Public evidence projects</span>
+                </div>
+                <div className="p-4">
+                  <strong className="block text-2xl text-white">10</strong>
+                  <span className="text-sm text-slate-300">Launch-to-delivery stages</span>
+                </div>
+              </div>
+            </div>
+          </Reveal>
         </div>
-      </main>
-    </div>
+      </section>
+
+      <section className="border-b border-slate-200 bg-white py-12" id="impact">
+        <div className="mx-auto max-w-7xl px-5">
+          <SectionHeader
+            eyebrow="Impact metrics"
+            title="Manufacturing outcomes first, tool evidence second."
+            summary="The numbers establish the business case. Public projects then show how the same workflow patterns can be demonstrated safely with synthetic data."
+          />
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {metrics.map((metric, index) => (
+              <Reveal delay={index * 0.04} key={metric.id}>
+                <MetricCard metric={metric} />
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-slate-950 py-16 text-white" id="project-map">
+        <div className="mx-auto max-w-7xl px-5">
+          <SectionHeader
+            eyebrow="Full-cycle project map"
+            title="From risk review to delivery, audit, and corrective action."
+            summary="The site frames Felix as a coordinator and improvement operator across the real manufacturing execution chain, not as a narrow software profile."
+            inverse
+          />
+          <ProjectMap />
+        </div>
+      </section>
+
+      <section className="bg-slate-50 py-16" id="case-studies">
+        <div className="mx-auto max-w-7xl px-5">
+          <SectionHeader
+            eyebrow="Featured case studies"
+            title="Three manufacturing problems, three evidence-backed improvements."
+            summary="Each case keeps the structure simple: problem, Felix's role, methods, actions, outcomes, and public sanitized evidence."
+          />
+          <div className="grid gap-5 lg:grid-cols-3">
+            {caseStudies.map((caseStudy, index) => (
+              <Reveal delay={index * 0.06} key={caseStudy.slug}>
+                <CaseStudyCard caseStudy={caseStudy} />
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-white py-16">
+        <div className="mx-auto max-w-7xl px-5">
+          <SectionHeader
+            eyebrow="Before / after example"
+            title="Manual checking becomes a controlled review workflow."
+            summary="The production notice case shows the pattern used across the portfolio: clarify the work, structure the inputs, generate reviewable artifacts, and keep release under human control."
+          />
+          <BeforeAfterWorkflow before={caseStudies[0].before} after={caseStudies[0].after} />
+        </div>
+      </section>
+
+      <section className="bg-slate-950 py-16 text-white" id="portfolio-lab">
+        <div className="mx-auto max-w-7xl px-5">
+          <SectionHeader
+            eyebrow="Portfolio Lab"
+            title="Public sanitized projects that make the work inspectable."
+            summary="These projects are evidence cards, not the main identity. They show how manufacturing workflow problems can become structured models, dashboards, notices, simulations, and verification surfaces."
+            inverse
+          />
+          <div className="grid gap-5 lg:grid-cols-3">
+            {portfolioProjects.map((project, index) => (
+              <Reveal delay={index * 0.04} key={project.id}>
+                <PortfolioProjectCard project={project} />
+              </Reveal>
+            ))}
+          </div>
+          <div className="mt-6 rounded-lg border border-amber-400 bg-amber-50 p-5 text-amber-950">
+            <div className="flex gap-3">
+              <ShieldCheck className="mt-1 h-5 w-5 flex-none" aria-hidden="true" />
+              <p className="leading-7">
+                BOM and material readiness are represented through public synthetic examples in the current v1.
+                A dedicated BOM knowledge toolkit remains outside public evidence until a separate data-safety review is complete.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-slate-50 py-16" id="methodology">
+        <div className="mx-auto max-w-7xl px-5">
+          <SectionHeader
+            eyebrow="Methodology"
+            title="A practical operating system for manufacturing improvement."
+            summary="The method is not a buzzword list. It connects project control, manufacturing launch support, continuous improvement, and digital workflow tools."
+          />
+          <MethodologyGrid />
+        </div>
+      </section>
+
+      <section className="bg-white py-16" id="about">
+        <div className="mx-auto grid max-w-7xl gap-8 px-5 lg:grid-cols-[0.8fr_1.2fr]">
+          <div>
+            <p className="text-sm font-semibold uppercase text-blue-700">About Felix</p>
+            <h2 className="mt-3 text-3xl font-semibold text-slate-950">{profile.name}</h2>
+            <p className="mt-2 text-slate-600">{profile.currentTitle}</p>
+          </div>
+          <div className="space-y-6">
+            <p className="text-lg leading-8 text-slate-700">{profile.locationContext}</p>
+            <p className="leading-7 text-slate-700">
+              The portfolio is designed for manufacturing project managers, process improvement teams,
+              quality and launch teams, supply chain and operations leaders, smart manufacturing teams,
+              and recruiters who need a clear business story backed by public evidence.
+            </p>
+            <ConfidentialityNotice />
+          </div>
+        </div>
+      </section>
+
+      <CTA />
+    </main>
   );
 }
