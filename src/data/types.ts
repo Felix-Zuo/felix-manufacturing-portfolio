@@ -1,7 +1,20 @@
+export type MetricCount = {
+  from: number;
+  to: number;
+  /** Rendered during animation; `{n}` is replaced with the current value. */
+  template: string;
+  /** Final display override once the animation settles (e.g. "<1 min"). */
+  final?: string;
+};
+
 export type Metric = {
   id: string;
-  value: string;
   label: string;
+  /** The baseline reading shown struck-through above the animated value. */
+  before?: string;
+  /** Static display value (fallback and reduced-motion rendering). */
+  value: string;
+  count?: MetricCount;
   detail: string;
   source: string;
   tone: "blue" | "amber" | "green" | "steel";
@@ -10,11 +23,6 @@ export type Metric = {
 export type WorkflowStep = {
   label: string;
   detail: string;
-};
-
-export type EvidenceLink = {
-  label: string;
-  href: string;
 };
 
 export type CaseStudy = {
@@ -33,6 +41,8 @@ export type CaseStudy = {
   evidenceProjectIds: string[];
   image: string;
   imageAlt: string;
+  /** URL shown in the browser-frame address bar for the case visual. */
+  imageSourceUrl?: string;
 };
 
 export type PortfolioProject = {
@@ -56,4 +66,3 @@ export type MethodologyPillar = {
   summary: string;
   practices: string[];
 };
-

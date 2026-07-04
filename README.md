@@ -62,7 +62,8 @@ npm run build
 
 ## Evidence Sources
 
-The v1 site uses public-safe screenshots copied from local public showcase repositories into `public/evidence`.
+Screenshots in `public/evidence` are captured in English from the live public GitHub Pages
+demos at a uniform 16:10 viewport (see `docs/REDESIGN_SPEC.md` for the capture method).
 
 Primary public evidence:
 

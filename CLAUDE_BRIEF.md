@@ -175,6 +175,28 @@ Palette:
 - `src/app/case-studies/[slug]/page.tsx`
 - `public/evidence/*`
 
+## v2 "Control Room" Redesign (2026-07, Claude/Fable 5)
+
+Triggered by user feedback that v1 felt template-like, lacked premium motion, and used
+mixed-language screenshots. See `docs/REDESIGN_SPEC.md` for the full design system.
+
+- Single coherent dark industrial theme (no more alternating white/dark sections); blueprint
+  grid textures, mono data labels, amber/emerald/steel signal palette.
+- Motion: count-up/count-down impact metrics (`CountUp`), animated hero line simulation
+  (`HeroConsole` — stands in for video), outcome readout marquee (`StatusTicker`),
+  scroll-drawn project map progress line, staggered reveals. All reduced-motion safe and
+  hydration-mismatch free (verified in both motion modes).
+- Evidence screenshots recaptured in English at uniform 16:10 from the live GitHub Pages via
+  Playwright + Edge (takt simulator switched to EN through its `FactoryTaktAgent` bridge,
+  full-line template loaded, simulation running at t=90s). Shown inside a browser-chrome
+  frame (`ScreenshotFrame`) with the live URL visible.
+- New shared shell: `SiteNav` (fixed, mobile menu) + `SiteFooter` on every page; case detail
+  pages restyled with metric chips, animated before/after, and next-case pagination.
+- Replaced components: `SectionHeader`→`SectionHeading`, `CaseStudyCard`→`CaseShowcase`.
+  New: `SiteNav`, `SiteFooter`, `HeroConsole`, `CountUp`, `StatusTicker`, `ScreenshotFrame`.
+- Hero headline now uses the brief's Core Promise ("Manufacturing project chaos, turned into
+  measurable improvement.") with the positioning phrase as the mono eyebrow.
+
 ## Review Pass Applied (2026-07, Claude/Fable 5)
 
 A multi-agent review (content accuracy, confidentiality, storytelling, design/a11y) was run and

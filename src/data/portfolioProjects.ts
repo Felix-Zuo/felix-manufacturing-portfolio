@@ -14,8 +14,8 @@ export const portfolioProjects: PortfolioProject[] = [
     dataBoundary: "Synthetic scenarios with generic process names and public-safe screenshots.",
     repoUrl: "https://github.com/Felix-Zuo/factory-takt-simulator",
     liveUrl: "https://felix-zuo.github.io/factory-takt-simulator/?view=showcase",
-    image: "/evidence/factory-takt-line-overview.png",
-    imageAlt: "Factory Takt Simulator line overview",
+    image: "/evidence/takt-simulator-product.png",
+    imageAlt: "Factory Takt Simulator public product page in English",
     relatedCaseSlugs: ["trial-production-takt-simulation-changeover-improvement"],
   },
   {
@@ -31,8 +31,8 @@ export const portfolioProjects: PortfolioProject[] = [
     dataBoundary: "Synthetic public samples with generic operations terminology.",
     repoUrl: "https://github.com/Felix-Zuo/factory-production-notice-agent",
     liveUrl: "https://felix-zuo.github.io/factory-production-notice-agent/showcase.html",
-    image: "/evidence/notice-agent-contract.png",
-    imageAlt: "Structured Operations Notice Workbench automation contract",
+    image: "/evidence/notice-workbench-product.png",
+    imageAlt: "Structured Operations Notice Workbench public product page in English",
     relatedCaseSlugs: ["production-notice-workflow-standardization"],
   },
   {
@@ -48,8 +48,8 @@ export const portfolioProjects: PortfolioProject[] = [
     dataBoundary: "Reusable source, synthetic fixtures, generic profiles, and private adapter boundary.",
     repoUrl: "https://github.com/Felix-Zuo/factory-excel-ops-dashboard",
     liveUrl: "https://felix-zuo.github.io/factory-excel-ops-dashboard/showcase.html",
-    image: "/evidence/excel-workbench-product.png",
-    imageAlt: "Factory Excel Ops Dashboard workbench product screenshot",
+    image: "/evidence/excel-ops-product.png",
+    imageAlt: "Operations Data Workbench public product page in English",
     relatedCaseSlugs: ["supply-production-delivery-operations-visibility"],
   },
   {
@@ -65,8 +65,8 @@ export const portfolioProjects: PortfolioProject[] = [
     dataBoundary: "Public demo only; mock/stub/sample adapters, no live factory systems.",
     repoUrl: "https://github.com/Felix-Zuo/factory-ops-intelligence-platform",
     liveUrl: "https://felix-zuo.github.io/factory-ops-intelligence-platform/showcase.html",
-    image: "/evidence/ops-platform-overview.png",
-    imageAlt: "Operations Intelligence Platform overview",
+    image: "/evidence/ops-platform-product.png",
+    imageAlt: "Operations Intelligence Platform public product page in English",
     relatedCaseSlugs: [
       "production-notice-workflow-standardization",
       "trial-production-takt-simulation-changeover-improvement",

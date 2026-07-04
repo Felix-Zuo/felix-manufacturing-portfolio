@@ -46,8 +46,9 @@ export const caseStudies: CaseStudy[] = [
       { label: "Release packet", detail: "Share consistent artifacts for execution." },
     ],
     evidenceProjectIds: ["notice-workbench"],
-    image: "/evidence/notice-output.png",
-    imageAlt: "Synthetic-data notice output from the public Structured Operations Notice Workbench demo",
+    image: "/evidence/notice-workbench-product.png",
+    imageAlt: "Structured Operations Notice Workbench public product page with synthetic notice data",
+    imageSourceUrl: "https://felix-zuo.github.io/factory-production-notice-agent/showcase.html",
   },
   {
     slug: "trial-production-takt-simulation-changeover-improvement",
@@ -93,8 +94,9 @@ export const caseStudies: CaseStudy[] = [
       { label: "Ramp-up support", detail: "Adjust earlier with lower trial waste." },
     ],
     evidenceProjectIds: ["takt-simulator"],
-    image: "/evidence/factory-takt-showcase.png",
-    imageAlt: "Factory Takt Simulator public product showcase",
+    image: "/evidence/takt-simulator-workbench.png",
+    imageAlt: "Factory Takt Simulator workbench running a synthetic full-line scenario in English",
+    imageSourceUrl: "https://felix-zuo.github.io/factory-takt-simulator/",
   },
   {
     slug: "supply-production-delivery-operations-visibility",
@@ -139,8 +141,9 @@ export const caseStudies: CaseStudy[] = [
       { label: "Review", detail: "Export dashboard and reporting context." },
     ],
     evidenceProjectIds: ["excel-dashboard"],
-    image: "/evidence/excel-workbench-product.png",
-    imageAlt: "Factory Excel Ops Dashboard product preview",
+    image: "/evidence/excel-ops-product.png",
+    imageAlt: "Operations Data Workbench public product page in English",
+    imageSourceUrl: "https://felix-zuo.github.io/factory-excel-ops-dashboard/showcase.html",
   },
 ];
 

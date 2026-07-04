@@ -2,6 +2,10 @@ export const profile = {
   name: "Felix Zuo",
   chineseName: "Yaxuan Zuo",
   headline: "Manufacturing Project Coordination & Digital Process Improvement",
+  heroTitle: {
+    lead: "Manufacturing project chaos,",
+    emphasis: "turned into measurable improvement.",
+  },
   currentTitle:
     "Supply Chain Management Specialist | Manufacturing Project Coordination & Process Improvement",
   locationContext:
