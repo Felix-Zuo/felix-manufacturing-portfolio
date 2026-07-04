@@ -175,21 +175,46 @@ Palette:
 - `src/app/case-studies/[slug]/page.tsx`
 - `public/evidence/*`
 
-## Recommended Next Improvements For Claude/Fable 5
+## Review Pass Applied (2026-07, Claude/Fable 5)
 
-- Tighten the first-screen headline and supporting copy.
-- Improve case-study storytelling so manufacturing readers see Felix's role clearly.
-- Check whether recruiters can understand the site within 30 seconds.
-- Reduce any wording that over-emphasizes AI or software implementation.
-- Strengthen visual hierarchy around the three primary outcomes.
-- Review whether each public project card clearly supports the main story.
+A multi-agent review (content accuracy, confidentiality, storytelling, design/a11y) was run and
+its confirmed findings applied:
+
+- Hero summary rewritten: grammatical, names the automotive bearing industry, ends with the
+  brief's "structured workflows, measurable improvements, and practical digital tools" triad.
+- Hero stat strip now shows the three strongest impact metrics (from `metrics.ts`) instead of
+  site-inventory counts, so outcomes are on the first screen.
+- CTA has a real contact channel: `mailto:` to `profile.email` (zuoyaxuan666@gmail.com), with
+  GitHub as the secondary link. CTA section has `id="contact"` and a nav entry.
+- Case detail pages use the brief-mandated case-specific confidentiality text (via a `text`
+  prop on `ConfidentialityNotice`) and frame public evidence as a sanitized/synthetic showcase.
+- Portfolio Lab section now carries the compact confidentiality notice; the BOM boundary note
+  was restyled for the dark section.
+- Meta/self-referential copy removed from section summaries and the About block; About now uses
+  the LinkedIn-style experience summary from the profile brief.
+- Copy fidelity fixes: "Felix's role" heading, typographic arrows in metric values, "Trial takt
+  analysis and adjustment cycle" label, case subtitles/actions realigned to source, methodology
+  pillar renamed to "Manufacturing Launch & Quality Support" with "Over-processing reduction" added.
+- Design/a11y: `Reveal` now actually animates (was a no-op) with reduced-motion opt-out,
+  responsive hero headline, header moved outside `main`, anchor scroll-margin under the sticky
+  header, gated smooth scroll, focus-visible outlines, eyebrow letter tracking, metric source
+  contrast bump.
+
+## Recommended Next Improvements
+
+- Mobile navigation: nav links are hidden below `lg` with no menu; add a small disclosure menu.
+- Site header/nav is absent on case-study detail pages (only "Back to portfolio"); consider a
+  shared header.
+- Consider a downloadable resume PDF once ready (CTA currently email + GitHub).
+- Review whether the amber tone on the changeover-saving metric should become green
+  (improvement) or stay amber (estimated/review signal) — currently amber, intentionally.
 
 ## Open Questions
 
-- Should the final site include a downloadable resume now, or only a contact CTA until a resume PDF is ready?
 - Should the website be English-only for v1, or should Chinese copy be added after the structure stabilizes?
-- Should sanitized screenshots be copied into this repository for permanent display, or should v1 link to public project pages only?
 - Should BOM Knowledge Base become public later after a data safety review?
+- If this repository is ever made public, decide whether `Start Prompt/` and `docs/` (internal
+  positioning strategy) should be removed from history or kept.
 
 ## Confidentiality Rule
 

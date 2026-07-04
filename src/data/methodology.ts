@@ -14,7 +14,7 @@ export const methodology: MethodologyPillar[] = [
     ],
   },
   {
-    title: "Manufacturing Launch Support",
+    title: "Manufacturing Launch & Quality Support",
     summary: "Bridge quality, process, material, production, and shipment readiness.",
     practices: [
       "DFMEA-related follow-up",
@@ -37,6 +37,7 @@ export const methodology: MethodologyPillar[] = [
       "Waiting-time reduction",
       "Repeated manual check reduction",
       "Information searching reduction",
+      "Over-processing reduction",
       "Rework reduction",
     ],
   },

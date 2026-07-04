@@ -13,7 +13,7 @@ export function MetricCard({ metric }: { metric: Metric }) {
       <p className="text-sm font-medium text-slate-700">{metric.label}</p>
       <strong className="mt-3 block text-2xl font-semibold text-slate-950">{metric.value}</strong>
       <p className="mt-3 text-sm leading-6 text-slate-700">{metric.detail}</p>
-      <p className="mt-4 text-xs font-semibold uppercase text-slate-500">{metric.source}</p>
+      <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-slate-600">{metric.source}</p>
     </article>
   );
 }

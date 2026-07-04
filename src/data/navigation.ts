@@ -5,5 +5,6 @@ export const navigation = [
   { label: "Portfolio Lab", href: "#portfolio-lab" },
   { label: "Methodology", href: "#methodology" },
   { label: "About", href: "#about" },
+  { label: "Contact", href: "#contact" },
 ];
 

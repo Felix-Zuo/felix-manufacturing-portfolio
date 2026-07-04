@@ -9,7 +9,7 @@ export const caseStudies: CaseStudy[] = [
       "Standardized BOM, inventory, process, planning, and delivery inputs into a repeatable notice generation workflow with reviewable output.",
     metricIds: ["notice-time"],
     problem:
-      "Production notice preparation required repeated checks across TC, ERP, BOM records, inventory data, process requirements, production schedules, and delivery information. The process often depended on experienced users and created execution risk through manual copying, missing information, and coordination errors.",
+      "Production notice preparation required repeated checks across TC, ERP, BOM records, inventory data, process requirements, production schedules, and delivery information. The process usually took around 20-40 minutes, depended heavily on experienced users, and created execution risk through manual copying, missing information, and coordination errors.",
     role:
       "Felix supported the workflow improvement by clarifying the input information, mapping data relationships, and building a tool-assisted generation flow that kept release behind human review.",
     methods: [
@@ -47,12 +47,12 @@ export const caseStudies: CaseStudy[] = [
     ],
     evidenceProjectIds: ["notice-workbench"],
     image: "/evidence/notice-output.png",
-    imageAlt: "Structured operations notice output preview",
+    imageAlt: "Synthetic-data notice output from the public Structured Operations Notice Workbench demo",
   },
   {
     slug: "trial-production-takt-simulation-changeover-improvement",
     title: "Trial Production Takt Simulation & Changeover Improvement",
-    subtitle: "Reducing adjustment cycle, scrap, and repeated trial-and-error before ramp-up.",
+    subtitle: "Reducing trial adjustment cycle, scrap, and repeated trial-and-error before ramp-up.",
     summary:
       "Modeled full-line takt, machine parameters, buffers, and bottlenecks to support engineering adjustment before mass-production ramp-up.",
     metricIds: ["takt-cycle", "scrap-reduction", "changeover-saving"],
@@ -78,7 +78,7 @@ export const caseStudies: CaseStudy[] = [
     outcomes: [
       "Trial analysis and adjustment cycle shortened from around 3 days to 1 day.",
       "Trial machining and debugging scrap material reduced by around 90 percent.",
-      "Estimated saving for a regular model changeover reached around RMB 20,000 per changeover.",
+      "Estimated saving reached around RMB 20,000 per regular model changeover.",
     ],
     before: [
       { label: "Physical trial", detail: "Wait for enough real trial data." },
@@ -99,7 +99,7 @@ export const caseStudies: CaseStudy[] = [
   {
     slug: "supply-production-delivery-operations-visibility",
     title: "Supply-Production-Delivery Operations Visibility",
-    subtitle: "Improving visibility across procurement, inventory, WIP, production, delivery, and exceptions.",
+    subtitle: "Improving visibility across procurement, shipping, inventory, production, WIP, delivery, and exception follow-up.",
     summary:
       "Turned scattered spreadsheet exports and manual summaries into local dashboards, metrics, warnings, and reporting-ready context.",
     metricIds: [],
@@ -116,10 +116,10 @@ export const caseStudies: CaseStudy[] = [
       "Lean waste reduction",
     ],
     actions: [
-      "Classified spreadsheet-like files by content rather than filename alone.",
-      "Normalized noisy headers into a standard operations data model.",
-      "Computed configurable metrics across inventory, demand, fulfillment, replenishment, and work output.",
-      "Exported local dashboard and JSON summaries for reporting and workflow handoff.",
+      "Integrated procurement, shipping, inventory, production, WIP, delivery, project progress, and exception information into one view.",
+      "Standardized recurring reporting so departmental reviews used consistent numbers.",
+      "Tracked project progress and exceptions to support daily follow-up and closure.",
+      "Built and maintained the dashboard and reporting workflow used in departmental analysis.",
     ],
     outcomes: [
       "Improved visibility across supply, production, delivery, project progress, and exception follow-up.",

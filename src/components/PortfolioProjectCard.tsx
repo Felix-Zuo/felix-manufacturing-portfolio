@@ -18,7 +18,7 @@ export function PortfolioProjectCard({ project }: { project: PortfolioProject })
           />
         </div>
       )}
-      <p className="text-sm font-semibold uppercase text-amber-300">{project.tier}</p>
+      <p className="text-sm font-semibold uppercase tracking-wider text-amber-300">{project.tier}</p>
       <h3 className="mt-3 text-xl font-semibold text-white">{project.title}</h3>
       <p className="mt-3 text-sm leading-6 text-slate-300">{project.description}</p>
       <dl className="mt-5 space-y-3 text-sm">

@@ -23,12 +23,12 @@ export function CaseStudyDetail({ caseStudy }: { caseStudy: CaseStudy }) {
           </Link>
           <div className="mt-10 grid gap-8 lg:grid-cols-[1fr_0.9fr] lg:items-end">
             <div>
-              <p className="text-sm font-semibold uppercase text-amber-300">Manufacturing case study</p>
+              <p className="text-sm font-semibold uppercase tracking-wider text-amber-300">Manufacturing case study</p>
               <h1 className="mt-4 text-4xl font-semibold text-white">{caseStudy.title}</h1>
               <p className="mt-5 text-lg leading-8 text-slate-300">{caseStudy.subtitle}</p>
             </div>
             <div className="relative aspect-[16/10] overflow-hidden rounded-lg border border-slate-700 bg-slate-900">
-              <Image src={caseStudy.image} alt={caseStudy.imageAlt} fill sizes="(max-width: 1024px) 100vw, 45vw" className="object-cover" priority />
+              <Image src={caseStudy.image} alt={caseStudy.imageAlt} fill sizes="(max-width: 1024px) 100vw, 45vw" className="object-cover" loading="eager" fetchPriority="high" />
             </div>
           </div>
         </div>
@@ -50,7 +50,7 @@ export function CaseStudyDetail({ caseStudy }: { caseStudy: CaseStudy }) {
               <p className="mt-4 leading-7 text-slate-700">{caseStudy.problem}</p>
             </article>
             <article className="rounded-lg border border-slate-300 bg-white p-6 shadow-sm">
-              <h2 className="text-2xl font-semibold">Felix role</h2>
+              <h2 className="text-2xl font-semibold">Felix&apos;s role</h2>
               <p className="mt-4 leading-7 text-slate-700">{caseStudy.role}</p>
             </article>
           </div>
@@ -104,6 +104,10 @@ export function CaseStudyDetail({ caseStudy }: { caseStudy: CaseStudy }) {
 
           <article className="rounded-lg border border-slate-300 bg-white p-6 shadow-sm">
             <h2 className="text-2xl font-semibold">Public evidence</h2>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              Public sanitized or synthetic-data showcase based on real manufacturing workflow
+              patterns — not an internal system.
+            </p>
             <div className="mt-5 space-y-5">
               {evidenceProjects.map((project) => (
                 <div className="border-t border-slate-200 pt-5 first:border-t-0 first:pt-0" key={project.id}>
@@ -128,7 +132,7 @@ export function CaseStudyDetail({ caseStudy }: { caseStudy: CaseStudy }) {
         </section>
 
         <div className="mt-12">
-          <ConfidentialityNotice />
+          <ConfidentialityNotice text="This case study is presented with sanitized or synthetic data. It describes selected improvement outcomes and tool concepts based on real manufacturing workflow patterns. No customer names, private BOMs, supplier records, internal system exports, production routes, machine parameters, or confidential factory files are disclosed." />
         </div>
       </section>
     </main>

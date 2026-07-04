@@ -5,10 +5,11 @@ export const profile = {
   currentTitle:
     "Supply Chain Management Specialist | Manufacturing Project Coordination & Process Improvement",
   locationContext:
-    "Overseas automotive bearing manufacturing projects, production operations, supply chain execution, launch readiness, and workflow improvement.",
+    "Felix supports overseas automotive bearing manufacturing projects for major international customers — production operations, supply chain execution, launch readiness, and workflow improvement.",
   summary:
-    "I support manufacturing projects from risk review, DFMEA-related follow-up, process preparation, BOM and material readiness, trial production, PPAP, mass production, shipment, delivery, audit support, corrective action, and improvement reporting. I turn scattered checks and manual coordination into structured workflows, measurable outcomes, and public sanitized tool evidence.",
+    "I coordinate overseas automotive bearing manufacturing projects from risk review and trial production through PPAP, mass production, delivery, and audit closure. I turn repeated manual checks, scattered production data, and trial-and-error adjustment into structured workflows, measurable improvements, and practical digital tools.",
   github: "https://github.com/Felix-Zuo",
+  email: "zuoyaxuan666@gmail.com",
   confidentiality:
     "This portfolio uses sanitized or synthetic data to demonstrate selected improvement outcomes and tool concepts based on real manufacturing workflow patterns. No customer names, private BOMs, supplier records, internal system exports, production routes, machine parameters, or confidential factory files are disclosed.",
   targetDirections: [

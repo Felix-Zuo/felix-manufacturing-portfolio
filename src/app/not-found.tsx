@@ -5,7 +5,7 @@ export default function NotFound() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-950 px-5 text-white">
       <section className="max-w-xl rounded-lg border border-slate-700 bg-slate-900 p-8">
-        <p className="text-sm font-semibold uppercase text-amber-300">404</p>
+        <p className="text-sm font-semibold uppercase tracking-wider text-amber-300">404</p>
         <h1 className="mt-3 text-3xl font-semibold">Case study not found</h1>
         <p className="mt-4 leading-7 text-slate-300">
           The requested portfolio page is not part of the current public case-study set.

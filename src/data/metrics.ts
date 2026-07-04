@@ -3,16 +3,16 @@ import type { Metric } from "./types";
 export const metrics: Metric[] = [
   {
     id: "notice-time",
-    value: "20-40 min -> <1 min",
+    value: "20-40 min → <1 min",
     label: "Production notice preparation",
-    detail: "Structured inputs and generated release artifacts reduced repeated manual checks.",
+    detail: "From around 20-40 minutes of cross-system checking to under 1 minute with reviewable output.",
     source: "Production notice workflow",
     tone: "blue",
   },
   {
     id: "takt-cycle",
-    value: "3 days -> 1 day",
-    label: "Trial takt analysis cycle",
+    value: "3 days → 1 day",
+    label: "Trial takt analysis and adjustment cycle",
     detail: "Full-line takt modeling shortened the adjustment loop before ramp-up.",
     source: "Trial production takt simulation",
     tone: "steel",
