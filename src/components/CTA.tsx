@@ -10,7 +10,7 @@ export function CTA() {
       <div className="relative mx-auto max-w-6xl px-5 py-24 text-center">
         <Reveal>
           <p className="mono-label text-amber-400/90">Resume / contact</p>
-          <h2 className="mx-auto mt-5 max-w-2xl text-3xl font-semibold tracking-tight text-slate-100 sm:text-4xl">
+          <h2 className="mx-auto mt-5 max-w-2xl text-3xl font-semibold text-slate-100 sm:text-4xl">
             Manufacturing execution, improved with proof.
           </h2>
           <p className="mx-auto mt-5 max-w-xl leading-7 text-slate-400">

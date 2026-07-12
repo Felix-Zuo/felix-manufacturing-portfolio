@@ -22,7 +22,7 @@ export function CaseShowcase({ caseStudy, index }: { caseStudy: CaseStudy; index
       <div className={`grid items-center gap-10 lg:grid-cols-2 lg:gap-14 ${reversed ? "lg:[&>*:first-child]:order-2" : ""} [&>*]:min-w-0`}>
         <Reveal>
           <p className="mono-label text-amber-400/90">Case {number}</p>
-          <h3 className="mt-3 max-w-lg text-2xl font-semibold tracking-tight text-slate-100 sm:text-3xl">
+          <h3 className="mt-3 max-w-lg text-2xl font-semibold text-slate-100 sm:text-3xl">
             {caseStudy.title}
           </h3>
           <p className="mt-4 max-w-lg leading-7 text-slate-400">{caseStudy.summary}</p>

@@ -13,7 +13,7 @@ function StepList({ title, steps, tone }: { title: string; steps: WorkflowStep[]
   const marker = tone === "before" ? "border-amber-400/60 text-amber-300" : "border-emerald-400/60 text-emerald-300";
 
   return (
-    <div className="surface-card rounded-xl p-6">
+    <div className="surface-card rounded-md p-6">
       <p className={`mono-label ${accent}`}>{title}</p>
       <ol className="relative mt-6 space-y-6">
         <span className={`absolute bottom-2 left-[13px] top-2 w-px ${rail}`} aria-hidden="true" />

@@ -39,7 +39,7 @@ export function HeroConsole() {
   }, [reduceMotion]);
 
   return (
-    <div className="surface-card overflow-hidden rounded-xl shadow-[0_24px_80px_-32px_rgba(2,6,17,0.9)]">
+    <div className="surface-card overflow-hidden rounded-md shadow-[0_24px_80px_-32px_rgba(2,6,17,0.9)]">
       {/* header */}
       <div className="flex items-center justify-between border-b hairline px-4 py-3">
         <span className="mono-label flex items-center gap-2 text-slate-300">
@@ -51,15 +51,15 @@ export function HeroConsole() {
 
       {/* stations + flow */}
       <div className="relative px-4 pb-2 pt-5">
-        <div className="grid grid-cols-5 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
           {stations.map((station) => (
             <div
-              className={`rounded-md border bg-[#0a101d] px-2.5 py-2 ${
+              className={`min-w-0 rounded-md border bg-[#0a101d] px-2.5 py-2 ${
                 station.bottleneck ? "console-bottleneck border-amber-400/70" : "border-slate-700/60"
               }`}
               key={station.id}
             >
-              <p className="font-mono text-[11px] font-semibold tracking-wide text-slate-200">{station.id}</p>
+              <p className="break-words font-mono text-[11px] font-semibold text-slate-200">{station.id}</p>
               <p className="mt-0.5 font-mono text-[10px] text-slate-500">Takt {station.takt}</p>
               <div className="mt-2 h-1 overflow-hidden rounded-full bg-slate-800">
                 <div
@@ -91,16 +91,21 @@ export function HeroConsole() {
       </div>
 
       {/* readouts */}
-      <div className="grid grid-cols-4 border-t hairline">
+      <div className="grid grid-cols-2 border-t hairline sm:grid-cols-4">
         {[
           { label: "Elapsed", value: `t+${format(elapsed)}` },
           { label: "Output", value: `${output} pcs` },
           { label: "Capacity", value: "236 pcs/h" },
           { label: "Balance", value: "27.8%" },
         ].map((readout, index) => (
-          <div className={`px-3 py-3 ${index > 0 ? "border-l hairline" : ""}`} key={readout.label}>
+          <div
+            className={`min-w-0 px-3 py-3 ${index % 2 === 1 ? "border-l hairline" : ""} ${
+              index >= 2 ? "border-t hairline sm:border-t-0" : ""
+            } ${index === 2 ? "sm:border-l" : ""}`}
+            key={readout.label}
+          >
             <p className="mono-label text-slate-500">{readout.label}</p>
-            <p className="mt-1 font-mono text-sm font-semibold tabular-nums text-slate-100">{readout.value}</p>
+            <p className="mt-1 font-mono text-xs font-semibold tabular-nums text-slate-100 sm:text-sm">{readout.value}</p>
           </div>
         ))}
       </div>

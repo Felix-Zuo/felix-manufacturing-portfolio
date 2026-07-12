@@ -11,7 +11,7 @@ type ScreenshotFrameProps = {
 
 export function ScreenshotFrame({ src, alt, url, sizes, eager = false, className }: ScreenshotFrameProps) {
   return (
-    <figure className={`overflow-hidden rounded-xl border hairline bg-[#0a101d] shadow-[0_24px_80px_-32px_rgba(2,6,17,0.9)] ${className ?? ""}`}>
+    <figure className={`overflow-hidden rounded-md border hairline bg-[#0a101d] shadow-[0_24px_80px_-32px_rgba(2,6,17,0.9)] ${className ?? ""}`}>
       <div className="flex items-center gap-3 border-b hairline px-4 py-2.5">
         <span className="flex gap-1.5" aria-hidden="true">
           <span className="h-2.5 w-2.5 rounded-full bg-slate-700" />

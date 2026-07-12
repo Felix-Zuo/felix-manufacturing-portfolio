@@ -12,7 +12,8 @@ Do not turn the site into a pure software engineering portfolio, pure AI portfol
 
 ## Current Implementation
 
-The v1 implementation is a static Next.js App Router portfolio with:
+The current implementation is a static Next.js App Router portfolio with a scroll-directed
+cinematic homepage and static case-study detail routes:
 
 - Home page
 - Impact metrics
@@ -32,7 +33,12 @@ Current architecture:
 - `src/app/page.tsx`: homepage assembly.
 - `src/app/case-studies/[slug]/page.tsx`: static case-study detail route.
 - `src/app/not-found.tsx`: invalid route fallback.
-- `src/components`: reusable section, metric, case, portfolio, methodology, CTA, reveal, and workflow components.
+- `src/components/CinematicBackdrop.tsx`: one persistent Three.js/R3F world, camera path,
+  project nodes, rail pulses, and bullet-time time scaling.
+- `src/components/CinematicScene.tsx`: accessible HTML scene wrapper with sticky desktop
+  timing, scroll-linked entry/hold/exit transforms, and static mobile/reduced-motion fallback.
+- `src/components/CinematicCaseStudy.tsx`: reusable full-frame case-study composition.
+- `src/components`: reusable metric, portfolio, methodology, CTA, reveal, screenshot, and workflow components.
 - `src/data`: profile, metrics, case studies, portfolio projects, methodology, and navigation.
 - `public/evidence`: public-safe screenshots copied from local public showcase repositories.
 
@@ -107,17 +113,20 @@ Do not show BOM Knowledge Base as a public evidence card unless its private stat
 
 ## Content Strategy
 
-Homepage order:
+Homepage scene order:
 
-1. Outcomes and positioning
+1. Felix Zuo identity, positioning, and live operations model
 2. Impact metrics
 3. Full-cycle manufacturing project map
-4. Case studies
-5. Portfolio Lab
-6. Methodology
-7. About
-8. Contact/resume CTA
-9. Confidentiality note
+4. Production notice case
+5. Trial takt/changeover case
+6. Operations visibility case
+7. Before/after control loop
+8. Three primary evidence systems
+9. Four connected/supporting tools
+10. Methodology
+11. About, confidentiality, and BOM-publication boundary
+12. Contact/resume CTA
 
 Tone:
 
@@ -140,9 +149,10 @@ Avoid:
 Target feel:
 
 - Industrial control room
+- One continuous spatial camera move
 - Manufacturing project review deck
 - Premium consulting case study
-- Modern product landing page
+- Independent professional homepage
 
 Use:
 
@@ -222,12 +232,34 @@ its confirmed findings applied:
   header, gated smooth scroll, focus-visible outlines, eyebrow letter tracking, metric source
   contrast bump.
 
+## v3 One-Shot Cinematic Homepage (2026-07-13, Codex)
+
+- Preserved the v2 control-room palette, evidence screenshots, metrics, and structured data.
+- Rebuilt the homepage as 12 connected chapters over one persistent full-viewport WebGL world.
+  The camera travels through an industrial rail/tunnel of project nodes instead of restarting
+  an animation for each section.
+- Added chapter-local time warping: camera travel and scene objects slow around each midpoint,
+  while the HTML layer uses sticky entry/hold/exit transforms for the bullet-time effect.
+- Every existing homepage surface remains represented: four impact metrics, ten project-cycle
+  stages, all three case studies, before/after workflow, all seven public projects, methodology,
+  profile, confidentiality boundary, BOM-publication status, and contact links.
+- Kept content as normal server-rendered HTML. The WebGL layer is decorative and `aria-hidden`;
+  mobile/tablet use normal document flow, and `prefers-reduced-motion` removes the canvas,
+  sticky positioning, ticker animation, blur, and transforms.
+- Responsive controls: full-width mobile CTAs, two-column hero workstations/readouts, constrained
+  grid children, compact supporting-project cards, and zero horizontal overflow at 390 px.
+- Dependencies: `three@0.180.0`, `@react-three/fiber@9.6.1`, and matching Three.js types. Three is
+  intentionally pinned below the release that warns about R3F's internal legacy clock.
+- Verification: lint/build pass; desktop 1440x900 and mobile 390x844 browser checks; WebGL canvas
+  nonblank pixel-variance checks; no browser warnings/errors; mobile menu and reduced-motion mode
+  exercised; all static case-study routes still prerender.
+
 ## Recommended Next Improvements
 
-- Mobile navigation: nav links are hidden below `lg` with no menu; add a small disclosure menu.
-- Site header/nav is absent on case-study detail pages (only "Back to portfolio"); consider a
-  shared header.
 - Consider a downloadable resume PDF once ready (CTA currently email + GitHub).
+- Add a custom OG image and social preview once the final positioning copy is frozen.
+- Keep future 3D additions inside the current draw-call and mobile-performance budget; do not add
+  decorative meshes without a narrative purpose.
 - Review whether the amber tone on the changeover-saving metric should become green
   (improvement) or stay amber (estimated/review signal) — currently amber, intentionally.
 

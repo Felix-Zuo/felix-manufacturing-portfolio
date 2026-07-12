@@ -38,7 +38,7 @@ export function CaseStudyDetail({ caseStudy }: { caseStudy: CaseStudy }) {
               <p className="mono-label text-amber-400/90">
                 Case {String(index + 1).padStart(2, "0")} · Manufacturing case study
               </p>
-              <h1 className="mt-4 text-3xl font-semibold tracking-tight text-slate-100 sm:text-4xl">
+              <h1 className="mt-4 text-3xl font-semibold text-slate-100 sm:text-4xl">
                 {caseStudy.title}
               </h1>
               <p className="mt-5 max-w-xl text-lg leading-8 text-slate-400">{caseStudy.subtitle}</p>
@@ -69,13 +69,13 @@ export function CaseStudyDetail({ caseStudy }: { caseStudy: CaseStudy }) {
         <div className="grid gap-5 lg:grid-cols-[0.85fr_1.15fr]">
           <div className="space-y-5">
             <Reveal>
-              <article className="surface-card rounded-xl p-6">
+              <article className="surface-card rounded-md p-6">
                 <h2 className="mono-label text-amber-400/90">Problem</h2>
                 <p className="mt-4 leading-7 text-slate-300">{caseStudy.problem}</p>
               </article>
             </Reveal>
             <Reveal delay={0.06}>
-              <article className="surface-card rounded-xl p-6">
+              <article className="surface-card rounded-md p-6">
                 <h2 className="mono-label text-amber-400/90">Felix&apos;s role</h2>
                 <p className="mt-4 leading-7 text-slate-300">{caseStudy.role}</p>
               </article>
@@ -83,7 +83,7 @@ export function CaseStudyDetail({ caseStudy }: { caseStudy: CaseStudy }) {
           </div>
 
           <Reveal delay={0.1}>
-            <article className="surface-card h-full rounded-xl p-6">
+            <article className="surface-card h-full rounded-md p-6">
               <h2 className="mono-label text-amber-400/90">Methods and actions</h2>
               <div className="mt-6 grid gap-8 md:grid-cols-2">
                 <div>
@@ -122,7 +122,7 @@ export function CaseStudyDetail({ caseStudy }: { caseStudy: CaseStudy }) {
 
         <section className="mt-16 grid gap-5 lg:grid-cols-[1fr_0.8fr]">
           <Reveal>
-            <article className="surface-card h-full rounded-xl p-6">
+            <article className="surface-card h-full rounded-md p-6">
               <h2 className="mono-label text-emerald-300">Outcomes</h2>
               <ul className="mt-5 space-y-4 leading-7 text-slate-300">
                 {caseStudy.outcomes.map((outcome) => (
@@ -136,7 +136,7 @@ export function CaseStudyDetail({ caseStudy }: { caseStudy: CaseStudy }) {
           </Reveal>
 
           <Reveal delay={0.08}>
-            <article className="surface-card h-full rounded-xl p-6">
+            <article className="surface-card h-full rounded-md p-6">
               <h2 className="mono-label text-amber-400/90">Public evidence</h2>
               <p className="mt-3 text-sm leading-6 text-slate-500">
                 Public sanitized or synthetic-data showcase based on real manufacturing workflow
@@ -182,12 +182,12 @@ export function CaseStudyDetail({ caseStudy }: { caseStudy: CaseStudy }) {
 
         {/* Next case pagination */}
         <Link
-          className="group mt-16 flex items-center justify-between rounded-xl border hairline bg-[#0a101d] p-6 transition-colors hover:border-slate-500/40"
+          className="group mt-16 flex items-center justify-between rounded-md border hairline bg-[#0a101d] p-6 transition-colors hover:border-slate-500/40"
           href={`/case-studies/${nextCase.slug}`}
         >
           <div>
             <p className="mono-label text-slate-500">Next case</p>
-            <p className="mt-2 text-lg font-semibold tracking-tight text-slate-100">{nextCase.title}</p>
+            <p className="mt-2 text-lg font-semibold text-slate-100">{nextCase.title}</p>
           </div>
           <ArrowRight
             className="h-5 w-5 flex-none text-amber-300 transition-transform group-hover:translate-x-1"

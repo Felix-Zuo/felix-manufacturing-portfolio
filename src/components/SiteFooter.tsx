@@ -8,7 +8,7 @@ export function SiteFooter() {
     <footer className="border-t hairline bg-[#04060c]">
       <div className="mx-auto grid max-w-6xl gap-10 px-5 py-14 md:grid-cols-[1.3fr_0.7fr_1fr]">
         <div>
-          <p className="font-semibold tracking-tight text-slate-100">Felix Zuo</p>
+          <p className="font-semibold text-slate-100">Felix Zuo</p>
           <p className="mono-label mt-2 text-slate-500">{profile.headline}</p>
           <p className="mt-5 max-w-sm text-sm leading-6 text-slate-400">
             Manufacturing project coordination and process improvement, backed by public

@@ -22,7 +22,7 @@ export function MetricCard({ metric }: { metric: Metric }) {
   const Arrow = improvementDown ? MoveDownRight : MoveUpRight;
 
   return (
-    <article className="surface-card group relative overflow-hidden rounded-xl p-6 transition-colors hover:border-slate-500/40">
+    <article className="surface-card group relative overflow-hidden rounded-md p-6 transition-colors hover:border-slate-500/40">
       <span className={`absolute inset-x-0 top-0 h-0.5 ${toneBar[metric.tone]}`} aria-hidden="true" />
       <p className="mono-label text-slate-500">{metric.label}</p>
       <div className="mt-5 flex items-end justify-between gap-3">
@@ -33,7 +33,7 @@ export function MetricCard({ metric }: { metric: Metric }) {
               <span className="ml-2 text-slate-600">before</span>
             </p>
           )}
-          <p className={`mt-1 font-mono text-3xl font-semibold tabular-nums tracking-tight ${toneAccent[metric.tone]}`}>
+          <p className={`mt-1 font-mono text-3xl font-semibold tabular-nums ${toneAccent[metric.tone]}`}>
             {metric.count ? <CountUp count={metric.count} fallback={metric.value} /> : metric.value}
           </p>
         </div>
