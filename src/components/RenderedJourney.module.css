@@ -1,0 +1,602 @@
+.root {
+  --chapter-count: 8;
+  --journey-progress: 0;
+
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  isolation: isolate;
+  background: #080a0c;
+  color: #f2f4f5;
+  overscroll-behavior: none;
+  touch-action: pan-x pinch-zoom;
+}
+
+.root *,
+.root *::before,
+.root *::after {
+  box-sizing: border-box;
+}
+
+.media,
+.posterFrame,
+.poster,
+.video,
+.shade {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.media {
+  z-index: -1;
+  overflow: hidden;
+  background: #080a0c;
+  pointer-events: none;
+}
+
+.posterFrame,
+.poster,
+.video {
+  display: block;
+  max-width: none;
+  object-fit: cover;
+  object-position: center;
+}
+
+.posterFrame {
+  z-index: 0;
+  opacity: 1;
+  transition: opacity 420ms ease;
+}
+
+.poster {
+  z-index: 0;
+}
+
+.posterHidden {
+  opacity: 0;
+}
+
+.video {
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 420ms ease;
+}
+
+.videoReady {
+  opacity: 1;
+}
+
+.shade {
+  z-index: 2;
+  background:
+    linear-gradient(90deg, rgba(5, 7, 8, 0.9) 0%, rgba(5, 7, 8, 0.48) 42%, rgba(5, 7, 8, 0.08) 72%),
+    linear-gradient(180deg, rgba(5, 7, 8, 0.5) 0%, transparent 28%, transparent 62%, rgba(5, 7, 8, 0.78) 100%);
+  box-shadow:
+    inset 0 0 110px 18px rgba(0, 0, 0, 0.52),
+    inset 0 -130px 100px -80px rgba(0, 0, 0, 0.86);
+}
+
+.meta {
+  position: absolute;
+  z-index: 3;
+  top: calc(4.75rem + env(safe-area-inset-top));
+  right: max(1.5rem, env(safe-area-inset-right));
+  left: max(1.5rem, env(safe-area-inset-left));
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  color: rgba(224, 229, 231, 0.58);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 9px;
+  line-height: 1.2;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.meta span:nth-child(2) {
+  color: #e4af45;
+}
+
+.meta span:last-child {
+  text-align: right;
+}
+
+.chapter {
+  position: absolute;
+  z-index: 4;
+  bottom: max(8rem, calc(6.75rem + env(safe-area-inset-bottom)));
+  left: max(3.5rem, env(safe-area-inset-left));
+  width: min(38rem, calc(100vw - 7rem));
+  animation: chapterEnter 420ms cubic-bezier(0.2, 0.72, 0.2, 1) both;
+  pointer-events: auto;
+  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.92);
+}
+
+.chapterRight {
+  right: max(3.5rem, env(safe-area-inset-right));
+  left: auto;
+  text-align: right;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin: 0 0 0.9rem;
+  color: rgba(219, 226, 228, 0.66);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 10px;
+  line-height: 1.35;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.eyebrow::before {
+  width: 2.25rem;
+  height: 1px;
+  content: "";
+  background: #e4af45;
+}
+
+.eyebrow span {
+  color: #e4af45;
+}
+
+.chapterRight .eyebrow {
+  flex-direction: row-reverse;
+}
+
+.title {
+  max-width: 38rem;
+  margin: 0;
+  color: #f4f5f5;
+  font-size: 54px;
+  font-weight: 630;
+  line-height: 1.04;
+  letter-spacing: 0;
+  text-wrap: balance;
+}
+
+.chapterRight .title,
+.chapterRight .summary {
+  margin-left: auto;
+}
+
+.summary {
+  max-width: 33rem;
+  margin: 1rem 0 0;
+  color: rgba(225, 231, 232, 0.75);
+  font-size: 16px;
+  line-height: 1.6;
+  letter-spacing: 0;
+}
+
+.metrics {
+  display: flex;
+  margin: 1.25rem 0 0;
+  gap: 0.9rem;
+}
+
+.chapterRight .metrics {
+  justify-content: flex-end;
+}
+
+.metrics div {
+  min-width: 8rem;
+  border-left: 1px solid rgba(228, 175, 69, 0.48);
+  padding-left: 0.75rem;
+  text-align: left;
+}
+
+.metrics dt {
+  color: rgba(219, 226, 228, 0.56);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 9px;
+  line-height: 1.35;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.metrics dd {
+  margin: 0.3rem 0 0;
+  color: #f4f5f5;
+  font-size: 18px;
+  font-weight: 620;
+  line-height: 1.2;
+}
+
+.chapterLinks {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 1.25rem;
+  gap: 0.55rem;
+}
+
+.chapterRight .chapterLinks {
+  justify-content: flex-end;
+}
+
+.chapterLink {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 1px solid rgba(226, 231, 232, 0.3);
+  border-radius: 4px;
+  background: rgba(8, 10, 12, 0.7);
+  padding: 0.65rem 0.9rem;
+  color: #f1f3f3;
+  font-size: 12px;
+  font-weight: 620;
+  line-height: 1.2;
+  letter-spacing: 0;
+  text-decoration: none;
+  backdrop-filter: blur(12px);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.chapterLink:hover {
+  border-color: rgba(228, 175, 69, 0.78);
+  background: rgba(19, 23, 23, 0.88);
+  color: #f3c568;
+}
+
+.controls {
+  position: absolute;
+  z-index: 5;
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  left: 50%;
+  display: flex;
+  max-width: calc(100vw - 2rem);
+  align-items: center;
+  gap: 0.45rem;
+  transform: translateX(-50%);
+}
+
+.iconButton,
+.chapterNav {
+  height: 2.5rem;
+  border: 1px solid rgba(221, 228, 229, 0.24);
+  border-radius: 4px;
+  background: rgba(8, 10, 12, 0.72);
+  color: rgba(238, 241, 241, 0.82);
+  backdrop-filter: blur(12px);
+}
+
+.iconButton {
+  display: inline-flex;
+  width: 2.5rem;
+  flex: 0 0 2.5rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.iconButton:hover:not(:disabled) {
+  border-color: rgba(228, 175, 69, 0.78);
+  color: #f3c568;
+}
+
+.iconButton:disabled {
+  cursor: default;
+  opacity: 0.28;
+}
+
+.chapterNav {
+  position: relative;
+  display: flex;
+  min-width: 14rem;
+  align-items: center;
+  padding: 0 0.6rem;
+  overflow: hidden;
+}
+
+.chapterNav::before,
+.chapterNav::after {
+  position: absolute;
+  right: 0.8rem;
+  bottom: 0.46rem;
+  left: 0.8rem;
+  height: 1px;
+  content: "";
+  transform-origin: left center;
+  pointer-events: none;
+}
+
+.chapterNav::before {
+  background: rgba(222, 228, 229, 0.16);
+}
+
+.chapterNav::after {
+  background: #e4af45;
+  transform: scaleX(var(--journey-progress));
+}
+
+.chapterNav ol {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(var(--chapter-count), minmax(0, 1fr));
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chapterNav li {
+  display: flex;
+  justify-content: center;
+}
+
+.chapterNav button {
+  position: relative;
+  width: 1.35rem;
+  height: 2rem;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+.chapterNav button::before {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1rem;
+  height: 2px;
+  content: "";
+  background: rgba(226, 231, 232, 0.38);
+  transform: translate(-50%, -50%);
+  transition:
+    background-color 160ms ease,
+    height 160ms ease;
+}
+
+.chapterNav button:hover::before,
+.chapterNav button.activeStop::before {
+  height: 3px;
+  background: #e4af45;
+}
+
+@keyframes chapterEnter {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 900px) {
+  .shade {
+    background:
+      linear-gradient(180deg, rgba(5, 7, 8, 0.42) 0%, rgba(5, 7, 8, 0.08) 34%, rgba(5, 7, 8, 0.82) 100%),
+      linear-gradient(90deg, rgba(5, 7, 8, 0.7), rgba(5, 7, 8, 0.1));
+  }
+
+  .meta {
+    right: max(1rem, env(safe-area-inset-right));
+    left: max(1rem, env(safe-area-inset-left));
+  }
+
+  .chapter,
+  .chapterRight {
+    right: max(1.25rem, env(safe-area-inset-right));
+    bottom: max(7rem, calc(5.9rem + env(safe-area-inset-bottom)));
+    left: max(1.25rem, env(safe-area-inset-left));
+    width: auto;
+    text-align: left;
+  }
+
+  .chapterRight .eyebrow {
+    flex-direction: row;
+  }
+
+  .chapterRight .title,
+  .chapterRight .summary {
+    margin-left: 0;
+  }
+
+  .chapterRight .metrics,
+  .chapterRight .chapterLinks {
+    justify-content: flex-start;
+  }
+
+  .title {
+    max-width: 31rem;
+    font-size: 42px;
+  }
+
+  .summary {
+    max-width: 30rem;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 560px) {
+  .meta {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .meta span:nth-child(2) {
+    display: none;
+  }
+
+  .title {
+    max-width: 23rem;
+    font-size: 34px;
+    line-height: 1.07;
+  }
+
+  .summary {
+    max-width: 23rem;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.4rem;
+  }
+
+  .metrics div {
+    min-width: 0;
+    padding-left: 0.5rem;
+  }
+
+  .metrics dt {
+    overflow-wrap: anywhere;
+  }
+
+  .metrics dd {
+    font-size: 14px;
+  }
+
+  .chapterLinks {
+    gap: 0.4rem;
+  }
+
+  .chapterLink {
+    min-height: 2.25rem;
+    padding: 0.55rem 0.7rem;
+    font-size: 11px;
+  }
+
+  .controls {
+    width: calc(100vw - 1rem);
+    max-width: 24rem;
+    justify-content: center;
+    gap: 0.3rem;
+  }
+
+  .iconButton,
+  .chapterNav {
+    height: 2.25rem;
+  }
+
+  .iconButton {
+    width: 2.25rem;
+    flex-basis: 2.25rem;
+  }
+
+  .chapterNav {
+    min-width: 0;
+    flex: 1 1 auto;
+    padding: 0 0.35rem;
+  }
+
+  .chapterNav::before,
+  .chapterNav::after {
+    right: 0.55rem;
+    left: 0.55rem;
+  }
+
+  .chapterNav button {
+    width: 1rem;
+  }
+
+  .chapterNav button::before {
+    width: 0.7rem;
+  }
+}
+
+@media (max-height: 650px) {
+  .chapter,
+  .chapterRight {
+    bottom: max(5.3rem, calc(4.7rem + env(safe-area-inset-bottom)));
+  }
+
+  .eyebrow {
+    margin-bottom: 0.5rem;
+  }
+
+  .title {
+    font-size: 30px;
+  }
+
+  .summary {
+    margin-top: 0.65rem;
+    font-size: 12px;
+    line-height: 1.42;
+  }
+
+  .metrics,
+  .chapterLinks {
+    margin-top: 0.7rem;
+  }
+}
+
+.reducedMotion {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  touch-action: auto;
+}
+
+.reducedMotion .video {
+  display: none;
+}
+
+.reducedMotion .posterFrame {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root {
+    position: relative;
+    min-height: 100vh;
+    min-height: 100dvh;
+    touch-action: auto;
+  }
+
+  .video {
+    display: none;
+  }
+
+  .posterFrame {
+    opacity: 1;
+    transition: none;
+  }
+
+  .chapter {
+    animation: none;
+  }
+
+  .chapterLink,
+  .iconButton,
+  .chapterNav button::before {
+    transition: none;
+  }
+}

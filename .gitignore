@@ -36,6 +36,12 @@ yarn-error.log*
 
 # vercel
 .vercel
+production/renders/
+production/scenes/
+
+# python
+__pycache__/
+*.py[cod]
 
 # typescript
 *.tsbuildinfo

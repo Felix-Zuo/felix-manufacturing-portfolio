@@ -254,12 +254,34 @@ its confirmed findings applied:
   nonblank pixel-variance checks; no browser warnings/errors; mobile menu and reduced-motion mode
   exercised; all static case-study routes still prerender.
 
+## v4 Pre-Rendered Industrial Film (2026-07-13, Codex + Production Agents)
+
+- Replaced the homepage's real-time WebGL presentation with a Blender-authored,
+  pre-rendered 28-second one-shot factory journey. Scroll now controls film time;
+  it is not normal document scrolling.
+- Built parameterized hard-surface bearing, six-axis arm, grinding cell, twin guide
+  rail, four evidence stations, and a restrained terminal signature. The bright,
+  clean factory remains purpose-led rather than decorative.
+- Authored eight focus frames at 54, 127, 211, 295, 379, 463, 547, and 631, with
+  independent scene bullet-time and a camera that preserves spatial continuity.
+- Added separate desktop and mobile camera outputs at 1600 x 900 and 900 x 1600.
+  Final Eevee settings use 64 samples, the 1024 MB shadow pool, and 0.75 shadow
+  resolution scale after atlas-overflow tests.
+- Added `RenderedJourney`: poster-first loading, responsive video source selection,
+  smoothed scroll-to-time seeking, chapter snapping, keyboard/touch controls,
+  hash navigation, accessible HTML content, and a static reduced-motion mode.
+- The independent visual gate failed four early rounds for blank frames, roll,
+  clay look, weak composition, a grinding-exit wall clip, and a moving end cut.
+  Round 5 passed both complete playblasts after those issues were corrected.
+- Source pipeline and review records live in `production/`; generated Blender scenes
+  and frame sequences remain ignored. Only encoded web media belongs in `public/media/`.
+
 ## Recommended Next Improvements
 
 - Consider a downloadable resume PDF once ready (CTA currently email + GitHub).
 - Add a custom OG image and social preview once the final positioning copy is frozen.
-- Keep future 3D additions inside the current draw-call and mobile-performance budget; do not add
-  decorative meshes without a narrative purpose.
+- Keep future 3D additions inside the Blender render pipeline; do not restore a
+  homepage real-time renderer or add meshes without a narrative purpose.
 - Review whether the amber tone on the changeover-saving metric should become green
   (improvement) or stay amber (estimated/review signal) — currently amber, intentionally.
 

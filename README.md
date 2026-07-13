@@ -24,7 +24,7 @@ The site emphasizes:
 
 ## Key Pages
 
-- `/` - homepage with impact metrics, full-cycle project map, case studies, Portfolio Lab, methodology, about, and CTA.
+- `/` - pre-rendered one-shot manufacturing journey with eight scroll-directed chapters, impact metrics, case studies, public tools, and contact actions.
 - `/case-studies/production-notice-workflow-standardization`
 - `/case-studies/trial-production-takt-simulation-changeover-improvement`
 - `/case-studies/supply-production-delivery-operations-visibility`
@@ -41,6 +41,10 @@ Structured content lives under `src/data`:
 - `navigation.ts`
 
 Core UI components live under `src/components`.
+
+The homepage Blender pipeline, review gate, and encoding commands live under
+`production/`. Visitors receive scrubbed H.264 video and accessible HTML rather
+than a real-time 3D renderer.
 
 ## Public Data Boundary
 
@@ -87,4 +91,3 @@ BOM/material readiness is represented through public synthetic examples in v1. A
 - `docs/PROJECT_PLAN.md`
 - `CLAUDE_BRIEF.md`
 - `AGENTS.md`
-

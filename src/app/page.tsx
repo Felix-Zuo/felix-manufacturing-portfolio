@@ -1,5 +1,5 @@
-import { ImmersivePortfolio } from "@/components/ImmersivePortfolio";
+import { RenderedJourney } from "@/components/RenderedJourney";
 
 export default function Home() {
-  return <ImmersivePortfolio />;
+  return <RenderedJourney />;
 }
