@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Mail, Menu, X } from "lucide-react";
 
@@ -8,10 +9,12 @@ import { navigation } from "@/data/navigation";
 import { profile } from "@/data/profile";
 
 export function SiteNav() {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const immersive = pathname === "/";
 
   return (
-    <header className="fixed inset-x-0 top-0 z-40 border-b hairline bg-[#05080f]/85 backdrop-blur-md">
+    <header className={`${immersive ? "site-nav-immersive" : ""} site-nav fixed inset-x-0 top-0 z-40 border-b hairline bg-[#05080f]/85 backdrop-blur-md`}>
       <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
         <Link className="flex items-baseline gap-3" href="/" onClick={() => setOpen(false)}>
           <span className="font-semibold text-slate-100">Felix Zuo</span>

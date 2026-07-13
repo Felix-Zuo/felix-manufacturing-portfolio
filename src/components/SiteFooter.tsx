@@ -1,11 +1,18 @@
+"use client";
+
 import { ShieldCheck } from "lucide-react";
+import { usePathname } from "next/navigation";
 
 import { navigation } from "@/data/navigation";
 import { profile } from "@/data/profile";
 
 export function SiteFooter() {
+  const pathname = usePathname();
+
+  if (pathname === "/") return null;
+
   return (
-    <footer className="border-t hairline bg-[#04060c]">
+    <footer className="site-footer border-t hairline bg-[#04060c]">
       <div className="mx-auto grid max-w-6xl gap-10 px-5 py-14 md:grid-cols-[1.3fr_0.7fr_1fr]">
         <div>
           <p className="font-semibold text-slate-100">Felix Zuo</p>

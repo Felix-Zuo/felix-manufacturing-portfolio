@@ -36,6 +36,11 @@ body {
   overflow-x: clip;
 }
 
+.site-nav-immersive {
+  border-color: rgba(206, 216, 226, 0.12);
+  background: rgba(7, 10, 13, 0.34);
+}
+
 [id] {
   scroll-margin-top: 6rem;
 }
