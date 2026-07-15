@@ -1,13 +1,9 @@
-"""Export the existing mechanical scene as Twinmotion-ready GLB packages.
-
-The V4 Blender scene is used only as a dimensional and mechanical source. Final
-materials, environment dressing, lighting, and camera work are authored in
-Twinmotion.
-"""
+"""Export the V5 production scene as Twinmotion-ready GLB packages."""
 
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 import bpy
@@ -15,14 +11,18 @@ import bpy
 
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT_DIR = ROOT / "production" / "twinmotion" / "import"
-SOURCE_SCENE = ROOT / "production" / "source-scenes" / "felix-journey-v4-desktop.blend"
+SOURCE_SCENE = ROOT / "production" / "scenes" / "felix-journey-blend.blend"
 
 EXPORT_TYPES = {"EMPTY", "MESH"}
 EXCLUDED_PREFIXES = ("CIN_", "LD_")
 
 
 def is_excluded(obj: bpy.types.Object) -> bool:
-    return obj.type not in EXPORT_TYPES or obj.name.startswith(EXCLUDED_PREFIXES)
+    return (
+        obj.type not in EXPORT_TYPES
+        or obj.name.startswith(EXCLUDED_PREFIXES)
+        or bool(obj.get("sum_export_exclude"))
+    )
 
 
 def has_animation(obj: bpy.types.Object) -> bool:
@@ -88,23 +88,46 @@ def export_objects(
 ) -> None:
     bpy.ops.object.select_all(action="DESELECT")
     exportable = [obj for obj in objects if not is_excluded(obj)]
-    for obj in exportable:
-        obj.hide_viewport = False
-        obj.hide_render = False
-        obj.select_set(True)
+    exportable_set = set(exportable)
+    top_level = [obj for obj in exportable if obj.parent not in exportable_set]
 
-    bpy.ops.export_scene.gltf(
-        filepath=str(path),
-        export_format="GLB",
-        use_selection=True,
-        export_animations=animations,
-        export_frame_range=True,
-        export_force_sampling=True,
-        export_cameras=False,
-        export_lights=False,
-        export_yup=True,
-        export_apply=False,
-    )
+    # The source scene was authored with Y as height. Rotate its top-level
+    # roots into Blender's standard Z-up space before the glTF Y-up conversion.
+    export_root = bpy.data.objects.new("TM_EXPORT_ROOT_Z_UP", None)
+    bpy.context.scene.collection.objects.link(export_root)
+    original_transforms = [
+        (obj, obj.parent, obj.matrix_world.copy()) for obj in top_level
+    ]
+
+    try:
+        for obj, _parent, matrix_world in original_transforms:
+            obj.parent = export_root
+            obj.matrix_world = matrix_world
+        export_root.rotation_euler.x = math.radians(90.0)
+
+        for obj in exportable:
+            obj.hide_viewport = False
+            obj.hide_render = False
+            obj.select_set(True)
+        export_root.select_set(True)
+
+        bpy.ops.export_scene.gltf(
+            filepath=str(path),
+            export_format="GLB",
+            use_selection=True,
+            export_animations=animations,
+            export_frame_range=True,
+            export_force_sampling=True,
+            export_cameras=False,
+            export_lights=False,
+            export_yup=True,
+            export_apply=False,
+        )
+    finally:
+        for obj, parent, matrix_world in original_transforms:
+            obj.parent = parent
+            obj.matrix_world = matrix_world
+        bpy.data.objects.remove(export_root, do_unlink=True)
 
 
 def main() -> None:
@@ -155,6 +178,7 @@ def main() -> None:
         "fps": scene.render.fps / scene.render.fps_base,
         "frame_start": scene.frame_start,
         "frame_end": scene.frame_end,
+        "coordinate_conversion": "source Y-up to Twinmotion Z-up via +90deg X root",
         "object_count": len(candidates),
         "static_object_count": len(static),
         "animated_object_count": len(animated),

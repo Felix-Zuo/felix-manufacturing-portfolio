@@ -50,6 +50,10 @@ _ROLE_KEYWORDS = (
         {"screen", "display", "monitor", "glass", "touchscreen", "hmi", "viewport", "lens"},
     ),
     (
+        "safety_yellow",
+        {"safety_yellow", "yellow_marking", "yellow_guard", "hazard_yellow"},
+    ),
+    (
         "amber_signal",
         {
             "amber",
@@ -152,6 +156,8 @@ _EXPLICIT_ROLE_ALIASES = {
     "signal": "amber_signal",
     "amber": "amber_signal",
     "amber_signal": "amber_signal",
+    "safety_yellow": "safety_yellow",
+    "yellow_marking": "safety_yellow",
     "spark": "spark",
     "sparks": "spark",
     "floor": "floor",
@@ -529,6 +535,17 @@ def _make_materials() -> dict[str, Any]:
             coat_roughness=0.10,
             emission_color=(1.0, 0.34, 0.012, 1.0),
             emission_strength=1.7,
+        ),
+        "safety_yellow": _new_principled_material(
+            "LD_Safety_Yellow_Powder_Coat",
+            base_color=(0.72, 0.35, 0.006, 1.0),
+            metallic=0.02,
+            roughness=0.34,
+            coat=0.18,
+            coat_roughness=0.16,
+            micro_scale=180.0,
+            micro_strength=0.07,
+            micro_distance=0.003,
         ),
         "floor": _new_principled_material(
             "LD_Clean_Industrial_Floor",
@@ -1459,7 +1476,7 @@ def _configure_render(scene: Any) -> None:
             "None",
         ),
     )
-    _safe_set(view, "exposure", 1.30)
+    _safe_set(view, "exposure", 0.45)
     _safe_set(view, "gamma", 1.0)
     _safe_set(view, "use_curve_mapping", False)
 

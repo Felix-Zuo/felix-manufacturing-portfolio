@@ -40,9 +40,9 @@ class ModelParameters:
     rail_gauge: float = 2.40
     rail_mount_spacing: float = 3.40
     entry_anchor_travel: float = 2.0
-    handoff_anchor_travel: float = 19.0
+    handoff_anchor_travel: float = 11.5
     final_anchor_travel: float = 138.0
-    robot_location: Vec3 = (-2.75, 18.50, 0.0)
+    robot_location: Vec3 = (-4.50, 10.50, 0.0)
     bearing_location: Vec3 = (-3.70, 8.00, 0.0)
     grinding_location: Vec3 = (5.60, 26.00, 0.0)
     screen_station_locations: Tuple[Vec3, Vec3, Vec3, Vec3] = (
@@ -263,6 +263,12 @@ def _build_placeholder_materials() -> Dict[str, bpy.types.Material]:
             roughness=0.28,
             emission_color=(0.95, 0.22, 0.015, 1.0),
             emission_strength=0.12,
+        ),
+        "safety_yellow": _placeholder_material(
+            "SUM_MAT_PLACEHOLDER_SafetyYellow_PowderCoat",
+            (0.92, 0.58, 0.025, 1.0),
+            metallic=0.06,
+            roughness=0.36,
         ),
         "indicator_green": _placeholder_material(
             "SUM_MAT_PLACEHOLDER_Indicator_Green",

@@ -69,7 +69,7 @@ NARRATIVE_BEATS = (
         2.20,
         0.90,
         (-3.70, 8.00, 1.23),
-        (-4.40, 5.15, 0.48),
+        (-4.40, 5.15, 1.55),
         55.0,
         0.48,
         ("bearing_rotation_root",),
@@ -81,9 +81,9 @@ NARRATIVE_BEATS = (
         7.0,
         5.25,
         1.10,
-        (-1.03, 18.55, 1.83),
-        (0.85, 9.25, 1.55),
-        42.0,
+        (-4.00, 11.50, 1.83),
+        (0.00, 11.00, 1.58),
+        38.0,
         0.22,
         ("SUM_Robot_EndEffector_Frame", "robot_tcp"),
     ),
@@ -95,8 +95,8 @@ NARRATIVE_BEATS = (
         8.75,
         1.10,
         (5.45, 26.03, 1.82),
-        (1.80, 22.00, 1.42),
-        74.0,
+        (2.40, 22.80, 1.42),
+        50.0,
         0.24,
         ("grinding_contact", "grinding_wheel"),
     ),
@@ -875,9 +875,9 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 28) -> An
             "Narrative anchors must progress bearing -> robot -> grinding -> screens -> final along film -Z"
         )
 
-    opening_start = _authoring_to_film((0.0, rail_start_y - 2.5, 0.68))
-    corridor_camera = _authoring_to_film((0.0, 34.0, 1.10))
-    corridor_look = _authoring_to_film((0.0, 45.0, 0.55))
+    opening_start = _authoring_to_film((0.0, -4.0, 1.55))
+    corridor_camera = _authoring_to_film((0.0, 34.0, 1.55))
+    corridor_look = _authoring_to_film((0.0, 45.0, 1.35))
     closing_end = _authoring_to_film((0.0, final_travel - 4.0, 1.65))
     closing_look = targets[-1].copy()
     path_coordinates = [

@@ -20,6 +20,9 @@ if str(BLENDER_DIR) not in sys.path:
 import cinematography  # noqa: E402
 import lookdev  # noqa: E402
 import modeling  # noqa: E402
+import mature_factory  # noqa: E402
+import industrial_robot  # noqa: E402
+import precision_grinder  # noqa: E402
 import animation  # noqa: E402
 
 
@@ -170,6 +173,26 @@ def set_screen_textures(assets: dict[str, object]) -> None:
         screen.data.materials.clear()
         screen.data.materials.append(material)
 
+    hero_screen = assets.get("hero_screen")
+    if isinstance(hero_screen, bpy.types.Object) and hero_screen.type == "MESH":
+        image_path = evidence[1]
+        if image_path.exists():
+            image = bpy.data.images.load(str(image_path), check_existing=True)
+            material = bpy.data.materials.new("MAT_ProjectScreen_Hero_Takt")
+            material.use_nodes = True
+            nodes = material.node_tree.nodes
+            links = material.node_tree.links
+            nodes.clear()
+            output = nodes.new("ShaderNodeOutputMaterial")
+            emission = nodes.new("ShaderNodeEmission")
+            texture = nodes.new("ShaderNodeTexImage")
+            texture.image = image
+            emission.inputs["Strength"].default_value = 1.20
+            links.new(texture.outputs["Color"], emission.inputs["Color"])
+            links.new(emission.outputs["Emission"], output.inputs["Surface"])
+            hero_screen.data.materials.clear()
+            hero_screen.data.materials.append(material)
+
 
 def widen_mobile_camera(camera: bpy.types.Object, factor: float = 0.68) -> None:
     if not camera or camera.type != "CAMERA":
@@ -239,6 +262,9 @@ def main() -> None:
     configure_scene(args.mode, args.fps, args.duration, args.samples)
 
     assets = modeling.build_models()
+    mature_factory.augment_factory(assets)
+    industrial_robot.replace_robot(assets)
+    precision_grinder.augment_grinder(assets)
     camera = cinematography.build_cinematography(
         assets,
         fps=args.fps,

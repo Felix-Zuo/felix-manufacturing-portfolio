@@ -38,7 +38,7 @@ class _SlowWindow:
 
 
 _BEARING_WINDOW = _SlowWindow("bearing_inspection", 3.50, 4.50, 0.34, 0.42)
-_HANDOFF_WINDOW = _SlowWindow("arm_handoff", 6.35, 8.15, 0.50, 0.18)
+_HANDOFF_WINDOW = _SlowWindow("arm_handoff", 4.35, 6.15, 0.50, 0.18)
 _GRINDING_WINDOW = _SlowWindow("grinding_contact", 9.80, 11.70, 0.50, 0.15)
 _MECHANICAL_WINDOWS = (_BEARING_WINDOW, _HANDOFF_WINDOW, _GRINDING_WINDOW)
 
@@ -391,14 +391,14 @@ def _spin_channel(
 
 _ROBOT_POSES_DEGREES: tuple[tuple[float, tuple[float, ...]], ...] = (
     (0.00, (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)),
-    (4.75, (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)),
-    (6.35, (6.0, -5.0, 8.0, -10.0, 5.0, -14.0)),
-    (7.16, (10.0, -8.0, 11.0, -14.0, 7.0, -18.0)),
-    (7.38, (10.0, -8.0, 11.0, -14.0, 7.0, -18.0)),
-    (8.15, (14.0, -11.0, 15.0, -20.0, 10.0, -28.0)),
-    (9.45, (26.0, -18.0, 20.0, -34.0, 16.0, -52.0)),
-    (10.20, (26.0, -18.0, 20.0, -34.0, 16.0, -52.0)),
-    (12.20, (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)),
+    (3.20, (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)),
+    (3.70, (5.0, -10.0, 15.0, -10.0, 8.0, -12.0)),
+    (4.60, (12.0, -25.0, 38.0, -28.0, 20.0, -32.0)),
+    (5.10, (15.0, -30.0, 45.0, -35.0, 25.0, -40.0)),
+    (5.55, (15.0, -30.0, 45.0, -35.0, 25.0, -40.0)),
+    (6.35, (24.0, -40.0, 56.0, -48.0, 31.0, -62.0)),
+    (6.75, (24.0, -40.0, 56.0, -48.0, 31.0, -62.0)),
+    (7.45, (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)),
     (28.00, (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)),
 )
 
@@ -649,6 +649,8 @@ def animate_assets(assets: Any, fps: int = 24, duration: float = 28) -> dict[str
     )
     robot_joints = _resolve_robot_joints(assets)
     sparks = _resolve_sparks(assets)
+    agv = _asset_value(assets, "agv")
+    grinder_doors = _asset_value(assets, "grinder_doors")
 
     bearing_clock = _clock_samples(fps, frame_end, duration, _BEARING_WINDOW)
     grinding_clock = _clock_samples(fps, frame_end, duration, _GRINDING_WINDOW)
@@ -688,6 +690,56 @@ def animate_assets(assets: Any, fps: int = 24, duration: float = 28) -> dict[str
             f"{_scaled_window(_HANDOFF_WINDOW, duration).end_s:.4f}s"
         )
         animated_objects.append(joint)
+
+    if isinstance(agv, bpy.types.Object):
+        base_location = _stored_vector(agv, "location", agv.location)
+        travel_distance = 24.0
+        agv_frames = (1, frame_end)
+        agv_values = (base_location[1], base_location[1] + travel_distance)
+        actions["agv_translation"] = _create_action(
+            agv,
+            f"{_ACTION_PREFIX}AGV07Translation",
+            "agv_constant_speed_translation",
+            (("location", 1, _sampled_keys(agv_frames, agv_values)),),
+            fps,
+            duration,
+        )
+        agv["sum_animation_speed_mps"] = travel_distance / duration
+        agv["sum_animation_route"] = "painted_center_aisle"
+        animated_objects.append(agv)
+    else:
+        missing_optional.append("agv")
+
+    if isinstance(grinder_doors, Sequence) and not isinstance(
+        grinder_doors, (str, bytes)
+    ):
+        door_frames = tuple(
+            _frame_at(seconds, fps, frame_end, duration)
+            for seconds in (6.60, 7.30, 10.20, 10.90)
+        )
+        for door_index, door in enumerate(grinder_doors, start=1):
+            if not isinstance(door, bpy.types.Object):
+                continue
+            base_location = _stored_vector(door, "location", door.location)
+            open_offset = float(door.get("open_offset_m", 0.0))
+            door_values = (
+                base_location[1],
+                base_location[1] + open_offset,
+                base_location[1] + open_offset,
+                base_location[1],
+            )
+            actions[f"grinder_door_{door_index}"] = _create_action(
+                door,
+                f"{_ACTION_PREFIX}GrindingDoor_{door_index:02d}",
+                "grinding_cell_sliding_door",
+                (("location", 1, _sampled_keys(door_frames, door_values)),),
+                fps,
+                duration,
+            )
+            door["sum_animation_window"] = "6.60-10.90s"
+            animated_objects.append(door)
+    else:
+        missing_optional.append("grinder_doors")
 
     wheel_keys, wheel_rpm, wheel_turns = _spin_channel(
         wheel, grinding_clock, nominal_rpm=18000.0, direction=1.0
