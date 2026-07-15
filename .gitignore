@@ -38,6 +38,10 @@ yarn-error.log*
 .vercel
 production/renders/
 production/scenes/
+production/source-scenes/
+production/twinmotion/import/
+production/twinmotion/project/
+production/twinmotion/library/
 
 # python
 __pycache__/
