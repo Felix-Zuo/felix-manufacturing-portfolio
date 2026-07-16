@@ -18,18 +18,23 @@ if str(BLENDER_DIR) not in sys.path:
     sys.path.insert(0, str(BLENDER_DIR))
 
 import cinematography  # noqa: E402
+import story_cinematography  # noqa: E402
 import lookdev  # noqa: E402
 import modeling  # noqa: E402
 import mature_factory  # noqa: E402
+import industrial_agv  # noqa: E402
 import industrial_robot  # noqa: E402
 import precision_grinder  # noqa: E402
+import fpv_factory_systems  # noqa: E402
 import fpv_stage  # noqa: E402
 import fpv_vfx  # noqa: E402
 import fpv_lighting  # noqa: E402
 import animation  # noqa: E402
+import story_scene  # noqa: E402
+import story_animation  # noqa: E402
 
 
-FALLBACK_CHAPTER_FRAMES = [91, 169, 301, 433, 553, 673, 793, 877]
+FALLBACK_CHAPTER_FRAMES = [1, 84, 132, 228, 300, 342, 420, 474, 588, 660, 798, 882, 904]
 
 
 def blender_args() -> argparse.Namespace:
@@ -51,6 +56,10 @@ def blender_args() -> argparse.Namespace:
     parser.add_argument("--fps", type=int, default=24)
     parser.add_argument("--duration", type=float, default=38.0)
     parser.add_argument("--samples", type=int)
+    parser.add_argument("--width", type=int)
+    parser.add_argument("--height", type=int)
+    parser.add_argument("--render-start", type=int)
+    parser.add_argument("--render-end", type=int)
     parser.add_argument("--render-step", type=int, choices=(1, 2), default=1)
     argv = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     return parser.parse_args(argv)
@@ -77,6 +86,8 @@ def configure_scene(
     duration: float,
     samples: int | None,
     render_step: int,
+    width: int | None,
+    height: int | None,
 ) -> None:
     scene = bpy.context.scene
     scene.frame_start = 1
@@ -94,6 +105,11 @@ def configure_scene(
     render.image_settings.color_mode = "RGBA"
     render.film_transparent = False
     render.use_file_extension = True
+
+    if (width is None) != (height is None):
+        raise ValueError("--width and --height must be provided together")
+    if width is not None and (width < 320 or height is None or height < 320):
+        raise ValueError("custom render dimensions must both be at least 320 px")
 
     if mode in {"mobile", "blend-mobile"}:
         render.resolution_x = 1080
@@ -118,6 +134,11 @@ def configure_scene(
     else:
         render.resolution_x = 1920
         render.resolution_y = 1080
+        render.resolution_percentage = 100
+
+    if width is not None and height is not None:
+        render.resolution_x = width
+        render.resolution_y = height
         render.resolution_percentage = 100
 
     scene.render.image_settings.file_format = "PNG"
@@ -160,8 +181,7 @@ def set_screen_textures(assets: dict[str, object]) -> None:
     evidence = [
         ROOT / "public" / "evidence" / "notice-cinematic.png",
         ROOT / "public" / "evidence" / "takt-cinematic.png",
-        ROOT / "public" / "evidence" / "visibility-cinematic.png",
-        ROOT / "public" / "evidence" / "lab-cinematic.png",
+        ROOT / "public" / "evidence" / "excel-ops-product.png",
     ]
 
     screens = assets.get("screen_displays") or assets.get("screens", [])
@@ -189,6 +209,36 @@ def set_screen_textures(assets: dict[str, object]) -> None:
         links.new(emission.outputs["Emission"], output.inputs["Surface"])
         screen.data.materials.clear()
         screen.data.materials.append(material)
+
+    scan_line = assets.get("scan_line")
+    if isinstance(scan_line, bpy.types.Object) and scan_line.type == "MESH":
+        material = bpy.data.materials.new("MAT_V8_ScanTrace")
+        material.use_nodes = True
+        nodes = material.node_tree.nodes
+        links = material.node_tree.links
+        nodes.clear()
+        output = nodes.new("ShaderNodeOutputMaterial")
+        emission = nodes.new("ShaderNodeEmission")
+        emission.inputs["Color"].default_value = (0.08, 0.72, 0.38, 1.0)
+        emission.inputs["Strength"].default_value = 0.62
+        links.new(emission.outputs["Emission"], output.inputs["Surface"])
+        scan_line.data.materials.clear()
+        scan_line.data.materials.append(material)
+
+    inspection_laser = assets.get("inspection_laser_line")
+    if isinstance(inspection_laser, bpy.types.Object) and inspection_laser.type == "MESH":
+        material = bpy.data.materials.new("MAT_V8_InspectionLaser")
+        material.use_nodes = True
+        nodes = material.node_tree.nodes
+        links = material.node_tree.links
+        nodes.clear()
+        output = nodes.new("ShaderNodeOutputMaterial")
+        emission = nodes.new("ShaderNodeEmission")
+        emission.inputs["Color"].default_value = (0.10, 0.70, 0.56, 1.0)
+        emission.inputs["Strength"].default_value = 0.46
+        links.new(emission.outputs["Emission"], output.inputs["Surface"])
+        inspection_laser.data.materials.clear()
+        inspection_laser.data.materials.append(material)
 
     # The entrance command bay is environmental scale only. Repeating a hero
     # project before the four evidence beats weakens the one-shot hierarchy.
@@ -233,11 +283,34 @@ def render_storyboard(mode: str) -> None:
         bpy.ops.render.render(write_still=True)
 
 
-def render_video_frames(mode: str) -> None:
+def render_video_frames(
+    mode: str,
+    render_start: int | None = None,
+    render_end: int | None = None,
+) -> None:
     output = RENDER_DIR / f"{mode}-frames"
     output.mkdir(parents=True, exist_ok=True)
-    bpy.context.scene.render.filepath = str(output / "frame-")
-    bpy.ops.render.render(animation=True)
+    scene = bpy.context.scene
+    full_start = int(scene.frame_start)
+    full_end = int(scene.frame_end)
+    chunk_start = full_start if render_start is None else int(render_start)
+    chunk_end = full_end if render_end is None else int(render_end)
+    if not full_start <= chunk_start <= chunk_end <= full_end:
+        raise ValueError(
+            f"render range {chunk_start}-{chunk_end} is outside {full_start}-{full_end}"
+        )
+    scene.render.filepath = str(output / "frame-")
+    scene["full_animation_frame_start"] = full_start
+    scene["full_animation_frame_end"] = full_end
+    scene["render_chunk_frame_start"] = chunk_start
+    scene["render_chunk_frame_end"] = chunk_end
+    scene.frame_start = chunk_start
+    scene.frame_end = chunk_end
+    try:
+        bpy.ops.render.render(animation=True)
+    finally:
+        scene.frame_start = full_start
+        scene.frame_end = full_end
 
 
 def render_playblast(mode: str) -> None:
@@ -265,14 +338,23 @@ def main() -> None:
         args.duration,
         args.samples,
         args.render_step,
+        args.width,
+        args.height,
     )
 
     assets = modeling.build_models()
     mature_factory.augment_factory(assets)
+    industrial_agv.replace_agv(assets)
     industrial_robot.replace_robot(assets)
     precision_grinder.augment_grinder(assets)
+    fpv_factory_systems.augment_factory_systems(
+        assets,
+        fps=args.fps,
+        duration=args.duration,
+    )
     fpv_stage.augment_fpv_stage(assets)
-    camera = cinematography.build_cinematography(
+    story_scene.augment_story_scene(assets)
+    camera = story_cinematography.build_cinematography(
         assets,
         fps=args.fps,
         duration=args.duration,
@@ -284,6 +366,7 @@ def main() -> None:
     set_screen_textures(assets)
     fpv_vfx.augment_fpv_vfx(assets)
     animation.animate_assets(assets, fps=args.fps, duration=args.duration)
+    story_animation.animate_story(assets, fps=args.fps, duration=args.duration)
     restore_render_samples(args.mode, args.samples)
     # Lookdev owns general render defaults and restores 24 fps. Reassert the
     # intentional half-rate output only after every augmentation has run.
@@ -299,7 +382,7 @@ def main() -> None:
     elif args.mode in {"playblast", "playblast-mobile"}:
         render_playblast(args.mode)
     elif args.mode in {"desktop", "mobile"}:
-        render_video_frames(args.mode)
+        render_video_frames(args.mode, args.render_start, args.render_end)
 
 
 if __name__ == "__main__":

@@ -42,9 +42,9 @@ class ModelParameters:
     entry_anchor_travel: float = 2.0
     handoff_anchor_travel: float = 11.5
     final_anchor_travel: float = 138.0
-    robot_location: Vec3 = (-4.50, 10.50, 0.0)
+    robot_location: Vec3 = (-1.80, 10.40, 0.0)
     bearing_location: Vec3 = (-3.70, 8.00, 0.0)
-    grinding_location: Vec3 = (5.60, 26.00, 0.0)
+    grinding_location: Vec3 = (3.00, 15.00, 0.0)
     screen_station_locations: Tuple[Vec3, Vec3, Vec3, Vec3] = (
         (-5.80, 52.0, 0.0),
         (5.80, 75.0, 0.0),

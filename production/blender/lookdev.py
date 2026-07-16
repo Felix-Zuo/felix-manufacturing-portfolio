@@ -135,7 +135,11 @@ _EXPLICIT_ROLE_ALIASES = {
     "brushed": "brushed_metal",
     "brushed_metal": "brushed_metal",
     "dark_metal": "dark_metal",
+    "fixture_dark": "fixture_dark",
     "black_oxide": "dark_metal",
+    "galvanized": "galvanized",
+    "galvanised": "galvanized",
+    "zinc": "galvanized",
     "abrasive": "abrasive",
     "grinding_wheel": "abrasive",
     "abrasive_bond": "abrasive_bond",
@@ -351,9 +355,130 @@ def _object_role(obj: Any, hint: str) -> str:
     return _infer_role(f"{hint} {obj.name}", "powder_coat") or "powder_coat"
 
 
+def _semantic_surface_override(obj: Any, hint: str) -> str | None:
+    labels = [str(getattr(obj, "name", "")), hint]
+    for property_name in ("sum_part_role", "sum_detail", "detail", "role"):
+        try:
+            labels.append(str(obj.get(property_name, "")))
+        except (AttributeError, TypeError):
+            continue
+    normalized = _normalized_label(" ".join(labels))
+    if any(
+        token in normalized
+        for token in (
+            "utilitytray",
+            "utility_tray",
+            "cable_tray",
+            "tray_rungs",
+            "ladder_cable_tray",
+        )
+    ):
+        return "galvanized"
+    return None
+
+
 def _clear_nodes(node_tree: Any) -> None:
     for node in list(node_tree.nodes):
         node_tree.nodes.remove(node)
+
+
+def _add_micro_surface(
+    material: Any,
+    shader: Any,
+    *,
+    scale: float,
+    strength: float,
+    distance: float,
+    roughness: float,
+    roughness_variation: float,
+    detail: float,
+    distortion: float,
+    pattern: str,
+) -> None:
+    nodes = material.node_tree.nodes
+    coordinates = nodes.new("ShaderNodeTexCoord")
+    coordinates.name = f"{material.name}_MicroCoordinates"
+    coordinates.location = (-980.0, -180.0)
+    vector = coordinates.outputs.get("Object") or coordinates.outputs.get("Generated")
+
+    micro_noise = nodes.new("ShaderNodeTexNoise")
+    micro_noise.name = f"{material.name}_MicroNormal"
+    micro_noise.location = (-720.0, -240.0)
+    _set_socket(micro_noise, ("Scale",), scale)
+    _set_socket(micro_noise, ("Detail",), detail)
+    _set_socket(micro_noise, ("Roughness",), 0.56)
+    _set_socket(micro_noise, ("Distortion",), distortion)
+    _link(material.node_tree, vector, micro_noise.inputs.get("Vector"))
+    height = micro_noise.outputs.get("Fac")
+
+    if pattern == "brushed":
+        wave = nodes.new("ShaderNodeTexWave")
+        wave.name = f"{material.name}_DirectionalBrush"
+        wave.location = (-710.0, -430.0)
+        _safe_set(wave, "wave_type", "BANDS")
+        _safe_set(wave, "bands_direction", "X")
+        _set_socket(wave, ("Scale",), scale * 1.55)
+        _set_socket(wave, ("Distortion",), 2.2)
+        _set_socket(wave, ("Detail",), 3.0)
+        _set_socket(wave, ("Detail Scale",), 1.7)
+        _link(material.node_tree, vector, wave.inputs.get("Vector"))
+        mix = nodes.new("ShaderNodeMixRGB")
+        mix.name = f"{material.name}_BrushBreakup"
+        mix.location = (-430.0, -285.0)
+        mix.blend_type = "MULTIPLY"
+        mix.inputs[0].default_value = 0.38
+        _link(material.node_tree, micro_noise.outputs.get("Fac"), mix.inputs[1])
+        _link(material.node_tree, wave.outputs.get("Color"), mix.inputs[2])
+        height = mix.outputs.get("Color")
+    elif pattern == "galvanized":
+        spangle = nodes.new("ShaderNodeTexVoronoi")
+        spangle.name = f"{material.name}_ZincSpangle"
+        spangle.location = (-690.0, -410.0)
+        _safe_set(spangle, "feature", "DISTANCE_TO_EDGE")
+        _set_socket(spangle, ("Scale",), 58.0)
+        _set_socket(spangle, ("Randomness",), 0.76)
+        _link(material.node_tree, vector, spangle.inputs.get("Vector"))
+        height = spangle.outputs.get("Distance")
+
+    bump = nodes.new("ShaderNodeBump")
+    bump.name = f"{material.name}_MicroBump"
+    bump.location = (-80.0, -185.0)
+    _set_socket(bump, ("Strength",), strength)
+    _set_socket(bump, ("Distance",), distance)
+    _set_socket(bump, ("Midlevel",), 0.5)
+    _link(material.node_tree, height, bump.inputs.get("Height"))
+    _link(material.node_tree, bump.outputs.get("Normal"), shader.inputs.get("Normal"))
+
+    roughness_noise = nodes.new("ShaderNodeTexNoise")
+    roughness_noise.name = f"{material.name}_RoughnessVariation"
+    roughness_noise.location = (-710.0, 70.0)
+    roughness_scale = 1.35 if pattern == "floor" else max(1.0, scale * 0.075)
+    _set_socket(roughness_noise, ("Scale",), roughness_scale)
+    _set_socket(roughness_noise, ("Detail",), min(detail, 2.2))
+    _set_socket(roughness_noise, ("Roughness",), 0.48)
+    _set_socket(roughness_noise, ("Distortion",), distortion * 0.25)
+    _link(material.node_tree, vector, roughness_noise.inputs.get("Vector"))
+
+    ramp = nodes.new("ShaderNodeValToRGB")
+    ramp.name = f"{material.name}_RoughnessRange"
+    ramp.location = (-380.0, 75.0)
+    low = max(0.02, roughness - roughness_variation)
+    high = min(0.98, roughness + roughness_variation)
+    ramp.color_ramp.elements[0].position = 0.18
+    ramp.color_ramp.elements[0].color = (low, low, low, 1.0)
+    ramp.color_ramp.elements[1].position = 0.82
+    ramp.color_ramp.elements[1].color = (high, high, high, 1.0)
+    _link(material.node_tree, roughness_noise.outputs.get("Fac"), ramp.inputs.get("Fac"))
+    _link(material.node_tree, ramp.outputs.get("Color"), shader.inputs.get("Roughness"))
+
+    material["sum_material_surface_model"] = pattern
+    material["sum_material_roughness_base"] = roughness
+    material["sum_material_roughness_range"] = [low, high]
+    material["sum_material_micro_scale_per_m"] = scale
+    material["sum_material_micro_bump_distance_m"] = distance
+    material["sum_material_procedural_policy"] = (
+        "low-contrast microstructure; no screen-space speckle or decorative pattern"
+    )
 
 
 def _new_principled_material(
@@ -373,6 +498,10 @@ def _new_principled_material(
     micro_scale: float | None = None,
     micro_strength: float = 0.0,
     micro_distance: float = 0.005,
+    roughness_variation: float = 0.0,
+    micro_detail: float = 2.0,
+    micro_distortion: float = 0.0,
+    micro_pattern: str = "isotropic",
 ) -> Any:
     material = bpy.data.materials.get(name) or bpy.data.materials.new(name)
     material.use_nodes = True
@@ -403,20 +532,18 @@ def _new_principled_material(
     _link(material.node_tree, shader.outputs.get("BSDF"), output.inputs.get("Surface"))
 
     if micro_scale is not None and micro_strength > 0.0:
-        tex_coord = nodes.new("ShaderNodeTexCoord")
-        tex_coord.location = (-720.0, -150.0)
-        noise = nodes.new("ShaderNodeTexNoise")
-        noise.location = (-500.0, -150.0)
-        bump = nodes.new("ShaderNodeBump")
-        bump.location = (-80.0, -120.0)
-        _set_socket(noise, ("Scale",), micro_scale)
-        _set_socket(noise, ("Detail",), 2.5)
-        _set_socket(noise, ("Roughness",), 0.68)
-        _set_socket(bump, ("Strength",), micro_strength)
-        _set_socket(bump, ("Distance",), micro_distance)
-        _link(material.node_tree, tex_coord.outputs.get("Generated"), noise.inputs.get("Vector"))
-        _link(material.node_tree, noise.outputs.get("Fac"), bump.inputs.get("Height"))
-        _link(material.node_tree, bump.outputs.get("Normal"), shader.inputs.get("Normal"))
+        _add_micro_surface(
+            material,
+            shader,
+            scale=micro_scale,
+            strength=micro_strength,
+            distance=micro_distance,
+            roughness=roughness,
+            roughness_variation=roughness_variation,
+            detail=micro_detail,
+            distortion=micro_distortion,
+            pattern=micro_pattern,
+        )
 
     return material
 
@@ -441,30 +568,126 @@ def _new_cbn_abrasive_material(name: str) -> Any:
     coordinates.location = (-880.0, 0.0)
     noise = nodes.new("ShaderNodeTexNoise")
     noise.location = (-650.0, 30.0)
-    _set_socket(noise, ("Scale",), 340.0)
-    _set_socket(noise, ("Detail",), 4.5)
-    _set_socket(noise, ("Roughness",), 0.78)
+    noise.name = "LD_CBN_BondStructure"
+    _set_socket(noise, ("Scale",), 155.0)
+    _set_socket(noise, ("Detail",), 2.6)
+    _set_socket(noise, ("Roughness",), 0.62)
 
     ramp = nodes.new("ShaderNodeValToRGB")
     ramp.location = (-350.0, 120.0)
-    ramp.color_ramp.elements[0].position = 0.24
-    ramp.color_ramp.elements[0].color = (0.004, 0.018, 0.014, 1.0)
-    ramp.color_ramp.elements[1].position = 0.78
-    ramp.color_ramp.elements[1].color = (0.080, 0.230, 0.165, 1.0)
+    ramp.name = "LD_CBN_SubtleColorVariation"
+    ramp.color_ramp.elements[0].position = 0.20
+    ramp.color_ramp.elements[0].color = (0.008, 0.016, 0.016, 1.0)
+    ramp.color_ramp.elements[1].position = 0.82
+    ramp.color_ramp.elements[1].color = (0.050, 0.085, 0.078, 1.0)
     middle = ramp.color_ramp.elements.new(0.53)
-    middle.color = (0.018, 0.085, 0.058, 1.0)
+    middle.color = (0.020, 0.043, 0.040, 1.0)
 
     bump = nodes.new("ShaderNodeBump")
     bump.location = (60.0, -150.0)
-    _set_socket(bump, ("Strength",), 0.42)
-    _set_socket(bump, ("Distance",), 0.0011)
+    bump.name = "LD_CBN_BondMicroBump"
+    _set_socket(bump, ("Strength",), 0.18)
+    _set_socket(bump, ("Distance",), 0.00038)
+
+    roughness_noise = nodes.new("ShaderNodeTexNoise")
+    roughness_noise.name = "LD_CBN_RoughnessVariation"
+    roughness_noise.location = (-330.0, -320.0)
+    _set_socket(roughness_noise, ("Scale",), 14.0)
+    _set_socket(roughness_noise, ("Detail",), 1.8)
+    _set_socket(roughness_noise, ("Roughness",), 0.52)
+    roughness_ramp = nodes.new("ShaderNodeValToRGB")
+    roughness_ramp.name = "LD_CBN_RoughnessRange"
+    roughness_ramp.location = (15.0, -330.0)
+    roughness_ramp.color_ramp.elements[0].color = (0.50, 0.50, 0.50, 1.0)
+    roughness_ramp.color_ramp.elements[1].color = (0.66, 0.66, 0.66, 1.0)
 
     _link(material.node_tree, coordinates.outputs.get("Generated"), noise.inputs.get("Vector"))
+    _link(
+        material.node_tree,
+        coordinates.outputs.get("Object") or coordinates.outputs.get("Generated"),
+        roughness_noise.inputs.get("Vector"),
+    )
     _link(material.node_tree, noise.outputs.get("Fac"), ramp.inputs.get("Fac"))
     _link(material.node_tree, ramp.outputs.get("Color"), shader.inputs.get("Base Color"))
     _link(material.node_tree, noise.outputs.get("Fac"), bump.inputs.get("Height"))
     _link(material.node_tree, bump.outputs.get("Normal"), shader.inputs.get("Normal"))
+    _link(
+        material.node_tree,
+        roughness_noise.outputs.get("Fac"),
+        roughness_ramp.inputs.get("Fac"),
+    )
+    _link(
+        material.node_tree,
+        roughness_ramp.outputs.get("Color"),
+        shader.inputs.get("Roughness"),
+    )
     _link(material.node_tree, shader.outputs.get("BSDF"), output.inputs.get("Surface"))
+    material["sum_material_surface_model"] = "vitrified_cbn_with_modeled_grains"
+    material["sum_material_roughness_range"] = [0.50, 0.66]
+    material["sum_material_micro_scale_per_m"] = 155.0
+    material["sum_material_micro_bump_distance_m"] = 0.00038
+    material["sum_material_procedural_policy"] = (
+        "modeled grains carry hero detail; shader texture stays below speckle threshold"
+    )
+    return material
+
+
+def _new_coolant_material(name: str) -> Any:
+    material = _new_principled_material(
+        name,
+        base_color=(0.46, 0.54, 0.43, 1.0),
+        metallic=0.0,
+        roughness=0.15,
+        coat=0.12,
+        coat_roughness=0.09,
+        transmission=0.18,
+        ior=1.34,
+        emission_color=(0.025, 0.038, 0.020, 1.0),
+        emission_strength=0.035,
+        alpha=0.78,
+    )
+    tree = material.node_tree
+    nodes = tree.nodes
+    shader = next(node for node in nodes if node.type == "BSDF_PRINCIPLED")
+    coordinates = nodes.new("ShaderNodeTexCoord")
+    coordinates.name = "LD_Coolant_FlowCoordinates"
+    coordinates.location = (-900.0, -150.0)
+    mapping = nodes.new("ShaderNodeMapping")
+    mapping.name = "LD_Coolant_FlowMapping"
+    mapping.label = "Animated process-fluid advection"
+    mapping.location = (-690.0, -150.0)
+    _safe_set(mapping, "vector_type", "POINT")
+    noise = nodes.new("ShaderNodeTexNoise")
+    noise.name = "LD_Coolant_FlowNoise"
+    noise.location = (-460.0, -150.0)
+    _set_socket(noise, ("Scale",), 7.5)
+    _set_socket(noise, ("Detail",), 3.0)
+    _set_socket(noise, ("Roughness",), 0.62)
+    _set_socket(noise, ("Distortion",), 0.72)
+    roughness_ramp = nodes.new("ShaderNodeValToRGB")
+    roughness_ramp.name = "LD_Coolant_RoughnessRange"
+    roughness_ramp.location = (-190.0, 40.0)
+    roughness_ramp.color_ramp.elements[0].color = (0.055, 0.055, 0.055, 1.0)
+    roughness_ramp.color_ramp.elements[1].color = (0.115, 0.115, 0.115, 1.0)
+    bump = nodes.new("ShaderNodeBump")
+    bump.name = "LD_Coolant_FlowNormal"
+    bump.location = (-40.0, -180.0)
+    _set_socket(bump, ("Strength",), 0.10)
+    _set_socket(bump, ("Distance",), 0.00065)
+    _link(tree, coordinates.outputs.get("Object"), mapping.inputs.get("Vector"))
+    _link(tree, mapping.outputs.get("Vector"), noise.inputs.get("Vector"))
+    _link(tree, noise.outputs.get("Fac"), roughness_ramp.inputs.get("Fac"))
+    _link(tree, roughness_ramp.outputs.get("Color"), shader.inputs.get("Roughness"))
+    _link(tree, noise.outputs.get("Fac"), bump.inputs.get("Height"))
+    _link(tree, bump.outputs.get("Normal"), shader.inputs.get("Normal"))
+    for axis, speed in ((0, 0.0035), (1, -0.012), (2, 0.0065)):
+        curve = mapping.inputs["Location"].driver_add("default_value", axis)
+        curve.driver.type = "SCRIPTED"
+        curve.driver.expression = f"frame*{speed:.6f}"
+    material["sum_material_surface_model"] = "moving_milky_grinding_coolant"
+    material["sum_material_roughness_range"] = [0.055, 0.115]
+    material["sum_material_flow_mapping_node"] = mapping.name
+    material["sum_material_procedural_policy"] = "advected broad flow detail, no static dots"
     return material
 
 
@@ -497,9 +720,13 @@ def _make_materials() -> dict[str, Any]:
             roughness=0.25,
             coat=0.08,
             anisotropic=0.34,
-            micro_scale=155.0,
-            micro_strength=0.075,
-            micro_distance=0.0025,
+            micro_scale=120.0,
+            micro_strength=0.018,
+            micro_distance=0.00008,
+            roughness_variation=0.022,
+            micro_detail=1.8,
+            micro_distortion=0.18,
+            micro_pattern="brushed",
         ),
         "powder_coat": _new_principled_material(
             "LD_Clean_Powder_Coat",
@@ -508,9 +735,13 @@ def _make_materials() -> dict[str, Any]:
             roughness=0.34,
             coat=0.18,
             coat_roughness=0.18,
-            micro_scale=210.0,
-            micro_strength=0.12,
-            micro_distance=0.003,
+            micro_scale=72.0,
+            micro_strength=0.022,
+            micro_distance=0.00012,
+            roughness_variation=0.020,
+            micro_detail=2.2,
+            micro_distortion=0.22,
+            micro_pattern="powder_coat",
         ),
         "steel_blue": _new_principled_material(
             "LD_Steel_Blue_Structure",
@@ -519,9 +750,28 @@ def _make_materials() -> dict[str, Any]:
             roughness=0.31,
             coat=0.20,
             coat_roughness=0.16,
-            micro_scale=180.0,
-            micro_strength=0.08,
-            micro_distance=0.0025,
+            micro_scale=64.0,
+            micro_strength=0.018,
+            micro_distance=0.00010,
+            roughness_variation=0.018,
+            micro_detail=2.0,
+            micro_distortion=0.16,
+            micro_pattern="powder_coat",
+        ),
+        "galvanized": _new_principled_material(
+            "LD_Galvanized_Cable_Tray",
+            base_color=(0.33, 0.37, 0.40, 1.0),
+            metallic=0.82,
+            roughness=0.34,
+            coat=0.04,
+            coat_roughness=0.22,
+            micro_scale=62.0,
+            micro_strength=0.010,
+            micro_distance=0.00005,
+            roughness_variation=0.026,
+            micro_detail=1.6,
+            micro_distortion=0.08,
+            micro_pattern="galvanized",
         ),
         "dark_metal": _new_principled_material(
             "LD_Dark_Oxide_Metal",
@@ -530,9 +780,13 @@ def _make_materials() -> dict[str, Any]:
             roughness=0.28,
             coat=0.08,
             anisotropic=0.12,
-            micro_scale=145.0,
-            micro_strength=0.06,
-            micro_distance=0.002,
+            micro_scale=70.0,
+            micro_strength=0.015,
+            micro_distance=0.00008,
+            roughness_variation=0.018,
+            micro_detail=1.8,
+            micro_distortion=0.12,
+            micro_pattern="brushed",
         ),
         "abrasive": _new_cbn_abrasive_material("LD_CBN_Profiled_Abrasive"),
         "abrasive_bond": _new_principled_material(
@@ -541,9 +795,13 @@ def _make_materials() -> dict[str, Any]:
             metallic=0.04,
             roughness=0.72,
             coat=0.015,
-            micro_scale=210.0,
-            micro_strength=0.22,
-            micro_distance=0.0014,
+            micro_scale=95.0,
+            micro_strength=0.070,
+            micro_distance=0.00025,
+            roughness_variation=0.045,
+            micro_detail=2.4,
+            micro_distortion=0.30,
+            micro_pattern="porous_bond",
         ),
         "abrasive_grain": _new_principled_material(
             "LD_CBN_Exposed_Grains",
@@ -552,9 +810,13 @@ def _make_materials() -> dict[str, Any]:
             roughness=0.31,
             coat=0.12,
             coat_roughness=0.18,
-            micro_scale=520.0,
-            micro_strength=0.12,
-            micro_distance=0.00035,
+            micro_scale=90.0,
+            micro_strength=0.020,
+            micro_distance=0.00005,
+            roughness_variation=0.025,
+            micro_detail=1.8,
+            micro_distortion=0.10,
+            micro_pattern="faceted_grain",
         ),
         "fresh_ground_steel": _new_principled_material(
             "LD_Fresh_Ground_Raceway_Steel",
@@ -564,9 +826,28 @@ def _make_materials() -> dict[str, Any]:
             coat=0.08,
             coat_roughness=0.10,
             anisotropic=0.68,
-            micro_scale=620.0,
-            micro_strength=0.035,
-            micro_distance=0.00018,
+            micro_scale=180.0,
+            micro_strength=0.010,
+            micro_distance=0.000025,
+            roughness_variation=0.018,
+            micro_detail=1.4,
+            micro_distortion=0.06,
+            micro_pattern="brushed",
+        ),
+        "fixture_dark": _new_principled_material(
+            "LD_Dark_Anodized_Fixture",
+            base_color=(0.018, 0.026, 0.036, 1.0),
+            metallic=0.0,
+            roughness=0.64,
+            coat=0.0,
+            ior=1.08,
+            micro_scale=82.0,
+            micro_strength=0.022,
+            micro_distance=0.00010,
+            roughness_variation=0.026,
+            micro_detail=2.0,
+            micro_distortion=0.16,
+            micro_pattern="powder_coat",
         ),
         "workpiece_steel": _new_principled_material(
             "LD_Grinding_Workpiece_Steel",
@@ -575,32 +856,28 @@ def _make_materials() -> dict[str, Any]:
             roughness=0.24,
             coat=0.08,
             coat_roughness=0.20,
-            micro_scale=175.0,
-            micro_strength=0.045,
-            micro_distance=0.00022,
+            micro_scale=130.0,
+            micro_strength=0.014,
+            micro_distance=0.000045,
+            roughness_variation=0.022,
+            micro_detail=1.6,
+            micro_distortion=0.08,
+            micro_pattern="brushed",
         ),
-        "coolant": _new_principled_material(
-            "LD_Grinding_Coolant_Stream",
-            base_color=(0.12, 0.22, 0.15, 1.0),
-            metallic=0.0,
-            roughness=0.075,
-            coat=0.20,
-            coat_roughness=0.05,
-            transmission=0.62,
-            ior=1.34,
-            emission_color=(0.015, 0.045, 0.025, 1.0),
-            emission_strength=0.14,
-            alpha=0.48,
-        ),
+        "coolant": _new_coolant_material("LD_Grinding_Coolant_Stream"),
         "rubber": _new_principled_material(
             "LD_Black_Rubber",
             base_color=(0.012, 0.016, 0.022, 1.0),
             metallic=0.0,
             roughness=0.56,
             coat=0.04,
-            micro_scale=72.0,
-            micro_strength=0.14,
-            micro_distance=0.006,
+            micro_scale=55.0,
+            micro_strength=0.035,
+            micro_distance=0.00022,
+            roughness_variation=0.038,
+            micro_detail=2.0,
+            micro_distortion=0.28,
+            micro_pattern="rubber",
         ),
         "screen_glass": _new_principled_material(
             "LD_Screen_Glass",
@@ -643,9 +920,13 @@ def _make_materials() -> dict[str, Any]:
             roughness=0.34,
             coat=0.18,
             coat_roughness=0.16,
-            micro_scale=180.0,
-            micro_strength=0.07,
-            micro_distance=0.003,
+            micro_scale=72.0,
+            micro_strength=0.022,
+            micro_distance=0.00012,
+            roughness_variation=0.020,
+            micro_detail=2.0,
+            micro_distortion=0.18,
+            micro_pattern="powder_coat",
         ),
         "floor": _new_principled_material(
             "LD_Clean_Industrial_Floor",
@@ -654,18 +935,26 @@ def _make_materials() -> dict[str, Any]:
             roughness=0.42,
             coat=0.08,
             coat_roughness=0.24,
-            micro_scale=28.0,
-            micro_strength=0.055,
-            micro_distance=0.007,
+            micro_scale=18.0,
+            micro_strength=0.018,
+            micro_distance=0.00028,
+            roughness_variation=0.055,
+            micro_detail=2.0,
+            micro_distortion=0.20,
+            micro_pattern="floor",
         ),
         "architecture": _new_principled_material(
             "LD_Clean_Architecture",
             base_color=(0.50, 0.54, 0.58, 1.0),
             metallic=0.0,
             roughness=0.38,
-            micro_scale=90.0,
-            micro_strength=0.035,
-            micro_distance=0.004,
+            micro_scale=36.0,
+            micro_strength=0.012,
+            micro_distance=0.00016,
+            roughness_variation=0.025,
+            micro_detail=1.6,
+            micro_distortion=0.12,
+            micro_pattern="painted_architecture",
         ),
         "luminaire": _new_principled_material(
             "LD_Linear_Luminaire_Diffuser",
@@ -765,14 +1054,15 @@ def _assign_materials(entries: Sequence[tuple[Any, str]], materials: Mapping[str
         slots = getattr(data, "materials", None)
         if slots is None:
             continue
-        explicit_role = None
-        for property_name in ("lookdev_role", "material_role", "role"):
-            try:
-                explicit_role = _explicit_role(obj.get(property_name))
-            except (AttributeError, TypeError):
-                explicit_role = None
-            if explicit_role is not None:
-                break
+        explicit_role = _semantic_surface_override(obj, hint)
+        if explicit_role is None:
+            for property_name in ("lookdev_role", "material_role", "role"):
+                try:
+                    explicit_role = _explicit_role(obj.get(property_name))
+                except (AttributeError, TypeError):
+                    explicit_role = None
+                if explicit_role is not None:
+                    break
         role = explicit_role or _object_role(obj, hint)
         try:
             pointer = int(obj.as_pointer())

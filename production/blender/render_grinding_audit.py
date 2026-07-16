@@ -21,16 +21,25 @@ def main() -> None:
     scene = bpy.context.scene
     camera = bpy.data.objects["CIN_Camera"]
     look_at = bpy.data.objects["CIN_LookAt"]
-    contact = bpy.data.objects["SUM_ANCHOR_GrindingContact"]
+    ring = bpy.data.objects["RING_HERO_01"]
     follow = camera.constraints.get("CIN_FollowPath")
     base_location = camera.location.copy()
     base_rotation = camera.rotation_quaternion.copy()
+    camera_action = camera.animation_data.action if camera.animation_data else None
+    look_at_action = look_at.animation_data.action if look_at.animation_data else None
+    black_handoff = bpy.data.objects.get("CIN_BlackHandoff")
     if follow is not None:
         follow.mute = True
+    if camera.animation_data:
+        camera.animation_data.action = None
+    if look_at.animation_data:
+        look_at.animation_data.action = None
+    if black_handoff is not None:
+        black_handoff.hide_render = True
 
-    scene.frame_set(211)
+    scene.frame_set(430)
     bpy.context.view_layer.update()
-    target = contact.matrix_world.translation.copy()
+    target = ring.matrix_world.translation.copy()
     look_at.location = target
     scene.render.resolution_x = 768
     scene.render.resolution_y = 432
@@ -39,9 +48,13 @@ def main() -> None:
     if hasattr(scene.eevee, "taa_render_samples"):
         scene.eevee.taa_render_samples = 16
 
-    formal_sightline = Vector((-1.30, 0.28, 1.48)).normalized()
     candidates = {
-        "contact-hero": (formal_sightline * 1.25, 90.0),
+        "process-left": (Vector((-0.45, 0.72, 1.80)), 48.0),
+        "process-left-high": (Vector((-0.20, 1.02, 1.70)), 52.0),
+        "process-center": (Vector((0.00, 0.68, 1.95)), 54.0),
+        "process-right": (Vector((0.65, 0.82, 1.70)), 52.0),
+        "process-wide": (Vector((-0.85, 1.15, 2.15)), 44.0),
+        "process-low": (Vector((-0.25, 0.34, 1.55)), 58.0),
     }
     camera.data.clip_start = 0.005
     camera.data.dof.use_dof = False
@@ -68,25 +81,22 @@ def main() -> None:
         )
         camera.data.lens = lens
         bpy.context.view_layer.update()
-        scene.render.filepath = str(output / f"grinding-camera-{slug}-0211.png")
+        scene.render.filepath = str(output / f"grinding-camera-{slug}-0430.png")
         bpy.ops.render.render(write_still=True)
 
     if follow is not None:
         camera.location = base_location
         camera.rotation_quaternion = base_rotation
         follow.mute = False
+    if camera.animation_data:
+        camera.animation_data.action = camera_action
+    if look_at.animation_data:
+        look_at.animation_data.action = look_at_action
+    if black_handoff is not None:
+        black_handoff.hide_render = False
     camera.data.clip_start = 0.02
     camera.data.dof.use_dof = False
-    scene.render.resolution_x = 960
-    scene.render.resolution_y = 540
     scene.render.use_motion_blur = False
-    if hasattr(scene.eevee, "taa_render_samples"):
-        scene.eevee.taa_render_samples = 32
-    for frame in (180, 195, 211, 227, 242):
-        scene.frame_set(frame)
-        bpy.context.view_layer.update()
-        scene.render.filepath = str(output / f"grinding-formal-{frame:04d}.png")
-        bpy.ops.render.render(write_still=True)
 
 
 if __name__ == "__main__":

@@ -37,10 +37,31 @@ class _SlowWindow:
     ramp_s: float
 
 
-_BEARING_WINDOW = _SlowWindow("bearing_inspection", 3.25, 4.25, 0.42, 0.34)
-_HANDOFF_WINDOW = _SlowWindow("arm_handoff", 6.00, 8.00, 0.22, 0.48)
-_GRINDING_WINDOW = _SlowWindow("grinding_contact", 11.50, 13.25, 0.16, 0.22)
+_BEARING_WINDOW = _SlowWindow("bearing_inspection", 0.25, 2.50, 0.42, 0.34)
+_HANDOFF_WINDOW = _SlowWindow("arm_handoff", 6.90, 8.25, 0.34, 0.32)
+_GRINDING_WINDOW = _SlowWindow("grinding_contact", 17.58, 19.38, 0.20, 0.22)
 _MECHANICAL_WINDOWS = (_BEARING_WINDOW, _HANDOFF_WINDOW, _GRINDING_WINDOW)
+
+_GRINDING_FEED_RETRACT_M = 0.014
+_GRINDING_FEED_TIMES = (16.00, 16.40, 17.50, 19.38, 20.05, 20.75)
+_GRINDING_SLIDE_NAMES = {
+    "SUM_GrindingCell_XSlide_Carriage",
+    "SUM_GrindingCell_XSlide_LinearBlocks",
+    "SUM_GrindingCell_GrindingSpindle_Housing",
+    "SUM_GrindingCell_GrindingSpindle_Shaft",
+    "SUM_GrindingCell_GrindingSpindleMount",
+    "SUM_GrindingCell_GrindingSpindleCastSupport",
+    "SUM_GrindingCell_HighSpeedSpindleMotor",
+    "SUM_GrindingCell_SpindleMotorRearCap",
+    "SUM_GrindingCell_SpindleBalanceCollar",
+    "SUM_GrindingCell_WheelArborNose",
+    "SUM_GrindingCell_PrecisionTaperArbor",
+    "SUM_GrindingCell_SpindleNoseCollar",
+}
+_GRINDING_SLIDE_PREFIXES = (
+    "SUM_GrindingCell_SpindleCoolingRing_",
+    "SUM_GrindingCell_SpindleNoseSealRing_",
+)
 
 
 @dataclass(frozen=True)
@@ -113,6 +134,12 @@ def _clock_samples(
             visual_seconds[-1] + (rates[index - 1] + rates[index]) * 0.5 * dt
         )
     return _ClockSamples(frames, seconds, rates, tuple(visual_seconds))
+
+
+def _uniform_clock_samples(fps: int, frame_end: int) -> _ClockSamples:
+    frames = tuple(range(1, frame_end + 1))
+    seconds = tuple((frame - 1) / fps for frame in frames)
+    return _ClockSamples(frames, seconds, tuple(1.0 for _ in frames), seconds)
 
 
 def _frame_at(seconds: float, fps: int, frame_end: int, duration: float) -> int:
@@ -389,17 +416,172 @@ def _spin_channel(
     return keys, effective_rpm, turns
 
 
+def _grinding_feed_keys(
+    obj: bpy.types.Object,
+    fps: int,
+    frame_end: int,
+    duration: float,
+) -> list[tuple[int, float, float]]:
+    base_delta = _stored_vector(obj, "process_delta_location", obj.delta_location)
+    obj.delta_location = base_delta
+    frames = tuple(
+        _frame_at(seconds, fps, frame_end, duration)
+        for seconds in _GRINDING_FEED_TIMES
+    )
+    retracted = base_delta[1] - _GRINDING_FEED_RETRACT_M
+    values = (retracted, retracted, base_delta[1], base_delta[1], retracted, retracted)
+    obj["sum_process_motion_role"] = "radial_grinding_infeed"
+    obj["sum_animation_radial_feed_m"] = _GRINDING_FEED_RETRACT_M
+    obj["sum_animation_feed_axis_parent_local"] = [0.0, 1.0, 0.0]
+    obj["sum_animation_feed_frames"] = list(frames)
+    return [(frame, value, 0.0) for frame, value in zip(frames, values)]
+
+
+def _grinding_slide_members(wheel: bpy.types.Object) -> list[bpy.types.Object]:
+    members = [wheel]
+    for obj in bpy.context.scene.objects:
+        if obj is wheel:
+            continue
+        if obj.name in _GRINDING_SLIDE_NAMES or obj.name.startswith(
+            _GRINDING_SLIDE_PREFIXES
+        ):
+            members.append(obj)
+    return members
+
+
+def _coolant_jet_objects() -> list[bpy.types.Object]:
+    return sorted(
+        (
+            obj
+            for obj in bpy.context.scene.objects
+            if obj.get("sum_part_role") == "coherent_high_pressure_coolant_jet"
+            or obj.name.startswith("SUM_GrindingCell_CoolantJet_Stream_")
+        ),
+        key=lambda item: item.name,
+    )
+
+
+def _coolant_jet_keys(
+    curve: Any,
+    clock: _ClockSamples,
+    duration: float,
+    phase_offset: float,
+) -> list[tuple[int, float, float]]:
+    base_depth = _stored_scalar(curve, "coolant_bevel_depth", curve.bevel_depth)
+    curve.bevel_depth = base_depth
+    factor = duration / _BASE_DURATION
+    full_start = 16.00 * factor
+    full_end = 20.75 * factor
+    ramp = max(0.35 * factor, 1.0e-4)
+    values: list[float] = []
+    for seconds, visual_time in zip(clock.seconds, clock.visual_seconds):
+        envelope = _window_envelope(seconds, full_start, full_end, ramp)
+        pulse = 1.0 + 0.035 * envelope * math.sin(
+            math.tau * 4.2 * visual_time + phase_offset
+        )
+        values.append(base_depth * (0.025 + 0.975 * envelope) * pulse)
+    return _sampled_keys(clock.frames, values)
+
+
+def _coolant_flow_action(
+    clock: _ClockSamples,
+    fps: int,
+    duration: float,
+) -> bpy.types.Action | None:
+    material = bpy.data.materials.get("LD_Grinding_Coolant_Stream")
+    if material is None or not material.use_nodes or material.node_tree is None:
+        return None
+    mapping = material.node_tree.nodes.get("LD_Coolant_FlowMapping")
+    if mapping is None:
+        return None
+    location = mapping.inputs.get("Location")
+    if location is None:
+        return None
+    base = _stored_vector(
+        material.node_tree,
+        "coolant_flow_location",
+        location.default_value,
+    )
+    location.default_value = base
+    stride = max(1, fps // 4)
+    sample_indices = list(range(0, len(clock.frames), stride))
+    if sample_indices[-1] != len(clock.frames) - 1:
+        sample_indices.append(len(clock.frames) - 1)
+    frames = [clock.frames[index] for index in sample_indices]
+    x_values = [
+        base[0] + 0.018 * math.sin(math.tau * 0.37 * clock.visual_seconds[index])
+        for index in sample_indices
+    ]
+    y_values = [
+        base[1] + 0.22 * clock.visual_seconds[index]
+        for index in sample_indices
+    ]
+    z_values = [
+        base[2]
+        + 0.045 * math.sin(math.tau * 0.71 * clock.visual_seconds[index] + 0.8)
+        for index in sample_indices
+    ]
+    data_path = location.path_from_id("default_value")
+    material["sum_micro_surface_motion"] = "advected coolant noise coordinates"
+    material["sum_flow_texture_units_per_second"] = 0.22
+    return _create_action(
+        material.node_tree,
+        f"{_ACTION_PREFIX}CoolantSurfaceFlow",
+        "coolant_surface_advection",
+        (
+            (data_path, 0, _sampled_keys(frames, x_values)),
+            (data_path, 1, _sampled_keys(frames, y_values)),
+            (data_path, 2, _sampled_keys(frames, z_values)),
+        ),
+        fps,
+        duration,
+        owner_key=f"NODETREE:coolant_flow:{material.node_tree.name}",
+    )
+
+
+def _coolant_pool_channels(
+    pool: bpy.types.Object,
+    clock: _ClockSamples,
+    duration: float,
+) -> list[tuple[str, int, Sequence[tuple[int, float, float]]]]:
+    base_delta = _stored_vector(pool, "coolant_pool_delta_location", pool.delta_location)
+    base_scale = _stored_vector(pool, "coolant_pool_scale", pool.scale)
+    pool.delta_location = base_delta
+    pool.scale = base_scale
+    window = _scaled_window(_GRINDING_WINDOW, duration)
+    ramp = max(0.72 * duration / _BASE_DURATION, 1.0e-4)
+    z_values: list[float] = []
+    x_values: list[float] = []
+    y_values: list[float] = []
+    for seconds, visual_time in zip(clock.seconds, clock.visual_seconds):
+        envelope = _window_envelope(seconds, window.start_s, window.end_s, ramp)
+        primary = math.sin(math.tau * 1.35 * visual_time)
+        secondary = math.sin(math.tau * 0.83 * visual_time + 1.7)
+        z_values.append(base_delta[2] + envelope * 0.0012 * primary)
+        x_values.append(base_scale[0] * (1.0 + envelope * 0.0018 * secondary))
+        y_values.append(base_scale[1] * (1.0 - envelope * 0.0015 * secondary))
+    pool["sum_process_motion_role"] = "coolant_return_surface_ripple"
+    pool["sum_return_surface_vertical_amplitude_m"] = 0.0012
+    return [
+        ("delta_location", 2, _sampled_keys(clock.frames, z_values)),
+        ("scale", 0, _sampled_keys(clock.frames, x_values)),
+        ("scale", 1, _sampled_keys(clock.frames, y_values)),
+    ]
+
+
 _ROBOT_POSES_DEGREES: tuple[tuple[float, tuple[float, ...]], ...] = (
     (0.00, (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)),
-    (3.20, (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)),
-    (3.70, (5.0, -10.0, 15.0, -10.0, 8.0, -12.0)),
-    (4.60, (12.0, -25.0, 38.0, -28.0, 20.0, -32.0)),
-    (5.10, (15.0, -30.0, 45.0, -35.0, 25.0, -40.0)),
-    (5.55, (15.0, -30.0, 45.0, -35.0, 25.0, -40.0)),
-    (6.35, (24.0, -40.0, 56.0, -48.0, 31.0, -62.0)),
-    (6.75, (24.0, -40.0, 56.0, -48.0, 31.0, -62.0)),
-    (7.45, (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)),
-    (28.00, (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)),
+    (6.10, (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)),
+    (6.55, (5.0, -10.0, 15.0, -10.0, 8.0, -12.0)),
+    (6.90, (12.0, -25.0, 38.0, -28.0, 20.0, -32.0)),
+    (7.25, (15.0, -30.0, 45.0, -35.0, 25.0, -40.0)),
+    (7.75, (15.0, -30.0, 45.0, -35.0, 25.0, -40.0)),
+    (8.35, (24.0, -40.0, 56.0, -48.0, 31.0, -62.0)),
+    (9.60, (-8.0, -36.0, 51.0, -30.0, 28.0, -22.0)),
+    (11.80, (-24.0, -26.0, 42.0, -18.0, 30.0, 12.0)),
+    (13.20, (-24.0, -26.0, 42.0, -18.0, 30.0, 12.0)),
+    (14.20, (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)),
+    (38.00, (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)),
 )
 
 
@@ -654,6 +836,7 @@ def animate_assets(assets: Any, fps: int = 24, duration: float = 38) -> dict[str
 
     bearing_clock = _clock_samples(fps, frame_end, duration, _BEARING_WINDOW)
     grinding_clock = _clock_samples(fps, frame_end, duration, _GRINDING_WINDOW)
+    uniform_clock = _uniform_clock_samples(fps, frame_end)
     actions: dict[str, bpy.types.Action] = {}
     animated_objects: list[bpy.types.Object] = []
     animated_data: list[Any] = []
@@ -707,6 +890,41 @@ def animate_assets(assets: Any, fps: int = 24, duration: float = 38) -> dict[str
         agv["sum_animation_speed_mps"] = travel_distance / duration
         agv["sum_animation_route"] = "painted_center_aisle"
         animated_objects.append(agv)
+        wheel_radius = float(agv.get("agv_drive_wheel_radius_m", 0.17))
+        wheel_rpm = (travel_distance / duration) * 60.0 / (math.tau * wheel_radius)
+        agv_wheels = sorted(
+            (
+                obj
+                for obj in _iter_descendants(agv)
+                if obj.get("sum_part_role") == "agv_recessed_protected_drive_wheel"
+                or obj.name.startswith("SUM_AGV07_ProtectedWheel_")
+            ),
+            key=lambda item: item.name,
+        )
+        for wheel_index, agv_wheel in enumerate(agv_wheels, start=1):
+            keys, effective_rpm, turns = _spin_channel(
+                agv_wheel,
+                uniform_clock,
+                nominal_rpm=wheel_rpm,
+                direction=1.0,
+            )
+            actions[f"agv_wheel_{wheel_index}"] = _create_action(
+                agv_wheel,
+                f"{_ACTION_PREFIX}AGV07Wheel_{wheel_index:02d}",
+                "agv_driven_wheel_rotation",
+                (("delta_rotation_euler", 2, keys),),
+                fps,
+                duration,
+            )
+            agv_wheel["sum_animation_wheel_radius_m"] = float(
+                agv_wheel.get("sum_animation_wheel_radius_m", wheel_radius)
+            )
+            agv_wheel["sum_animation_no_slip_nominal_rpm"] = wheel_rpm
+            animated_objects.append(agv_wheel)
+            rpm_summary[f"agv_wheel_{wheel_index}"] = {
+                "effective_rpm": effective_rpm,
+                "loop_turns": turns,
+            }
     else:
         missing_optional.append("agv")
 
@@ -715,7 +933,7 @@ def animate_assets(assets: Any, fps: int = 24, duration: float = 38) -> dict[str
     ):
         door_frames = tuple(
             _frame_at(seconds, fps, frame_end, duration)
-            for seconds in (8.65, 9.20, 14.35, 14.90)
+            for seconds in (10.50, 11.00, 20.75, 21.25)
         )
         for door_index, door in enumerate(grinder_doors, start=1):
             if not isinstance(door, bpy.types.Object):
@@ -744,11 +962,15 @@ def animate_assets(assets: Any, fps: int = 24, duration: float = 38) -> dict[str
     wheel_keys, wheel_rpm, wheel_turns = _spin_channel(
         wheel, grinding_clock, nominal_rpm=11500.0, direction=1.0
     )
+    wheel_feed_keys = _grinding_feed_keys(wheel, fps, frame_end, duration)
     actions["grinding_wheel"] = _create_action(
         wheel,
         f"{_ACTION_PREFIX}GrindingWheel",
-        "grinding_wheel_rotation",
-        (("delta_rotation_euler", 2, wheel_keys),),
+        "grinding_wheel_rotation_and_radial_infeed",
+        (
+            ("delta_rotation_euler", 2, wheel_keys),
+            ("delta_location", 1, wheel_feed_keys),
+        ),
         fps,
         duration,
     )
@@ -757,6 +979,20 @@ def animate_assets(assets: Any, fps: int = 24, duration: float = 38) -> dict[str
         "effective_rpm": wheel_rpm,
         "loop_turns": wheel_turns,
     }
+    wheel["sum_animation_rotation_direction"] = "positive local spindle axis"
+    wheel["sum_animation_contact_speed_scale"] = _GRINDING_WINDOW.minimum_scale
+
+    grinding_slide = _grinding_slide_members(wheel)
+    for slide_index, slide_obj in enumerate(grinding_slide[1:], start=1):
+        actions[f"grinding_slide_{slide_index}"] = _create_action(
+            slide_obj,
+            f"{_ACTION_PREFIX}GrindingSlide_{slide_index:02d}_{_safe_action_suffix(slide_obj.name)}",
+            "radial_grinding_slide_infeed",
+            (("delta_location", 1, _grinding_feed_keys(slide_obj, fps, frame_end, duration)),),
+            fps,
+            duration,
+        )
+        animated_objects.append(slide_obj)
 
     workpiece_keys, workpiece_rpm, workpiece_turns = _spin_channel(
         workpiece, grinding_clock, nominal_rpm=240.0, direction=-1.0
@@ -774,6 +1010,53 @@ def animate_assets(assets: Any, fps: int = 24, duration: float = 38) -> dict[str
         "effective_rpm": workpiece_rpm,
         "loop_turns": workpiece_turns,
     }
+    workpiece["sum_animation_rotation_direction"] = "counter rotation to CBN wheel"
+    workpiece["sum_animation_nominal_speed_ratio_to_wheel"] = 240.0 / 11500.0
+
+    coolant_jets = _coolant_jet_objects()
+    for jet_index, jet in enumerate(coolant_jets, start=1):
+        curve = getattr(jet, "data", None)
+        if curve is None or not hasattr(curve, "bevel_depth"):
+            continue
+        actions[f"coolant_jet_{jet_index}"] = _create_action(
+            curve,
+            f"{_ACTION_PREFIX}CoolantJet_{jet_index:02d}",
+            "coherent_coolant_jet_pressure_envelope",
+            ((
+                "bevel_depth",
+                0,
+                _coolant_jet_keys(curve, grinding_clock, duration, jet_index * 1.1),
+            ),),
+            fps,
+            duration,
+        )
+        jet["sum_process_motion_role"] = "coherent_coolant_jet"
+        jet["sum_coolant_target_policy"] = "fixed nozzle-to-contact endpoints"
+        jet["sum_animation_pressure_pulse_fraction"] = 0.035
+        animated_data.append(curve)
+
+    coolant_flow = _coolant_flow_action(grinding_clock, fps, duration)
+    if coolant_flow is not None:
+        actions["coolant_surface_flow"] = coolant_flow
+        coolant_material = bpy.data.materials.get("LD_Grinding_Coolant_Stream")
+        if coolant_material is not None and coolant_material.node_tree is not None:
+            animated_data.append(coolant_material.node_tree)
+    else:
+        missing_optional.append("coolant_flow_mapping")
+
+    coolant_pool = bpy.data.objects.get("SUM_GrindingCell_ProcessChamber_CoolantPool")
+    if isinstance(coolant_pool, bpy.types.Object):
+        actions["coolant_return_pool"] = _create_action(
+            coolant_pool,
+            f"{_ACTION_PREFIX}CoolantReturnPool",
+            "coolant_return_surface_ripple",
+            _coolant_pool_channels(coolant_pool, grinding_clock, duration),
+            fps,
+            duration,
+        )
+        animated_objects.append(coolant_pool)
+    else:
+        missing_optional.append("coolant_return_pool")
 
     if sparks is not None:
         actions["grinding_sparks"] = _create_action(
@@ -853,12 +1136,37 @@ def animate_assets(assets: Any, fps: int = 24, duration: float = 38) -> dict[str
         "actions": {key: action.name for key, action in actions.items()},
         "animated_objects": [obj.name for obj in animated_objects],
         "windows": windows,
+        "grinding_process": {
+            "wheel_nominal_rpm": 11500.0,
+            "workpiece_nominal_rpm": 240.0,
+            "counter_rotation": True,
+            "radial_feed_m": _GRINDING_FEED_RETRACT_M,
+            "feed_frames": [
+                _frame_at(seconds, fps, frame_end, duration)
+                for seconds in _GRINDING_FEED_TIMES
+            ],
+            "coolant_jet_count": len(coolant_jets),
+            "coolant_endpoint_policy": "fixed nozzle-to-contact endpoints",
+        },
+        "ambient_motion": {
+            "agv_translation": isinstance(agv, bpy.types.Object),
+            "agv_driven_wheel_count": len(
+                [key for key in actions if key.startswith("agv_wheel_")]
+            ),
+            "screen_emission_target_count": len(screen_targets),
+        },
     }
     scene["sum_animation_manifest"] = json.dumps(
         manifest, separators=(",", ":"), ensure_ascii=True
     )
     scene["sum_asset_clock_is_camera_independent"] = True
     scene["sum_screen_motion_policy"] = "emission_only_no_card_transforms"
+    scene["sum_grinding_process_motion"] = json.dumps(
+        manifest["grinding_process"], separators=(",", ":"), ensure_ascii=True
+    )
+    scene["sum_continuous_factory_motion"] = json.dumps(
+        manifest["ambient_motion"], separators=(",", ":"), ensure_ascii=True
+    )
     scene.frame_set(min(max(original_frame, scene.frame_start), scene.frame_end))
 
     return {

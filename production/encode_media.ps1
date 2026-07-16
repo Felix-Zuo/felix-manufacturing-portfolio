@@ -50,7 +50,7 @@ if ($MissingFrames.Count -gt 0) {
     -an `
     -c:v libx264 `
     -preset slow `
-    -crf 19 `
+    -crf 17 `
     -pix_fmt yuv420p `
     -color_primaries bt709 `
     -color_trc bt709 `
@@ -68,7 +68,7 @@ if ($LASTEXITCODE -ne 0) {
     throw "$Mode video encoding failed with exit code $LASTEXITCODE"
 }
 
-$PosterFrameNumber = [Math]::Min(91, $ExpectedFrameCount)
+$PosterFrameNumber = 1
 $PosterInput = Join-Path $FrameDir ("frame-{0:D4}.png" -f $PosterFrameNumber)
 $PosterName = if ($Mode -eq "desktop") { "felix-journey-poster.webp" } else { "felix-journey-mobile-poster.webp" }
 $PosterOutput = Join-Path $MediaDir $PosterName
@@ -78,7 +78,7 @@ $PosterOutput = Join-Path $MediaDir $PosterName
     -i $PosterInput `
     -frames:v 1 `
     -c:v libwebp `
-    -quality 88 `
+    -quality 92 `
     $PosterOutput
 
 if ($LASTEXITCODE -ne 0) {

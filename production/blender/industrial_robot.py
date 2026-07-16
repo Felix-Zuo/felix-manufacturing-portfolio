@@ -449,6 +449,32 @@ def _build_end_effector(
     )
     rail["lookdev_role"] = "brushed_metal"
 
+    leadscrew = modeling._cylinder_between(
+        "SUM_KUKA_Gripper_ServoLeadscrew",
+        (0.405, -0.245, 0.0),
+        (0.405, 0.245, 0.0),
+        0.018,
+        collection,
+        parent=tool,
+        material=materials["machined_steel"],
+        segments=40,
+        bevel=0.002,
+        role="servo_gripper_ground_ball_screw",
+    )
+    leadscrew["lookdev_role"] = "brushed_metal"
+    leadscrew["mechanism"] = "opposed-thread synchronized parallel jaws"
+    nut_block = modeling._box(
+        "SUM_KUKA_Gripper_CentralBallNutHousing",
+        (0.11, 0.10, 0.10),
+        collection,
+        location=(0.405, 0.0, 0.0),
+        parent=tool,
+        material=materials["black_oxide"],
+        bevel=0.015,
+        role="servo_gripper_ball_nut_housing",
+    )
+    nut_block["lookdev_role"] = "dark_metal"
+
     for z in (-0.052, 0.052):
         guide = modeling._cylinder_between(
             f"SUM_KUKA_Gripper_LinearGuide_{'Lower' if z < 0 else 'Upper'}",
@@ -499,6 +525,21 @@ def _build_end_effector(
             role="replaceable_nonmarking_bearing_grip_pad",
         )
         pad["lookdev_role"] = "rubber"
+        for fastener_index, x in enumerate((0.50, 0.55, 0.60), start=1):
+            bolt_y = side * (GRIP_PAD_INNER_FACE + 0.046)
+            pad_fastener = modeling._cylinder_between(
+                f"SUM_KUKA_Gripper_PadFastener_{suffix}_{fastener_index:02d}",
+                (x, bolt_y - side * 0.010, -0.025),
+                (x, bolt_y + side * 0.010, -0.025),
+                0.010,
+                collection,
+                parent=tool,
+                material=materials["machined_steel"],
+                segments=6,
+                bevel=0.001,
+                role="replaceable_gripper_pad_fastener",
+            )
+            pad_fastener["lookdev_role"] = "brushed_metal"
 
     workpiece = modeling._annular_prism(
         "SUM_KUKA_Gripper_HeldBearingRing_WIP",
@@ -582,6 +623,154 @@ def _build_end_effector(
     tool["held_payload"] = workpiece.name
     tool["grip_strategy"] = "external-diameter parallel grip with compliant pads"
     return tool
+
+
+def _build_base_service_interfaces(
+    root: bpy.types.Object,
+    collection: bpy.types.Collection,
+    materials: dict[str, bpy.types.Material],
+) -> dict[str, Any]:
+    """Build credible robot anchoring and cell-side service connections."""
+
+    grout_pad = modeling._box(
+        "SUM_KUKA_KR210_PrecisionGroutPad",
+        (1.30, 1.30, 0.055),
+        collection,
+        location=(0.0, 0.0, 0.028),
+        parent=root,
+        material=materials["fixture"],
+        bevel=0.018,
+        role="robot_precision_nonshrink_grout_pad",
+    )
+    grout_pad["lookdev_role"] = "floor"
+    base_plate = modeling._cylinder(
+        "SUM_KUKA_KR210_AnchorBasePlate",
+        0.58,
+        0.080,
+        collection,
+        location=(0.0, 0.0, 0.095),
+        parent=root,
+        material=materials["black_oxide"],
+        segments=72,
+        bevel=0.012,
+        role="robot_machined_anchor_base_plate",
+    )
+    base_plate["lookdev_role"] = "dark_metal"
+    anchors = modeling._add_bolt_circle(
+        "SUM_KUKA_KR210_BaseAnchor",
+        (0.0, 0.0, 0.145),
+        (0.0, 0.0, 1.0),
+        0.49,
+        0.026,
+        0.060,
+        12,
+        collection,
+        parent=root,
+        material=materials["machined_steel"],
+    )
+    for anchor in anchors:
+        anchor["lookdev_role"] = "brushed_metal"
+        anchor["fastener_spec"] = "preloaded robot base anchor with hardened washer"
+
+    service_box = modeling._box(
+        "SUM_KUKA_KR210_BaseServiceJunction",
+        (0.32, 0.24, 0.38),
+        collection,
+        location=(-0.61, -0.36, 0.31),
+        parent=root,
+        material=materials["paint_graphite"],
+        bevel=0.028,
+        role="robot_base_power_io_service_junction",
+    )
+    service_box["lookdev_role"] = "powder_coat"
+    service_box["interfaces"] = "motor power, resolver, safety I/O, tool air"
+
+    connectors = []
+    for index, (y, radius) in enumerate(((-0.425, 0.030), (-0.355, 0.026), (-0.285, 0.022)), start=1):
+        connector = modeling._cylinder_between(
+            f"SUM_KUKA_KR210_BaseServiceConnector_{index:02d}",
+            (-0.785, y, 0.25),
+            (-0.825, y, 0.25),
+            radius,
+            collection,
+            parent=root,
+            material=materials["black_oxide"],
+            segments=24,
+            bevel=0.003,
+            role="sealed_robot_service_connector",
+        )
+        connector["lookdev_role"] = "dark_metal"
+        connectors.append(connector)
+
+    service_loom = modeling._bezier_tube(
+        "SUM_KUKA_KR210_BaseServiceLoom",
+        [
+            (-0.78, -0.36, 0.25),
+            (-0.68, -0.28, 0.21),
+            (-0.45, -0.22, 0.19),
+            (-0.24, -0.15, 0.22),
+            (-0.08, -0.05, 0.31),
+        ],
+        0.032,
+        collection,
+        parent=root,
+        material=materials["rubber"],
+        role="robot_base_power_and_feedback_loom",
+        resolution=10,
+    )
+    service_loom["lookdev_role"] = "rubber"
+
+    regulator_body = modeling._cylinder(
+        "SUM_KUKA_KR210_ToolAirRegulatorBody",
+        0.052,
+        0.17,
+        collection,
+        location=(-0.52, -0.49, 0.55),
+        parent=root,
+        material=materials["brushed_steel"],
+        segments=32,
+        bevel=0.006,
+        role="robot_tool_air_filter_regulator",
+    )
+    regulator_body["lookdev_role"] = "brushed_metal"
+    bowl = modeling._cylinder(
+        "SUM_KUKA_KR210_ToolAirFilterBowl",
+        0.045,
+        0.12,
+        collection,
+        location=(-0.52, -0.49, 0.405),
+        parent=root,
+        material=materials["safety_glass"],
+        segments=32,
+        bevel=0.006,
+        role="robot_tool_air_filter_bowl",
+    )
+    bowl["lookdev_role"] = "safety_glass"
+    air_line = modeling._bezier_tube(
+        "SUM_KUKA_KR210_BaseToolAirLine",
+        [
+            (-0.52, -0.49, 0.64),
+            (-0.43, -0.43, 0.69),
+            (-0.31, -0.34, 0.62),
+            (-0.22, -0.25, 0.52),
+        ],
+        0.014,
+        collection,
+        parent=root,
+        material=materials["rubber"],
+        role="robot_filtered_tool_air_line",
+        resolution=8,
+    )
+    air_line["lookdev_role"] = "rubber"
+
+    return {
+        "grout_pad": grout_pad,
+        "base_plate": base_plate,
+        "anchors": anchors,
+        "service_box": service_box,
+        "connectors": connectors,
+        "regulator": regulator_body,
+    }
 
 
 def replace_robot(assets: dict[str, Any]) -> dict[str, Any]:
@@ -671,6 +860,7 @@ def replace_robot(assets: dict[str, Any]) -> dict[str, Any]:
     tcp["sum_part_role"] = "robot_tcp"
     gripper = _build_end_effector(tcp, collection, materials)
     _build_dress_pack(root, joints, collection, materials)
+    base_interfaces = _build_base_service_interfaces(root, collection, materials)
 
     triangle_count = sum(int(link.get("triangle_count", 0)) for link in links)
     root["visual_mesh_triangles"] = triangle_count
@@ -685,6 +875,7 @@ def replace_robot(assets: dict[str, Any]) -> dict[str, Any]:
     assets["handoff_anchor"] = tcp
     assets["mechanical_arm_handoff"] = tcp
     assets["kuka_gripper"] = gripper
+    assets["kuka_base_interfaces"] = base_interfaces
     assets["kuka_visual_links"] = links
     assets.setdefault("anchors", {})["robot_handoff"] = tcp
     assets["anchors"]["robot"] = tcp

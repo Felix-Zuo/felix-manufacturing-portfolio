@@ -1,8 +1,9 @@
-"""Shot lighting and grade for the V6 industrial FPV master."""
+"""Shot lighting and material-readable grade for the V7 industrial FPV master."""
 
 from __future__ import annotations
 
 import math
+import json
 from typing import Any
 
 import bpy
@@ -127,6 +128,9 @@ def _area_light(
     _aim_at(obj, _film(target))
     obj["sum_asset_type"] = "cinematic_industrial_area_light"
     obj["lighting_policy"] = "localized practical motivated light pool"
+    obj["sum_light_energy_w"] = energy
+    obj["sum_light_size_m"] = [size, size_y]
+    obj["sum_light_target_world"] = list(_film(target))
     return obj
 
 
@@ -140,15 +144,17 @@ def _sun(collection: bpy.types.Collection) -> bpy.types.Object:
     collection.objects.link(obj)
     obj.rotation_euler = (math.radians(28.0), math.radians(-12.0), math.radians(-32.0))
     obj["sum_asset_type"] = "cool_skylight_directional_source"
+    obj["sum_light_energy"] = data.energy
+    obj["sum_light_angular_size_degrees"] = 7.0
     return obj
 
 
 def _grade_existing_rig(scene: bpy.types.Scene) -> None:
     energy_scales = {
-        "LD_Key_Softbox": 0.42,
-        "LD_Fill_Softbox": 0.16,
-        "LD_Rim_Strip": 0.70,
-        "LD_Top_Softbox": 0.28,
+        "LD_Key_Softbox": 0.62,
+        "LD_Fill_Softbox": 0.34,
+        "LD_Rim_Strip": 0.78,
+        "LD_Top_Softbox": 0.52,
     }
     for name, scale in energy_scales.items():
         light = bpy.data.objects.get(name)
@@ -157,12 +163,12 @@ def _grade_existing_rig(scene: bpy.types.Scene) -> None:
 
     for light in scene.objects:
         if light.name.startswith("LD_Ceiling_Panel_"):
-            _set_light_energy(light, 0.32)
+            _set_light_energy(light, 0.56)
 
-    scene.view_settings.exposure = -0.62
+    scene.view_settings.exposure = -0.12
     scene.view_settings.gamma = 1.0
     scene["fpv_grade"] = "AgX medium-high contrast, cool daylight, restrained amber"
-    scene["fpv_global_fill_scale"] = 0.28
+    scene["fpv_global_fill_scale"] = 0.34
 
     world = scene.world
     if world is not None and world.use_nodes and world.node_tree is not None:
@@ -172,7 +178,7 @@ def _grade_existing_rig(scene: bpy.types.Scene) -> None:
         )
         if background is not None:
             background.inputs["Color"].default_value = (0.10, 0.13, 0.17, 1.0)
-            background.inputs["Strength"].default_value = 0.12
+            background.inputs["Strength"].default_value = 0.11
 
 
 def augment_fpv_lighting(assets: dict[str, Any]) -> dict[str, Any]:
@@ -183,14 +189,11 @@ def augment_fpv_lighting(assets: dict[str, Any]) -> dict[str, Any]:
     scene = bpy.context.scene
     collection = _reset_collection()
 
-    _set_material_color("LD_Clean_Powder_Coat", (0.16, 0.19, 0.22, 1.0))
-    _set_material_color("LD_Clean_Architecture", (0.22, 0.25, 0.28, 1.0))
-    _set_material_color("LD_Clean_Industrial_Floor", (0.085, 0.105, 0.125, 1.0))
-    _set_material_color("LD_Steel_Blue_Structure", (0.045, 0.075, 0.115, 1.0))
-    _set_material_color("LD_Grinding_Workpiece_Steel", (0.12, 0.14, 0.155, 1.0))
-    _set_material_scalar("LD_Clean_Powder_Coat", ("Roughness",), 0.38)
-    _set_material_scalar("LD_Clean_Industrial_Floor", ("Roughness",), 0.48)
-    _set_material_scalar("LD_Grinding_Workpiece_Steel", ("Roughness",), 0.20)
+    _set_material_color("LD_Clean_Powder_Coat", (0.21, 0.23, 0.25, 1.0))
+    _set_material_color("LD_Clean_Architecture", (0.34, 0.36, 0.38, 1.0))
+    _set_material_color("LD_Clean_Industrial_Floor", (0.12, 0.13, 0.14, 1.0))
+    _set_material_color("LD_Steel_Blue_Structure", (0.055, 0.080, 0.105, 1.0))
+    _set_material_color("LD_Grinding_Workpiece_Steel", (0.17, 0.18, 0.19, 1.0))
     _grade_abrasive()
     _grade_existing_rig(scene)
 
@@ -200,47 +203,67 @@ def augment_fpv_lighting(assets: dict[str, Any]) -> dict[str, Any]:
             _area_light(
                 collection,
                 "CIN_Bearing_Key",
-                (-1.2, 6.8, 5.6),
-                (-3.7, 8.0, 1.25),
+                (-1.2, 4.2, 4.8),
+                (0.0, 4.8, 0.85),
                 color=(0.72, 0.84, 1.0),
-                energy=320.0,
+                energy=120.0,
                 size=3.2,
                 size_y=2.0,
             ),
             _area_light(
                 collection,
                 "CIN_Robot_Rim",
-                (2.4, 12.0, 5.8),
-                (-3.2, 10.7, 1.65),
+                (2.4, 10.6, 4.7),
+                (-0.8, 10.4, 1.45),
                 color=(1.0, 0.68, 0.38),
-                energy=250.0,
+                energy=215.0,
                 size=3.6,
                 size_y=1.2,
             ),
             _area_light(
                 collection,
                 "CIN_Grinding_Inspection",
-                (3.4, 25.8, 3.45),
-                (5.57, 25.88, 1.82),
+                (1.85, 14.30, 3.20),
+                (3.02, 15.08, 1.82),
                 color=(0.70, 0.86, 1.0),
-                energy=380.0,
+                energy=560.0,
                 size=1.25,
                 size_y=0.75,
             ),
             _area_light(
                 collection,
                 "CIN_Grinding_WarmEdge",
-                (6.7, 25.2, 3.0),
-                (5.57, 25.88, 1.82),
+                (4.65, 14.65, 2.85),
+                (3.02, 15.08, 1.82),
                 color=(1.0, 0.46, 0.18),
-                energy=145.0,
+                energy=165.0,
                 size=1.0,
                 size_y=0.55,
+            ),
+            _area_light(
+                collection,
+                "CIN_Grinding_SoftFill",
+                (2.55, 15.75, 3.65),
+                (3.02, 15.08, 1.72),
+                color=(0.78, 0.88, 1.0),
+                energy=260.0,
+                size=2.8,
+                size_y=1.5,
+            ),
+            _area_light(
+                collection,
+                "CIN_UtilityTray_Rake",
+                (1.0, 22.0, 4.6),
+                (-1.0, 24.0, 1.4),
+                color=(0.72, 0.84, 1.0),
+                energy=240.0,
+                size=8.0,
+                size_y=1.1,
             ),
         )
     )
 
-    for index, travel in enumerate((43.0, 66.0, 89.0, 112.0, 133.0), start=1):
+    for index, travel in enumerate((4.0, 9.5, 15.0, 20.0, 25.0, 30.0, 34.0), start=1):
         lights.append(
             _area_light(
                 collection,
@@ -248,7 +271,7 @@ def augment_fpv_lighting(assets: dict[str, Any]) -> dict[str, Any]:
                 (0.0, travel, 7.05),
                 (0.0, travel + 4.0, 0.6),
                 color=(0.76, 0.86, 1.0),
-                energy=180.0,
+                energy=245.0,
                 size=7.0,
                 size_y=2.4,
             )
@@ -256,6 +279,22 @@ def augment_fpv_lighting(assets: dict[str, Any]) -> dict[str, Any]:
 
     scene["fpv_lighting_build_interface"] = (
         "production.blender.fpv_lighting.augment_fpv_lighting"
+    )
+    scene["sum_material_readability_lighting"] = json.dumps(
+        {
+            "grade": "AgX medium-high contrast",
+            "exposure": float(scene.view_settings.exposure),
+            "white_field_policy": "no broad clipping; practical-motivated soft sources",
+            "material_priorities": [
+                "brushed steel directional highlights",
+                "powder coat grazing response",
+                "galvanized utility tray edge response",
+                "CBN and coolant separation",
+            ],
+            "authored_light_count": len(lights),
+        },
+        separators=(",", ":"),
+        ensure_ascii=True,
     )
     assets["fpv_lighting_collection"] = collection
     assets["fpv_lights"] = lights

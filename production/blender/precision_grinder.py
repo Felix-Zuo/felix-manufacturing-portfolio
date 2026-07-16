@@ -12,6 +12,7 @@ from mathutils import Vector
 import modeling
 
 
+MODEL_COLLECTION = "SUM_MODEL_PrecisionGrinderDetail"
 _RACEWAY_CONTACT_RADIUS = 0.096
 _WHEEL_CENTER_RADIUS = 0.041
 _WHEEL_RADIAL_OFFSET = _RACEWAY_CONTACT_RADIUS - _WHEEL_CENTER_RADIUS
@@ -27,6 +28,29 @@ def _tag(obj: bpy.types.Object, role: str, detail: str) -> bpy.types.Object:
     obj["sum_quality_level"] = "production"
     obj["sum_design_detail"] = detail
     return obj
+
+
+def _reset_detail_collection(
+    parent: bpy.types.Collection,
+) -> bpy.types.Collection:
+    """Replace only the generated grinder-detail collection."""
+
+    existing = bpy.data.collections.get(MODEL_COLLECTION)
+    if existing is not None:
+        owned_data = [
+            obj.data
+            for obj in existing.all_objects
+            if getattr(obj, "data", None) is not None
+        ]
+        modeling._remove_collection_tree(existing)
+        for datablock in owned_data:
+            if datablock.users != 0:
+                continue
+            if isinstance(datablock, bpy.types.Mesh):
+                bpy.data.meshes.remove(datablock)
+            elif isinstance(datablock, bpy.types.Curve):
+                bpy.data.curves.remove(datablock)
+    return modeling._child_collection(parent, MODEL_COLLECTION)
 
 
 def _raceway_ring_geometry(
@@ -139,6 +163,9 @@ def _rebuild_raceway_workpiece(
         bpy.data.meshes.remove(previous)
     for polygon in replacement.polygons:
         polygon.use_smooth = True
+    for modifier in list(workpiece.modifiers):
+        if modifier.name.startswith(("SUM_Bevel", "SUM_WeightedNormals")):
+            workpiece.modifiers.remove(modifier)
     modeling._hard_surface(workpiece, 0.0012, segments=3, smooth=True)
     _tag(
         workpiece,
@@ -279,15 +306,15 @@ def _cbn_grain_geometry() -> tuple[
     vertices: list[tuple[float, float, float]] = []
     faces: list[tuple[int, ...]] = []
 
-    for _ in range(360):
+    for _ in range(240):
         angle = rng.uniform(0.0, math.tau)
         axial = rng.uniform(-_WHEEL_HALF_WIDTH * 0.92, _WHEEL_HALF_WIDTH * 0.92)
         normal = Vector((math.cos(angle), math.sin(angle), 0.0))
         tangent = Vector((-math.sin(angle), math.cos(angle), 0.0))
         axis = Vector((0.0, 0.0, 1.0))
-        center = normal * (_wheel_profile_radius(axial) - rng.uniform(0.00005, 0.00028))
+        center = normal * (_wheel_profile_radius(axial) - rng.uniform(0.00002, 0.00007))
         center.z = axial
-        size = rng.uniform(0.00024, 0.00048)
+        size = rng.uniform(0.00006, 0.00013)
         _append_crystal(
             vertices,
             faces,
@@ -296,19 +323,19 @@ def _cbn_grain_geometry() -> tuple[
             axis,
             normal,
             size,
-            rng.uniform(0.00030, 0.00072),
+            rng.uniform(0.00004, 0.00011),
         )
 
     for side in (-1.0, 1.0):
         normal = Vector((0.0, 0.0, side))
-        for _ in range(72):
+        for _ in range(48):
             angle = rng.uniform(0.0, math.tau)
             radius = rng.uniform(_WHEEL_BOND_RADIUS + 0.0005, _WHEEL_EDGE_RADIUS - 0.0004)
             radial = Vector((math.cos(angle), math.sin(angle), 0.0))
             tangent = Vector((-math.sin(angle), math.cos(angle), 0.0))
             center = radial * radius
             center.z = side * _WHEEL_HALF_WIDTH
-            size = rng.uniform(0.00022, 0.00042)
+            size = rng.uniform(0.00005, 0.00011)
             _append_crystal(
                 vertices,
                 faces,
@@ -317,7 +344,7 @@ def _cbn_grain_geometry() -> tuple[
                 tangent,
                 normal,
                 size,
-                rng.uniform(0.00025, 0.00058),
+                rng.uniform(0.000035, 0.00010),
             )
     return vertices, faces
 
@@ -369,8 +396,36 @@ def _build_cbn_wheel_detail(
         smooth=False,
     )
     _tag(grains, "abrasive_grain", "partially_exposed_faceted_cbn_grains")
-    grains["modeled_grain_count"] = 504
-    grains["visual_scale_note"] = "sub-millimetre grains, slightly enlarged for hero readability"
+    grains["modeled_grain_count"] = 336
+    grains["visual_scale_note"] = "B76-B126 scale silhouette grains; dense body texture is shader-driven"
+
+    hub = modeling._cylinder(
+        "SUM_GrindingCell_CBN_PrecisionArborHub",
+        0.021,
+        0.038,
+        collection,
+        parent=wheel_root,
+        material=materials["machined_steel"],
+        segments=72,
+        bevel=0.0012,
+        role="balanced_cbn_wheel_arbor_hub",
+    )
+    _tag(hub, "brushed_metal", "balanced_cbn_wheel_arbor_hub")
+    flanges = []
+    for side in (-1.0, 1.0):
+        flange = modeling._cylinder(
+            f"SUM_GrindingCell_CBN_SideFlange_{'A' if side < 0 else 'B'}",
+            0.032,
+            0.0028,
+            collection,
+            location=(0.0, 0.0, side * 0.0154),
+            parent=wheel_root,
+            material=materials["black_oxide"],
+            segments=72,
+            bevel=0.0005,
+            role="cbn_wheel_side_retention_flange",
+        )
+        flanges.append(_tag(flange, "dark_metal", "cbn_wheel_side_retention_flange"))
 
     wheel_root["abrasive_layer_thickness_center_m"] = (
         _WHEEL_CENTER_RADIUS - _WHEEL_BOND_RADIUS
@@ -379,7 +434,13 @@ def _build_cbn_wheel_detail(
         _WHEEL_EDGE_RADIUS - _WHEEL_BOND_RADIUS
     )
     wheel_root["abrasive_profile"] = "convex dressed raceway profile"
-    return {"bond": bond, "shell": shell, "grains": grains}
+    return {
+        "bond": bond,
+        "shell": shell,
+        "grains": grains,
+        "hub": hub,
+        "flanges": flanges,
+    }
 
 
 def _exclude_old_doors() -> None:
@@ -394,7 +455,10 @@ def _exclude_old_doors() -> None:
 
 def _exclude_replaced_process_proxies() -> None:
     replaced_names = {
-        "SUM_GrindingCell_ThreeJawChuck": "precision faceplate and stepped soft jaws",
+        "SUM_GrindingCell_Workhead_Housing": "compact production workhead behind the shoe-supported ring",
+        "SUM_GrindingCell_WorkSpindle_Nose": "low-profile magnetic drive plate and axial locators",
+        "SUM_GrindingCell_ThreeJawChuck": "shoe support and regulating drive roller",
+        "SUM_GrindingCell_Workholding_BackupFlange": "low-profile magnetic drive plate",
         "SUM_GrindingCell_GrindingSpindle_Housing": "liquid-cooled spindle motor assembly",
         "SUM_GrindingCell_GrindingSpindle_Shaft": "short taper arbor and wheel hub",
     }
@@ -500,6 +564,191 @@ def _build_sliding_door(
     for roller in rollers:
         _tag(roller, "dark_metal", "enclosed_sliding_door_roller")
     return door
+
+
+def _build_enclosure_service_detail(
+    cell_root: bpy.types.Object,
+    collection: bpy.types.Collection,
+    materials: dict[str, bpy.types.Material],
+) -> dict[str, bpy.types.Object]:
+    """Add restrained production hardware around the grinding enclosure."""
+
+    rear_panels = []
+    for side in (-1.0, 1.0):
+        rear_panels.append(((-1.625, side * 0.88, 2.03), (0.040, 1.55, 3.32)))
+    service_doors = modeling._box_array(
+        "SUM_GrindingCell_RearServiceAccessDoors",
+        rear_panels,
+        collection,
+        parent=cell_root,
+        material=materials["enclosure_paint"],
+        bevel=0.012,
+        role="flush_rear_machine_service_access_doors",
+    )
+    _tag(service_doors, "powder_coat", "flush_rear_machine_service_access_doors")
+
+    seams = modeling._box_array(
+        "SUM_GrindingCell_RearServiceDoorReveals",
+        [
+            ((-1.652, 0.0, 2.03), (0.022, 0.030, 3.18)),
+            ((-1.652, -1.68, 2.03), (0.022, 0.030, 3.18)),
+            ((-1.652, 1.68, 2.03), (0.022, 0.030, 3.18)),
+            ((-1.652, 0.0, 0.42), (0.022, 3.38, 0.030)),
+            ((-1.652, 0.0, 3.64), (0.022, 3.38, 0.030)),
+        ],
+        collection,
+        parent=cell_root,
+        material=materials["black_oxide"],
+        bevel=0.003,
+        role="rear_service_door_compression_reveals",
+    )
+    _tag(seams, "dark_metal", "rear_service_door_compression_reveals")
+
+    fastener_boxes = []
+    for y in (-1.56, -0.88, -0.20, 0.20, 0.88, 1.56):
+        for z in (0.52, 1.50, 2.52, 3.52):
+            fastener_boxes.append(((-1.680, y, z), (0.022, 0.034, 0.034)))
+    fasteners = modeling._box_array(
+        "SUM_GrindingCell_RearServiceDoorFasteners",
+        fastener_boxes,
+        collection,
+        parent=cell_root,
+        material=materials["machined_steel"],
+        bevel=0.002,
+        role="captive_rear_service_door_fasteners",
+    )
+    _tag(fasteners, "brushed_metal", "captive_rear_service_door_fasteners")
+
+    console = modeling._empty(
+        "SUM_GrindingCell_IntegratedOperatorConsole",
+        collection,
+        parent=cell_root,
+        display_size=0.10,
+    )
+    console["sum_asset_type"] = "integrated_cnc_grinder_operator_panel"
+    housing = modeling._box(
+        "SUM_GrindingCell_OperatorConsoleHousing",
+        (0.34, 0.84, 1.22),
+        collection,
+        location=(1.78, -2.67, 2.18),
+        parent=console,
+        material=materials["paint_graphite"],
+        bevel=0.045,
+        role="sealed_cnc_operator_console_housing",
+    )
+    _tag(housing, "powder_coat", "sealed_cnc_operator_console_housing")
+    screen = modeling._box(
+        "SUM_GrindingCell_OperatorConsoleDisplay",
+        (0.030, 0.62, 0.42),
+        collection,
+        location=(1.966, -2.67, 2.40),
+        parent=console,
+        material=materials["screen_content"],
+        bevel=0.012,
+        role="sealed_cnc_process_hmi_display",
+    )
+    _tag(screen, "screen_glass", "sealed_cnc_process_hmi_display")
+    keypad_boxes = []
+    for row in range(3):
+        for column in range(5):
+            keypad_boxes.append(
+                ((1.972, -2.87 + column * 0.10, 2.00 + row * 0.085), (0.022, 0.060, 0.045))
+            )
+    keypad = modeling._box_array(
+        "SUM_GrindingCell_OperatorConsoleKeypad",
+        keypad_boxes,
+        collection,
+        parent=console,
+        material=materials["screen_frame"],
+        bevel=0.006,
+        role="sealed_cnc_membrane_keypad",
+    )
+    _tag(keypad, "screen_glass", "sealed_cnc_membrane_keypad")
+    e_stop = modeling._cylinder(
+        "SUM_GrindingCell_OperatorConsoleEmergencyStop",
+        0.065,
+        0.065,
+        collection,
+        location=(1.985, -2.36, 1.86),
+        rotation=(0.0, math.pi * 0.5, 0.0),
+        parent=console,
+        material=materials["indicator_red"],
+        segments=28,
+        bevel=0.006,
+        role="guarded_operator_console_emergency_stop",
+    )
+    _tag(e_stop, "amber_signal", "guarded_operator_console_emergency_stop")
+    warning = modeling._box(
+        "SUM_GrindingCell_OperatorConsoleWheelHazardPlate",
+        (0.026, 0.30, 0.23),
+        collection,
+        location=(1.982, -2.67, 1.65),
+        parent=console,
+        material=materials["safety_yellow"],
+        bevel=0.010,
+        role="abrasive_wheel_hazard_identification_plate",
+    )
+    _tag(warning, "safety_yellow", "abrasive_wheel_hazard_identification_plate")
+
+    feet = []
+    for x in (-1.30, 1.30):
+        for y in (-2.20, 2.20):
+            foot = modeling._cylinder(
+                f"SUM_GrindingCell_LevelingMount_{'R' if x > 0 else 'L'}_{'B' if y > 0 else 'A'}",
+                0.13,
+                0.075,
+                collection,
+                location=(x, y, 0.075),
+                parent=cell_root,
+                material=materials["black_oxide"],
+                segments=36,
+                bevel=0.008,
+                role="machine_anti_vibration_leveling_mount",
+            )
+            feet.append(_tag(foot, "dark_metal", "machine_anti_vibration_leveling_mount"))
+
+    coolant_return = modeling._bezier_tube(
+        "SUM_GrindingCell_FilteredCoolantReturnLine",
+        [
+            (-0.55, 1.42, 0.68),
+            (-0.88, 1.82, 0.60),
+            (-1.34, 2.10, 0.54),
+            (-1.62, 2.22, 0.48),
+        ],
+        0.055,
+        collection,
+        parent=cell_root,
+        material=materials["rubber"],
+        role="filtered_grinding_coolant_return_hose",
+        resolution=10,
+    )
+    _tag(
+        coolant_return,
+        "rubber",
+        "filtered_grinding_coolant_return_hose_to_central_manifold",
+    )
+    drain_flange = modeling._cylinder_between(
+        "SUM_GrindingCell_CoolantReturnFloorFlange",
+        (-1.62, 2.22, 0.42),
+        (-1.62, 2.22, 0.54),
+        0.090,
+        collection,
+        parent=cell_root,
+        material=materials["black_oxide"],
+        segments=36,
+        bevel=0.006,
+        role="coolant_return_service_flange",
+    )
+    _tag(drain_flange, "dark_metal", "coolant_return_service_flange")
+
+    return {
+        "service_doors": service_doors,
+        "fasteners": fasteners,
+        "console": console,
+        "screen": screen,
+        "leveling_mounts": feet,
+        "coolant_return": coolant_return,
+    }
 
 
 def _build_process_chamber(
@@ -630,7 +879,7 @@ def _build_b_axis_and_workhead(
     root: bpy.types.Object,
     collection: bpy.types.Collection,
     materials: dict[str, bpy.types.Material],
-) -> None:
+) -> dict[str, bpy.types.Object]:
     dark = materials["paint_graphite"]
     steel = materials["machined_steel"]
     brushed = materials["brushed_steel"]
@@ -673,7 +922,7 @@ def _build_b_axis_and_workhead(
     )
     _tag(scale_ring, "brushed_metal", "b_axis_optical_encoder_scale_ring")
 
-    for index, x in enumerate((-1.10, -0.94, -0.78, -0.62), start=1):
+    for index, x in enumerate((-0.62, -0.78, -0.94, -1.10), start=1):
         fin = modeling._torus(
             f"SUM_GrindingCell_Workhead_CoolingFin_{index:02d}",
             0.305,
@@ -691,8 +940,8 @@ def _build_b_axis_and_workhead(
 
     bearing_cartridge = modeling._cylinder_between(
         "SUM_GrindingCell_Workhead_BearingCartridge",
-        (-0.44, 0.0, 1.82),
         (-0.18, 0.0, 1.82),
+        (-0.44, 0.0, 1.82),
         0.155,
         collection,
         parent=root,
@@ -704,8 +953,8 @@ def _build_b_axis_and_workhead(
     _tag(bearing_cartridge, "brushed_metal", "precision_workhead_bearing_cartridge")
     service_cap = modeling._cylinder_between(
         "SUM_GrindingCell_Workhead_ServiceCap",
-        (-1.28, 0.0, 1.82),
         (-1.18, 0.0, 1.82),
+        (-1.28, 0.0, 1.82),
         0.245,
         collection,
         parent=root,
@@ -716,63 +965,115 @@ def _build_b_axis_and_workhead(
     )
     _tag(service_cap, "dark_metal", "workhead_rear_service_cap")
 
-    faceplate = modeling._annular_prism(
-        "SUM_GrindingCell_ChuckPrecisionFaceplate",
-        0.225,
-        0.052,
-        0.040,
+    drive_plate = modeling._cylinder_between(
+        "SUM_GrindingCell_WorkpieceMagneticDrivePlate",
+        (-0.035, 0.0, 1.82),
+        (-0.085, 0.0, 1.82),
+        0.122,
         collection,
-        location=(-0.005, 0.0, 1.82),
-        rotation=(0.0, math.pi * 0.5, 0.0),
         parent=root,
         material=dark,
         segments=96,
         bevel=0.004,
-        role="precision_chuck_faceplate",
+        role="low_profile_magnetic_workpiece_drive_plate",
     )
-    _tag(faceplate, "dark_metal", "precision_chuck_faceplate")
+    _tag(drive_plate, "dark_metal", "low_profile_magnetic_workpiece_drive_plate")
     bolts = modeling._add_bolt_circle(
-        "SUM_GrindingCell_ChuckFaceplate",
-        (-0.028, 0.0, 1.82),
-        (1.0, 0.0, 0.0),
-        0.172,
-        0.010,
-        0.030,
-        12,
+        "SUM_GrindingCell_DrivePlate",
+        (-0.090, 0.0, 1.82),
+        (-1.0, 0.0, 0.0),
+        0.084,
+        0.006,
+        0.018,
+        8,
         collection,
         parent=root,
         material=steel,
     )
     for bolt in bolts:
-        _tag(bolt, "brushed_metal", "chuck_faceplate_fastener")
+        _tag(bolt, "brushed_metal", "magnetic_drive_plate_fastener")
 
-    jaw_parts = []
-    for index in range(3):
-        angle = math.radians(60.0) + math.tau * index / 3.0
-        radial_y = math.cos(angle)
-        radial_z = math.sin(angle)
-        jaw_parts.extend(
-            (
-                (
-                    (0.075, radial_y * 0.178, 1.82 + radial_z * 0.178),
-                    (0.11, 0.055, 0.055),
-                ),
-                (
-                    (0.115, radial_y * 0.158, 1.82 + radial_z * 0.158),
-                    (0.082, 0.042, 0.042),
-                ),
-            )
+    for index, angle_degrees in enumerate((215.0, 325.0), start=1):
+        angle = math.radians(angle_degrees)
+        shoe_root = modeling._empty(
+            f"SUM_GrindingCell_SupportShoe_{index:02d}_Frame",
+            collection,
+            location=(0.0, 0.0, 1.82),
+            rotation=(angle, 0.0, 0.0),
+            parent=root,
+            display_size=0.035,
         )
-    stepped_jaws = modeling._box_array(
-        "SUM_GrindingCell_SteppedSoftJaws",
-        jaw_parts,
+        shoe_root["sum_part_role"] = "hydrostatic_outer_ring_support_shoe_frame"
+        shoe_base = modeling._box(
+            f"SUM_GrindingCell_SupportShoe_{index:02d}_Body",
+            (0.16, 0.090, 0.11),
+            collection,
+            location=(-0.030, 0.115, 0.0),
+            parent=shoe_root,
+            material=steel,
+            bevel=0.012,
+            role="precision_outer_ring_support_shoe_body",
+        )
+        _tag(shoe_base, "brushed_metal", "precision_outer_ring_support_shoe_body")
+        contact_insert = modeling._box(
+            f"SUM_GrindingCell_SupportShoe_{index:02d}_CarbideInsert",
+            (0.090, 0.026, 0.070),
+            collection,
+            location=(-0.078, 0.132, 0.0),
+            parent=shoe_root,
+            material=materials["black_oxide"],
+            bevel=0.008,
+            role="replaceable_carbide_support_shoe_insert",
+        )
+        _tag(contact_insert, "dark_metal", "replaceable_carbide_support_shoe_insert")
+
+    drive_roller = modeling._cylinder_between(
+        "SUM_GrindingCell_RubberizedDriveRoller",
+        (-0.015, 0.0, 1.994),
+        (-0.145, 0.0, 1.994),
+        0.052,
         collection,
         parent=root,
-        material=steel,
+        material=materials["rubber"],
+        segments=64,
         bevel=0.006,
-        role="stepped_soft_jaws_for_inner_ring",
+        role="rubberized_outer_ring_drive_roller",
     )
-    _tag(stepped_jaws, "brushed_metal", "stepped_soft_jaws_for_inner_ring")
+    _tag(drive_roller, "rubber", "rubberized_outer_ring_drive_roller")
+    drive_motor = modeling._cylinder_between(
+        "SUM_GrindingCell_DriveRollerServo",
+        (-0.145, 0.0, 1.994),
+        (-0.350, 0.0, 1.994),
+        0.068,
+        collection,
+        parent=root,
+        material=dark,
+        segments=56,
+        bevel=0.010,
+        role="direct_drive_workpiece_regulating_servo",
+    )
+    _tag(drive_motor, "powder_coat", "direct_drive_workpiece_regulating_servo")
+
+    for index in range(3):
+        angle = math.tau * index / 3.0
+        locating_button = modeling._cylinder_between(
+            f"SUM_GrindingCell_AxialLocatingButton_{index + 1:02d}",
+            (-0.012, math.cos(angle) * 0.086, 1.82 + math.sin(angle) * 0.086),
+            (0.030, math.cos(angle) * 0.086, 1.82 + math.sin(angle) * 0.086),
+            0.012,
+            collection,
+            parent=root,
+            material=materials["black_oxide"],
+            segments=32,
+            bevel=0.002,
+            role="three_point_axial_workpiece_location_button",
+        )
+        _tag(
+            locating_button,
+            "dark_metal",
+            "three_point_axial_workpiece_location_button",
+        )
+    return {"drive_plate": drive_plate, "drive_roller": drive_roller}
 
 def _build_grinding_slide(
     root: bpy.types.Object,
@@ -1005,12 +1306,12 @@ def _build_coolant_and_dressing(
         (
             ((0.58, -0.52, 2.20), (0.44, -0.34, 2.13), (0.26, -0.22, 2.03)),
             (0.14, -0.09, 1.96),
-            0.0045,
+            0.0080,
         ),
         (
             ((0.58, -0.48, 2.16), (0.43, -0.08, 1.98), (0.24, 0.12, 1.93)),
             (0.13, 0.11, 1.91),
-            0.0036,
+            0.0060,
         ),
     )
     for index, (points, nozzle_tip, jet_radius) in enumerate(
@@ -1115,9 +1416,7 @@ def augment_grinder(assets: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(root_collection, bpy.types.Collection):
         raise TypeError("assets must provide root_collection")
 
-    collection = modeling._child_collection(
-        root_collection, "SUM_MODEL_PrecisionGrinderDetail"
-    )
+    collection = _reset_detail_collection(root_collection)
     _exclude_old_doors()
     _exclude_replaced_process_proxies()
     workhead_housing = bpy.data.objects.get("SUM_GrindingCell_Workhead_Housing")
@@ -1125,6 +1424,11 @@ def augment_grinder(assets: dict[str, Any]) -> dict[str, Any]:
         _tag(workhead_housing, "dark_metal", "sealed_workhead_motor_housing")
     left_door = _build_sliding_door(-1, cell, collection, materials)
     right_door = _build_sliding_door(1, cell, collection, materials)
+    enclosure_detail = _build_enclosure_service_detail(
+        cell,
+        collection,
+        materials,
+    )
 
     detail_root = modeling._empty(
         "SUM_ASSET_InternalGrindingProcessDetail",
@@ -1135,9 +1439,10 @@ def augment_grinder(assets: dict[str, Any]) -> dict[str, Any]:
     detail_root["sum_asset_type"] = "production_internal_raceway_grinding_process"
     detail_root["verified_process_axis"] = "horizontal X work and wheel spindle axes"
     detail_root["verified_contact"] = "small CBN wheel enters bore at radial offset"
+    detail_root["verified_workholding"] = "shoe-supported outer ring with regulating drive roller and axial locators"
     detail_root["detail_gate"] = (
-        "B-axis, workhead, faceplate, stepped jaws, profiled raceway, "
-        "layered CBN wheel, exposed grains, linear guides, bellows, servo, "
+        "workhead, magnetic drive plate, support shoes, profiled raceway, "
+        "layered CBN wheel, micro-grain surface, linear guides, bellows, servo, "
         "dresser, coolant jets, inspection camera"
     )
     chamber_root = modeling._empty(
@@ -1159,7 +1464,7 @@ def augment_grinder(assets: dict[str, Any]) -> dict[str, Any]:
     )
     wheel_detail = _build_cbn_wheel_detail(wheel_root, collection, materials)
     _build_process_chamber(chamber_root, collection, materials)
-    _build_b_axis_and_workhead(detail_root, collection, materials)
+    workholding = _build_b_axis_and_workhead(detail_root, collection, materials)
     _build_grinding_slide(detail_root, collection, materials)
     _build_coolant_and_dressing(detail_root, collection, materials)
 
@@ -1169,6 +1474,9 @@ def augment_grinder(assets: dict[str, Any]) -> dict[str, Any]:
     assets["grinder_chamber"] = chamber_root
     assets["grinding_raceway_band"] = raceway_band
     assets["grinding_wheel_detail"] = wheel_detail
+    assets["grinding_drive_plate"] = workholding["drive_plate"]
+    assets["grinding_drive_roller"] = workholding["drive_roller"]
+    assets["grinder_enclosure_detail"] = enclosure_detail
     assets["grinding_contact_point_local"] = tuple(_CONTACT_POINT)
     assets["grinder_doors"] = (left_door, right_door)
     assets.setdefault("collections", {})["precision_grinder"] = collection

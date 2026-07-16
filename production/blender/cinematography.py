@@ -29,27 +29,42 @@ COLLECTION_NAME = "CINEMATOGRAPHY"
 CORRIDOR_WAYPOINT_SECONDS = 14.45
 GRINDING_CLEAR_SECONDS = 13.55
 GRINDING_APPROACH_SECONDS = 10.75
+OVERHEAD_REVEAL_SECONDS = 9.20
+OVERHEAD_LOOK_START_SECONDS = 8.10
+OVERHEAD_LOOK_END_SECONDS = 9.55
 CORRIDOR_GUIDE_START_SECONDS = 14.10
 CORRIDOR_GUIDE_END_SECONDS = 14.85
 TERMINAL_SETTLE_SECONDS = 37.25
+
+OVERHEAD_TRANSFER_ALIASES = (
+    "overhead_transfer_trolley",
+    "overhead_material_trolley",
+    "overhead_material_carrier",
+    "overhead_transfer_gripper",
+    "overhead_gantry_gripper",
+    "gantry_transfer_gripper",
+    "three_jaw_centric_overhead_bearing_gripper",
+    "SUM_ASSET_OverheadTransferTrolley",
+    "SUM_Overhead_MaterialCarrier",
+)
 
 # Screen exits must hand the gaze back to the aisle before the camera passes
 # the bay. Without these forward-looking keys the target briefly fell behind
 # the moving camera, producing accidental full-frame enclosure wipes.
 SCREEN_TRANSITION_LOOKS = (
-    (19.45, (0.0, 63.0, 2.05)),
-    (21.50, (0.0, 70.0, 2.12)),
+    (19.55, (0.0, 63.0, 2.05)),
+    (21.35, (0.75, 71.5, 2.18)),
     (24.55, (0.0, 86.0, 2.05)),
-    (26.55, (0.0, 94.0, 2.12)),
+    (26.35, (-0.75, 95.0, 2.18)),
     (29.55, (0.0, 109.0, 2.08)),
-    (31.35, (0.0, 117.0, 2.14)),
-    (34.70, (0.0, 132.0, 2.12)),
-    (35.55, (0.0, 138.0, 2.32)),
+    (31.25, (0.75, 117.5, 2.18)),
+    (34.70, (0.0, 132.0, 2.14)),
+    (35.45, (0.0, 137.5, 2.34)),
 )
 
 GRINDING_TRANSITION_LOOKS = (
-    (8.35, (0.0, 22.0, 1.82)),
-    (9.85, (0.0, 28.0, 1.86)),
+    (9.72, (0.65, 22.8, 4.10)),
+    (10.35, (3.20, 25.1, 2.55)),
     (10.75, (5.15, 25.88, 1.82)),
 )
 
@@ -58,21 +73,23 @@ GRINDING_TRANSITION_LOOKS = (
 # to inspect. Values are authored in seconds and degrees.
 ROLL_KEYFRAMES = (
     (0.00, 0.0),
-    (3.25, -2.50),
+    (2.80, -0.80),
     (3.75, 0.0),
-    (6.10, 1.75),
+    (6.10, 1.50),
     (7.00, 0.0),
-    (9.15, 2.75),
+    (8.60, -1.40),
+    (9.40, 0.0),
+    (11.50, 1.80),
     (12.50, 0.0),
-    (13.35, -2.00),
+    (13.35, -1.00),
     (15.00, 0.0),
-    (20.35, 2.25),
+    (20.35, 1.20),
     (23.00, 0.0),
-    (25.35, -2.25),
+    (25.35, -1.20),
     (28.00, 0.0),
-    (30.35, 2.25),
+    (30.35, 1.20),
     (33.00, 0.0),
-    (34.55, -1.50),
+    (34.55, -0.80),
     (36.50, 0.0),
     (38.00, 0.0),
 )
@@ -117,8 +134,8 @@ NARRATIVE_BEATS = (
         1.20,
         (-3.70, 8.00, 1.23),
         (-1.55, 6.30, 2.75),
-        70.0,
-        0.28,
+        90.0,
+        0.10,
         ("bearing_rotation_root",),
     ),
     NarrativeBeat(
@@ -129,8 +146,8 @@ NARRATIVE_BEATS = (
         7.00,
         1.50,
         (-4.00, 11.50, 1.83),
-        (1.15, 11.20, 2.10),
-        35.0,
+        (-0.85, 10.95, 2.72),
+        48.0,
         0.22,
         ("SUM_Robot_EndEffector_Frame", "robot_tcp"),
     ),
@@ -156,7 +173,7 @@ NARRATIVE_BEATS = (
         1.50,
         (-2.65, 52.0, 2.45),
         (0.35, 49.15, 2.45),
-        42.0,
+        48.0,
         0.24,
         ("screen_display_01",),
     ),
@@ -169,7 +186,7 @@ NARRATIVE_BEATS = (
         1.50,
         (2.65, 75.0, 2.45),
         (-0.35, 72.10, 2.55),
-        42.0,
+        55.0,
         0.24,
         ("screen_display_02", "screen_takt"),
     ),
@@ -182,7 +199,7 @@ NARRATIVE_BEATS = (
         1.50,
         (-2.65, 99.0, 2.45),
         (0.30, 96.05, 2.34),
-        40.0,
+        42.0,
         0.24,
         ("screen_display_03",),
     ),
@@ -195,7 +212,7 @@ NARRATIVE_BEATS = (
         2.00,
         (2.65, 121.0, 2.45),
         (-0.30, 117.85, 2.28),
-        38.0,
+        46.0,
         0.22,
         ("screen_display_04",),
     ),
@@ -207,9 +224,9 @@ NARRATIVE_BEATS = (
         36.50,
         1.25,
         (0.0, 140.0, 2.75),
-        (0.0, 132.20, 2.00),
-        35.0,
-        0.45,
+        (0.0, 136.60, 1.85),
+        40.0,
+        0.55,
         (
             "final_inspection_portal",
             "final_precision_inspection_portal",
@@ -375,6 +392,37 @@ def _resolve_anchor(assets: Any, beat: NarrativeBeat) -> tuple[Any, str]:
             return obj.matrix_world.translation.copy(), obj.name
 
     return _authoring_to_film(beat.fallback_target), "fallback"
+
+
+def _resolve_alias_anchor(
+    assets: Any,
+    aliases: Sequence[str],
+    fallback_authoring: tuple[float, float, float],
+) -> tuple[Any, str]:
+    """Resolve a transition subject by asset key, object name, or role metadata."""
+
+    normalized_aliases = {_normalized_name(alias) for alias in aliases}
+    found = _walk_asset_value(assets, normalized_aliases)
+    if found:
+        location = _world_location(found[0])
+        if location is not None:
+            return location, found[1]
+
+    for obj in bpy.data.objects:
+        tokens = {
+            _normalized_name(obj.name),
+            _normalized_name(obj.get("sum_part_role", "")),
+            _normalized_name(obj.get("sum_asset_type", "")),
+        }
+        if any(
+            alias == token or alias in token
+            for alias in normalized_aliases
+            for token in tokens
+            if token
+        ):
+            return obj.matrix_world.translation.copy(), obj.name
+
+    return _authoring_to_film(fallback_authoring), "fallback_overhead_transfer"
 
 
 def _rail_limits(assets: Any) -> tuple[float, float]:
@@ -941,16 +989,42 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 38) -> An
             "Narrative anchors must progress bearing -> robot -> grinding -> screens -> final along film -Z"
         )
 
-    opening_start = _authoring_to_film((0.0, -4.0, 2.25))
-    grinding_approach_camera = _authoring_to_film((2.60, 25.75, 1.92))
-    grinding_clear_camera = _authoring_to_film((2.75, 26.35, 1.96))
-    corridor_camera = _authoring_to_film((0.0, 34.0, 1.72))
+    overhead_sample_frame = _frame_at(
+        _scaled_seconds(OVERHEAD_REVEAL_SECONDS, duration), fps, frame_end
+    )
+    original_frame = int(scene.frame_current)
+    try:
+        scene.frame_set(overhead_sample_frame)
+        bpy.context.view_layer.update()
+        overhead_target, overhead_anchor_source = _resolve_alias_anchor(
+            assets,
+            OVERHEAD_TRANSFER_ALIASES,
+            (-1.70, 16.50, 3.42),
+        )
+    finally:
+        scene.frame_set(original_frame)
+        bpy.context.view_layer.update()
+
+    # Start already inside the bearing composition. The 38 cm rail move keeps
+    # strict positive velocity for validation while reading as a held macro.
+    opening_start = camera_positions[0] + Vector((-0.12, -0.08, 0.38))
+    overhead_reveal_camera = _authoring_to_film((1.55, 14.45, 2.08))
+    grinding_approach_camera = _authoring_to_film((2.20, 25.65, 2.15))
+    grinding_clear_camera = _authoring_to_film((3.65, 26.50, 1.82))
+    corridor_camera = _authoring_to_film((0.45, 34.0, 1.68))
     corridor_look = _authoring_to_film((0.0, 45.0, 1.55))
-    closing_end = _authoring_to_film((0.0, final_travel - 4.0, 1.65))
-    closing_look = targets[-1].copy()
+    close_camera_travel = -float(camera_positions[-1][2])
+    closing_travel = min(
+        rail_end_y - 0.50,
+        max(final_travel + 2.05, close_camera_travel + 1.20),
+    )
+    closing_look_travel = min(rail_end_y - 0.10, closing_travel + 3.0)
+    closing_end = _authoring_to_film((0.0, closing_travel, 1.72))
+    closing_look = _authoring_to_film((0.0, closing_look_travel, 2.32))
     path_coordinates = [
         opening_start,
         *camera_positions[:2],
+        overhead_reveal_camera,
         grinding_approach_camera,
         camera_positions[2],
         grinding_clear_camera,
@@ -977,13 +1051,13 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 38) -> An
 
     camera_data = bpy.data.cameras.new("CIN_CameraData")
     camera_data.type = "PERSP"
-    camera_data.lens = 24.0
+    camera_data.lens = 112.0
     camera_data.sensor_width = 36.0
     camera_data.clip_start = 0.02
     camera_data.clip_end = 260.0
-    camera_data.dof.use_dof = False
-    camera_data.dof.focus_object = None
-    camera_data.dof.aperture_fstop = 4.0
+    camera_data.dof.use_dof = True
+    camera_data.dof.focus_object = look_at
+    camera_data.dof.aperture_fstop = 2.8
     camera_data.dof.aperture_blades = 9
     if hasattr(camera_data, "show_safe_areas"):
         camera_data.show_safe_areas = True
@@ -1005,11 +1079,13 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 38) -> An
     focus_seconds = [item["focus_s"] for item in scaled_beats]
     grinding_approach_seconds = _scaled_seconds(GRINDING_APPROACH_SECONDS, duration)
     grinding_clear_seconds = _scaled_seconds(GRINDING_CLEAR_SECONDS, duration)
+    overhead_reveal_seconds = _scaled_seconds(OVERHEAD_REVEAL_SECONDS, duration)
     corridor_seconds = _scaled_seconds(CORRIDOR_WAYPOINT_SECONDS, duration)
     terminal_settle_seconds = _scaled_seconds(TERMINAL_SETTLE_SECONDS, duration)
     path_times = [
         0.0,
         *focus_seconds[:2],
+        overhead_reveal_seconds,
         grinding_approach_seconds,
         focus_seconds[2],
         grinding_clear_seconds,
@@ -1027,12 +1103,13 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 38) -> An
     # to the cumulative arc length of its Bezier control point.
     progress_values = _path_progress_values(path_coordinates)
     speed_scales = [
-        1.0,
+        0.06,
         *[beat.speed_scale for beat in NARRATIVE_BEATS[:2]],
-        0.72,
+        0.28,
+        0.55,
         NARRATIVE_BEATS[2].speed_scale,
-        0.34,
-        0.62,
+        0.30,
+        0.58,
         *[beat.speed_scale for beat in NARRATIVE_BEATS[3:]],
         0.0,
     ]
@@ -1049,31 +1126,33 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 38) -> An
     )
 
     lens_values = [
-        24.0,
+        112.0,
         *[beat.lens_mm for beat in NARRATIVE_BEATS[:2]],
-        48.0,
+        30.0,
+        45.0,
         NARRATIVE_BEATS[2].lens_mm,
-        70.0,
-        36.0,
+        65.0,
+        32.0,
         *[beat.lens_mm for beat in NARRATIVE_BEATS[3:]],
-        46.0,
+        28.0,
     ]
     lens_keys = [(frame, lens_values[index], 0.0) for index, frame in enumerate(path_frames)]
     lens_keys.append((frame_end, lens_values[-1], 0.0))
     aperture_values = [
-        5.6,
+        2.8,
+        3.5,
         4.8,
-        5.0,
+        5.6,
+        5.6,
+        7.1,
+        6.3,
+        5.6,
+        4.5,
+        4.5,
+        4.5,
+        4.5,
         5.6,
         8.0,
-        8.0,
-        5.6,
-        4.5,
-        4.5,
-        4.5,
-        4.5,
-        5.6,
-        5.6,
     ]
     aperture_keys = [
         (frame, aperture_values[index], 0.0)
@@ -1104,6 +1183,16 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 38) -> An
     )
     target_keys.append((corridor_guide_start_frame, corridor_look))
     target_keys.append((corridor_guide_end_frame, corridor_look))
+    overhead_look_start_frame = _frame_at(
+        _scaled_seconds(OVERHEAD_LOOK_START_SECONDS, duration), fps, frame_end
+    )
+    overhead_look_end_frame = _frame_at(
+        _scaled_seconds(OVERHEAD_LOOK_END_SECONDS, duration), fps, frame_end
+    )
+    overhead_entry_target = targets[1].lerp(overhead_target, 0.58)
+    target_keys.append((overhead_look_start_frame, overhead_entry_target))
+    target_keys.append((path_frames[3], overhead_target))
+    target_keys.append((overhead_look_end_frame, overhead_target))
     for seconds, coordinate in GRINDING_TRANSITION_LOOKS:
         target_keys.append(
             (
@@ -1189,9 +1278,11 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 38) -> An
         "frame_end": frame_end,
         "one_shot": True,
         "opening": {
-            "lens_mm": 24.0,
+            "lens_mm": 112.0,
             "rail_takeover_frame": path_frames[1],
             "starts_with_nonzero_velocity": True,
+            "composition": "bearing_ring_macro_lockoff",
+            "macro_travel_m": 0.38,
         },
         "camera": {
             "object": camera.name,
@@ -1211,8 +1302,14 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 38) -> An
             "roll_keyframes_seconds_degrees": [
                 [seconds, degrees] for seconds, degrees in ROLL_KEYFRAMES
             ],
+            "overhead_reveal_frame": path_frames[3],
+            "overhead_reveal_frame_window": [
+                overhead_look_start_frame,
+                overhead_look_end_frame,
+            ],
+            "overhead_anchor_source": overhead_anchor_source,
             "corridor_guide": corridor_guide.name,
-            "corridor_waypoint_frame": path_frames[4],
+            "corridor_waypoint_frame": path_frames[7],
             "corridor_guide_hold_frames": [
                 corridor_guide_start_frame,
                 corridor_guide_end_frame,
@@ -1223,6 +1320,8 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 38) -> An
                 (frame_end - terminal_settle_frame) / float(fps), 4
             ),
             "terminal_pose_locked": True,
+            "terminal_threshold_travel": round(closing_travel, 4),
+            "terminal_handoff": "split_gate_black_field",
         },
         "composition": {
             "leading_lines": "dual_rail",
@@ -1265,6 +1364,10 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 38) -> An
     camera["cin_corridor_guide"] = corridor_guide.name
     camera["cin_orientation"] = "per_frame_world_quaternion_with_authored_fpv_bank"
     camera["cin_roll_limit_degrees"] = 3.0
+    camera["cin_opening_composition"] = "bearing_ring_macro_lockoff"
+    camera["cin_overhead_reveal_frame"] = path_frames[3]
+    camera["cin_overhead_anchor_source"] = overhead_anchor_source
+    camera["cin_terminal_threshold_travel"] = closing_travel
     camera["cin_terminal_hold_frames"] = frame_end - terminal_settle_frame + 1
     camera["cin_time_control"] = time_control.name
     camera["cin_beat_count"] = len(beat_manifest)

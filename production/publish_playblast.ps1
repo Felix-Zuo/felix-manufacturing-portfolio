@@ -61,9 +61,9 @@ if ($RenderStep -eq 2) {
     }
 }
 $Filter = if ($RenderStep -eq 2) {
-    "${Retiming}minterpolate=fps=24:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1,tpad=stop_mode=clone:stop_duration=0.125"
+    "${Retiming}minterpolate=fps=24:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1,tpad=stop_mode=clone:stop_duration=0.125,trim=end_frame=$ExpectedFrames,setpts=N/(24*TB)"
 } else {
-    "fps=24,tpad=stop_mode=clone:stop_duration=0.125"
+    "fps=24,tpad=stop_mode=clone:stop_duration=0.125,trim=end_frame=$ExpectedFrames,setpts=N/(24*TB)"
 }
 
 & $Ffmpeg `
@@ -115,7 +115,7 @@ if ([Math]::Abs($EncodedDuration - $Duration) -gt 0.001) {
 Copy-Item -LiteralPath $TemporaryOutput -Destination $Output -Force
 Remove-Item -LiteralPath $TemporaryOutput -Force
 
-$PosterTime = [Math]::Min(3.75, [Math]::Max($Duration - 0.05, 0.0))
+$PosterTime = 0.0
 & $Ffmpeg `
     -y `
     -ss $PosterTime `
