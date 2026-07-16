@@ -39,7 +39,7 @@ class _SlowWindow:
 
 _BEARING_WINDOW = _SlowWindow("bearing_inspection", 3.50, 4.50, 0.34, 0.42)
 _HANDOFF_WINDOW = _SlowWindow("arm_handoff", 4.35, 6.15, 0.50, 0.18)
-_GRINDING_WINDOW = _SlowWindow("grinding_contact", 9.80, 11.70, 0.50, 0.15)
+_GRINDING_WINDOW = _SlowWindow("grinding_contact", 7.85, 9.65, 0.16, 0.22)
 _MECHANICAL_WINDOWS = (_BEARING_WINDOW, _HANDOFF_WINDOW, _GRINDING_WINDOW)
 
 
@@ -645,7 +645,7 @@ def animate_assets(assets: Any, fps: int = 24, duration: float = 28) -> dict[str
         assets, "grinding_wheel", "SUM_GrindingCell_CBN_InternalGrindingWheel"
     )
     workpiece = _require_object(
-        assets, "grinding_workpiece", "SUM_GrindingCell_InnerRing_Workpiece"
+        assets, "grinding_workpiece", "SUM_GrindingCell_OuterRing_Workpiece"
     )
     robot_joints = _resolve_robot_joints(assets)
     sparks = _resolve_sparks(assets)
@@ -742,7 +742,7 @@ def animate_assets(assets: Any, fps: int = 24, duration: float = 28) -> dict[str
         missing_optional.append("grinder_doors")
 
     wheel_keys, wheel_rpm, wheel_turns = _spin_channel(
-        wheel, grinding_clock, nominal_rpm=18000.0, direction=1.0
+        wheel, grinding_clock, nominal_rpm=11500.0, direction=1.0
     )
     actions["grinding_wheel"] = _create_action(
         wheel,

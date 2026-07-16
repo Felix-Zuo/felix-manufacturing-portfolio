@@ -138,6 +138,11 @@ _EXPLICIT_ROLE_ALIASES = {
     "black_oxide": "dark_metal",
     "abrasive": "abrasive",
     "grinding_wheel": "abrasive",
+    "abrasive_bond": "abrasive_bond",
+    "abrasive_grain": "abrasive_grain",
+    "fresh_ground_steel": "fresh_ground_steel",
+    "workpiece_steel": "workpiece_steel",
+    "coolant": "coolant",
     "powder": "powder_coat",
     "paint": "powder_coat",
     "painted": "powder_coat",
@@ -416,6 +421,53 @@ def _new_principled_material(
     return material
 
 
+def _new_cbn_abrasive_material(name: str) -> Any:
+    material = bpy.data.materials.get(name) or bpy.data.materials.new(name)
+    material.use_nodes = True
+    material.diffuse_color = (0.025, 0.085, 0.060, 1.0)
+    _clear_nodes(material.node_tree)
+
+    nodes = material.node_tree.nodes
+    output = nodes.new("ShaderNodeOutputMaterial")
+    output.location = (620.0, 0.0)
+    shader = nodes.new("ShaderNodeBsdfPrincipled")
+    shader.location = (330.0, 0.0)
+    _set_socket(shader, ("Metallic",), 0.22)
+    _set_socket(shader, ("Roughness",), 0.58)
+    _set_socket(shader, ("Coat Weight", "Clearcoat"), 0.08)
+    _set_socket(shader, ("Coat Roughness", "Clearcoat Roughness"), 0.28)
+
+    coordinates = nodes.new("ShaderNodeTexCoord")
+    coordinates.location = (-880.0, 0.0)
+    noise = nodes.new("ShaderNodeTexNoise")
+    noise.location = (-650.0, 30.0)
+    _set_socket(noise, ("Scale",), 340.0)
+    _set_socket(noise, ("Detail",), 4.5)
+    _set_socket(noise, ("Roughness",), 0.78)
+
+    ramp = nodes.new("ShaderNodeValToRGB")
+    ramp.location = (-350.0, 120.0)
+    ramp.color_ramp.elements[0].position = 0.24
+    ramp.color_ramp.elements[0].color = (0.004, 0.018, 0.014, 1.0)
+    ramp.color_ramp.elements[1].position = 0.78
+    ramp.color_ramp.elements[1].color = (0.080, 0.230, 0.165, 1.0)
+    middle = ramp.color_ramp.elements.new(0.53)
+    middle.color = (0.018, 0.085, 0.058, 1.0)
+
+    bump = nodes.new("ShaderNodeBump")
+    bump.location = (60.0, -150.0)
+    _set_socket(bump, ("Strength",), 0.42)
+    _set_socket(bump, ("Distance",), 0.0011)
+
+    _link(material.node_tree, coordinates.outputs.get("Generated"), noise.inputs.get("Vector"))
+    _link(material.node_tree, noise.outputs.get("Fac"), ramp.inputs.get("Fac"))
+    _link(material.node_tree, ramp.outputs.get("Color"), shader.inputs.get("Base Color"))
+    _link(material.node_tree, noise.outputs.get("Fac"), bump.inputs.get("Height"))
+    _link(material.node_tree, bump.outputs.get("Normal"), shader.inputs.get("Normal"))
+    _link(material.node_tree, shader.outputs.get("BSDF"), output.inputs.get("Surface"))
+    return material
+
+
 def _new_emission_material(
     name: str,
     color: tuple[float, float, float, float],
@@ -482,15 +534,63 @@ def _make_materials() -> dict[str, Any]:
             micro_strength=0.06,
             micro_distance=0.002,
         ),
-        "abrasive": _new_principled_material(
-            "LD_CBN_Abrasive",
-            base_color=(0.055, 0.075, 0.105, 1.0),
-            metallic=0.24,
-            roughness=0.66,
-            coat=0.02,
-            micro_scale=105.0,
-            micro_strength=0.30,
-            micro_distance=0.008,
+        "abrasive": _new_cbn_abrasive_material("LD_CBN_Profiled_Abrasive"),
+        "abrasive_bond": _new_principled_material(
+            "LD_CBN_Vitrified_Bond",
+            base_color=(0.012, 0.050, 0.034, 1.0),
+            metallic=0.04,
+            roughness=0.72,
+            coat=0.015,
+            micro_scale=210.0,
+            micro_strength=0.22,
+            micro_distance=0.0014,
+        ),
+        "abrasive_grain": _new_principled_material(
+            "LD_CBN_Exposed_Grains",
+            base_color=(0.080, 0.180, 0.135, 1.0),
+            metallic=0.34,
+            roughness=0.31,
+            coat=0.12,
+            coat_roughness=0.18,
+            micro_scale=520.0,
+            micro_strength=0.12,
+            micro_distance=0.00035,
+        ),
+        "fresh_ground_steel": _new_principled_material(
+            "LD_Fresh_Ground_Raceway_Steel",
+            base_color=(0.30, 0.34, 0.37, 1.0),
+            metallic=0.96,
+            roughness=0.16,
+            coat=0.08,
+            coat_roughness=0.10,
+            anisotropic=0.68,
+            micro_scale=620.0,
+            micro_strength=0.035,
+            micro_distance=0.00018,
+        ),
+        "workpiece_steel": _new_principled_material(
+            "LD_Grinding_Workpiece_Steel",
+            base_color=(0.050, 0.060, 0.064, 1.0),
+            metallic=0.94,
+            roughness=0.24,
+            coat=0.08,
+            coat_roughness=0.20,
+            micro_scale=175.0,
+            micro_strength=0.045,
+            micro_distance=0.00022,
+        ),
+        "coolant": _new_principled_material(
+            "LD_Grinding_Coolant_Stream",
+            base_color=(0.12, 0.22, 0.15, 1.0),
+            metallic=0.0,
+            roughness=0.075,
+            coat=0.20,
+            coat_roughness=0.05,
+            transmission=0.62,
+            ior=1.34,
+            emission_color=(0.015, 0.045, 0.025, 1.0),
+            emission_strength=0.14,
+            alpha=0.48,
         ),
         "rubber": _new_principled_material(
             "LD_Black_Rubber",
@@ -580,7 +680,7 @@ def _make_materials() -> dict[str, Any]:
         "spark": _new_emission_material(
             "LD_Grinding_Spark",
             color=(1.0, 0.20, 0.006, 1.0),
-            strength=8.0,
+            strength=4.5,
         ),
     }
 
@@ -594,6 +694,11 @@ def _make_materials() -> dict[str, Any]:
     _safe_set(safety_glass, "blend_method", "BLEND")
     _safe_set(safety_glass, "use_screen_refraction", True)
     _safe_set(safety_glass, "use_transparency_overlap", False)
+    coolant = materials["coolant"]
+    _safe_set(coolant, "surface_render_method", "DITHERED")
+    _safe_set(coolant, "blend_method", "BLEND")
+    _safe_set(coolant, "use_screen_refraction", True)
+    _safe_set(coolant, "use_transparency_overlap", False)
     return materials
 
 
@@ -660,7 +765,15 @@ def _assign_materials(entries: Sequence[tuple[Any, str]], materials: Mapping[str
         slots = getattr(data, "materials", None)
         if slots is None:
             continue
-        role = _object_role(obj, hint)
+        explicit_role = None
+        for property_name in ("lookdev_role", "material_role", "role"):
+            try:
+                explicit_role = _explicit_role(obj.get(property_name))
+            except (AttributeError, TypeError):
+                explicit_role = None
+            if explicit_role is not None:
+                break
+        role = explicit_role or _object_role(obj, hint)
         try:
             pointer = int(obj.as_pointer())
         except (AttributeError, TypeError, ValueError):
@@ -672,7 +785,13 @@ def _assign_materials(entries: Sequence[tuple[Any, str]], materials: Mapping[str
                 continue
             for index in range(len(slots)):
                 current = slots[index]
-                slot_role = _infer_role(getattr(current, "name", ""), role) if current else role
+                slot_role = (
+                    role
+                    if explicit_role is not None
+                    else _infer_role(getattr(current, "name", ""), role)
+                    if current
+                    else role
+                )
                 if slot_role == "screen_glass" and current is not None:
                     screen_media = _screen_media_material(current)
                     if screen_media is not None:
@@ -1148,14 +1267,14 @@ def _ensure_spark_curves(
     curve.dimensions = "3D"
     curve.resolution_u = 1
     curve.bevel_resolution = 2
-    curve.bevel_depth = min(max(diagonal * 0.00009, 0.00035), 0.0016)
+    curve.bevel_depth = min(max(diagonal * 0.000025, 0.00014), 0.00035)
     curve.resolution_v = 1
     curve.materials.append(material)
 
     view, right, up = basis
     rng = random.Random(74291)
-    travel = min(max(diagonal * 0.0085, 0.10), 0.34)
-    for _ in range(18):
+    travel = min(max(diagonal * 0.0018, 0.025), 0.065)
+    for _ in range(3):
         spline = curve.splines.new("POLY")
         spline.points.add(2)
         fan_axis = (-right * 0.82 - up * 0.30).normalized()
@@ -1165,7 +1284,7 @@ def _ensure_spark_curves(
             + right * rng.uniform(-0.12, 0.18)
             + view * rng.uniform(-0.035, 0.045)
         ).normalized()
-        length = travel * rng.uniform(0.24, 1.0)
+        length = travel * rng.uniform(0.30, 1.0)
         sideways = up * rng.uniform(-0.10, 0.10) * length
         points = (
             Vector((0.0, 0.0, 0.0)),
@@ -1385,6 +1504,8 @@ def _configure_camera(camera: Any | None, collection: Any, center: Vector, diago
         return None
     dof = getattr(camera.data, "dof", None)
     if dof is not None:
+        if camera.name.startswith("CIN_"):
+            return getattr(dof, "focus_object", None)
         focus = getattr(dof, "focus_object", None)
         if focus is None or focus.name.startswith(_PREFIX):
             focus = _ensure_empty(collection, "LD_Product_Focus")

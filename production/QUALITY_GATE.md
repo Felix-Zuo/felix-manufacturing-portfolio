@@ -16,6 +16,12 @@ Current gates:
 - Bearing proportions are mechanically plausible: race thickness, cage, ball
   count, clearances, and inner/outer ring scale do not collide or deform.
 - The grinding cell has a clear enclosure and one understandable operation.
+- The internal grinding operation uses a small profiled wheel on a short arbor,
+  a concave outer-ring raceway, horizontal process axes, and a real contact point.
+- Wet grinding shows coherent coolant delivery and only restrained micro-sparks;
+  no oversized wheel guard, unsupported spindle, or dry-grinding spark fan remains.
+- The process assembly sits inside a sealed dark splash chamber with a sump,
+  service liners, side returns, and visible mounting logic.
 - Screens, rails, frames, and machines have visible mounting logic and scale.
 - No unexplained floating parts or decorative mechanical clutter remain.
 

@@ -276,6 +276,30 @@ its confirmed findings applied:
 - Source pipeline and review records live in `production/`; generated Blender scenes
   and frame sequences remain ignored. Only encoded web media belongs in `public/media/`.
 
+## v5 Mature Factory And Grinding Hero Pass (2026-07-16, Codex)
+
+- Replaced provisional factory proxies with production assets, including the licensed
+  KUKA KR210 visual chain, detailed machine shells, a mature daylight factory hall,
+  command-bay display, AGV, and mechanically supported screen stations.
+- Rebuilt the outer-ring internal-raceway grinding insert around a horizontal workhead
+  and grinding spindle. The hero assembly now uses a short taper arbor, 98 mm profiled
+  vitrified CBN wheel, modeled bond and abrasive layers, 504 readable grains, a concave
+  raceway, fresh-ground band, stepped soft jaws, spindle seals, cooling rings, and slide
+  hardware instead of the earlier oversized wheel and chuck proxies.
+- Added a sealed wet process chamber with splash liners, service-panel seams, side
+  returns, roof, coolant sump, inspection lamp, two coherent coolant jets, and only
+  three short micro-sparks. The operation reads as wet precision grinding rather than
+  welding or dry abrasive cutting.
+- Re-authored the grinding beat as one continuous 42-to-90 mm move. F180 enters behind
+  the enclosure, F195 establishes the full assembly, F211 locks the contact point at
+  0.16x/120 fps, F227 exits behind the shell, and F242 returns to the center aisle.
+- Added `production/blender/render_grinding_audit.py` and the reference-pass record in
+  `production/reviews/grinding-hero-reference-pass.md`. Both 16:9 and 9:16 keep the
+  wheel-to-raceway contact centered and legible.
+- Twinmotion export and clean-scene re-import pass with 801 objects, 23 materials,
+  12 animation actions, and valid long-axis factory bounds. Local shop-floor reference
+  imagery is never copied into the repository or export packages.
+
 ## Recommended Next Improvements
 
 - Consider a downloadable resume PDF once ready (CTA currently email + GitHub).

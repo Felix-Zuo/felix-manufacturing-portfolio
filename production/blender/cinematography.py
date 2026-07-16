@@ -26,6 +26,7 @@ except ModuleNotFoundError:  # Allow static checks outside Blender.
 BASE_DURATION = 28.0
 COLLECTION_NAME = "CINEMATOGRAPHY"
 CORRIDOR_WAYPOINT_SECONDS = 10.1
+GRINDING_CLEAR_SECONDS = 9.35
 CORRIDOR_GUIDE_START_SECONDS = 9.67
 CORRIDOR_GUIDE_END_SECONDS = 10.33
 TERMINAL_SETTLE_SECONDS = 27.2
@@ -93,12 +94,12 @@ NARRATIVE_BEATS = (
         7.0,
         10.5,
         8.75,
-        1.10,
+        1.30,
         (5.45, 26.03, 1.82),
-        (2.40, 22.80, 1.42),
-        50.0,
-        0.24,
-        ("grinding_contact", "grinding_wheel"),
+        (4.633, 25.100, 1.996),
+        90.0,
+        0.16,
+        ("SUM_ANCHOR_GrindingContact",),
     ),
     NarrativeBeat(
         "notice",
@@ -178,7 +179,7 @@ NARRATIVE_BEATS = (
 BULLET_WINDOWS = (
     BulletWindow("bearing_inspection", 1.75, 2.75, 0.34, 0.42, 48),
     BulletWindow("arm_handoff", 4.35, 6.15, 0.50, 0.18, 96),
-    BulletWindow("grinding_sparks", 7.85, 9.65, 0.50, 0.15, 96),
+    BulletWindow("grinding_sparks", 7.85, 9.65, 0.22, 0.16, 120),
     BulletWindow("notice_card", 11.65, 12.85, 0.36, 0.34, 48),
     BulletWindow("takt_card", 15.15, 16.35, 0.36, 0.34, 48),
     BulletWindow("visibility_card", 18.65, 19.85, 0.36, 0.38, 48),
@@ -876,6 +877,7 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 28) -> An
         )
 
     opening_start = _authoring_to_film((0.0, -4.0, 1.55))
+    grinding_clear_camera = _authoring_to_film((3.55, 25.20, 1.96))
     corridor_camera = _authoring_to_film((0.0, 34.0, 1.55))
     corridor_look = _authoring_to_film((0.0, 45.0, 1.35))
     closing_end = _authoring_to_film((0.0, final_travel - 4.0, 1.65))
@@ -883,6 +885,7 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 28) -> An
     path_coordinates = [
         opening_start,
         *camera_positions[:3],
+        grinding_clear_camera,
         corridor_camera,
         *camera_positions[3:],
         closing_end,
@@ -908,10 +911,10 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 28) -> An
     camera_data.type = "PERSP"
     camera_data.lens = 24.0
     camera_data.sensor_width = 36.0
-    camera_data.clip_start = 0.05
+    camera_data.clip_start = 0.02
     camera_data.clip_end = 260.0
-    camera_data.dof.use_dof = True
-    camera_data.dof.focus_object = look_at
+    camera_data.dof.use_dof = False
+    camera_data.dof.focus_object = None
     camera_data.dof.aperture_fstop = 4.0
     camera_data.dof.aperture_blades = 9
     if hasattr(camera_data, "show_safe_areas"):
@@ -932,11 +935,13 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 28) -> An
     follow.offset_factor = 0.0
 
     focus_seconds = [item["focus_s"] for item in scaled_beats]
+    grinding_clear_seconds = _scaled_seconds(GRINDING_CLEAR_SECONDS, duration)
     corridor_seconds = _scaled_seconds(CORRIDOR_WAYPOINT_SECONDS, duration)
     terminal_settle_seconds = _scaled_seconds(TERMINAL_SETTLE_SECONDS, duration)
     path_times = [
         0.0,
         *focus_seconds[:3],
+        grinding_clear_seconds,
         corridor_seconds,
         *focus_seconds[3:],
         terminal_settle_seconds,
@@ -953,6 +958,7 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 28) -> An
     speed_scales = [
         1.0,
         *[beat.speed_scale for beat in NARRATIVE_BEATS[:3]],
+        0.34,
         0.62,
         *[beat.speed_scale for beat in NARRATIVE_BEATS[3:]],
         0.0,
@@ -972,13 +978,40 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 28) -> An
     lens_values = [
         24.0,
         *[beat.lens_mm for beat in NARRATIVE_BEATS[:3]],
+        70.0,
         36.0,
         *[beat.lens_mm for beat in NARRATIVE_BEATS[3:]],
         46.0,
     ]
     lens_keys = [(frame, lens_values[index], 0.0) for index, frame in enumerate(path_frames)]
     lens_keys.append((frame_end, lens_values[-1], 0.0))
-    _create_action_curves(camera_data, "CIN_CameraDataAction", (("lens", 0, lens_keys),))
+    aperture_values = [
+        5.6,
+        4.8,
+        5.0,
+        8.0,
+        8.0,
+        5.6,
+        4.5,
+        4.5,
+        4.5,
+        4.5,
+        5.6,
+        5.6,
+    ]
+    aperture_keys = [
+        (frame, aperture_values[index], 0.0)
+        for index, frame in enumerate(path_frames)
+    ]
+    aperture_keys.append((frame_end, aperture_values[-1], 0.0))
+    _create_action_curves(
+        camera_data,
+        "CIN_CameraDataAction",
+        (
+            ("lens", 0, lens_keys),
+            ("dof.aperture_fstop", 0, aperture_keys),
+        ),
+    )
 
     target_keys: list[tuple[int, Any]] = [(1, targets[0])]
     for index, item in enumerate(scaled_beats):

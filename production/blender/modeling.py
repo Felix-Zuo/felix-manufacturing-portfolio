@@ -2028,7 +2028,10 @@ def _build_grinding_cell(
     )
 
     process_center = Vector((0.08, 0.0, 1.82))
-    wheel_contact_offset = 0.085 - 0.048
+    # The profiled CBN layer is tangent to the deepest point of the internal
+    # raceway.  A 49 mm wheel radius inside a 96 mm raceway radius leaves the
+    # wheel spindle 47 mm off the workhead axis.
+    wheel_contact_offset = 0.096 - 0.049
     _cylinder_between(
         "SUM_GrindingCell_Workhead_Housing",
         (-1.20, 0.0, 1.82),
@@ -2082,7 +2085,7 @@ def _build_grinding_cell(
         )
 
     workpiece = _annular_prism(
-        "SUM_GrindingCell_InnerRing_Workpiece",
+        "SUM_GrindingCell_OuterRing_Workpiece",
         0.145,
         0.085,
         0.060,
@@ -2093,9 +2096,10 @@ def _build_grinding_cell(
         material=materials["machined_steel"],
         segments=96,
         bevel=0.003,
-        role="bearing_inner_ring_grinding_workpiece",
+        role="bearing_outer_ring_internal_raceway_workpiece",
     )
-    workpiece["process"] = "internal bore and raceway grinding"
+    workpiece["process"] = "bearing outer-ring internal raceway grinding"
+    workpiece["workpiece_type"] = "bearing_outer_ring"
     workpiece["workpiece_outer_diameter_m"] = 0.290
     workpiece["workpiece_bore_diameter_m"] = 0.170
 
@@ -2127,9 +2131,9 @@ def _build_grinding_cell(
     )
     _cylinder_between(
         "SUM_GrindingCell_GrindingSpindle_Shaft",
-        (0.19, wheel_contact_offset, 1.82),
+        (0.092, wheel_contact_offset, 1.82),
         (0.86, wheel_contact_offset, 1.82),
-        0.023,
+        0.014,
         collection,
         parent=process_root,
         material=materials["machined_steel"],
@@ -2138,22 +2142,26 @@ def _build_grinding_cell(
     )
     grinding_wheel = _cylinder_between(
         "SUM_GrindingCell_CBN_InternalGrindingWheel",
-        (0.12, wheel_contact_offset, 1.82),
-        (0.20, wheel_contact_offset, 1.82),
-        0.048,
+        (0.065, wheel_contact_offset, 1.82),
+        (0.095, wheel_contact_offset, 1.82),
+        0.012,
         collection,
         parent=process_root,
-        material=materials["grinding_wheel"],
-        segments=48,
-        bevel=0.002,
-        role="cbn_internal_grinding_wheel",
+        material=materials["machined_steel"],
+        segments=72,
+        bevel=0.0015,
+        role="cbn_internal_grinding_wheel_rotation_core",
     )
-    grinding_wheel["wheel_diameter_m"] = 0.096
-    grinding_wheel["wheel_width_m"] = 0.080
+    grinding_wheel["lookdev_role"] = "brushed_metal"
+    grinding_wheel["wheel_diameter_m"] = 0.098
+    grinding_wheel["wheel_width_m"] = 0.024
+    grinding_wheel["wheel_core_diameter_m"] = 0.024
+    grinding_wheel["wheel_bond"] = "vitrified CBN"
+    grinding_wheel["maximum_surface_speed_mps"] = 60.0
     grinding_wheel["rotation_axis_local"] = [1.0, 0.0, 0.0]
     grinding_wheel["nominal_radial_contact_offset_m"] = wheel_contact_offset
     grinding_wheel["contact_relationship"] = (
-        "wheel radius 0.048 m tangent to workpiece bore radius 0.085 m"
+        "profiled wheel radius 0.049 m tangent to internal raceway radius 0.096 m"
     )
 
     _box_array(
@@ -3175,7 +3183,7 @@ def build_models(
     grinding_contact = _empty(
         "SUM_ANCHOR_GrindingContact",
         collections["grinding_cell"],
-        location=(0.15, 0.037, 1.82),
+        location=(0.08, 0.096, 1.82),
         parent=grinding_wheel.parent,
         display_size=0.08,
     )
