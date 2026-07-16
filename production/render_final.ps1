@@ -3,7 +3,9 @@ param(
     [string]$Mode = "desktop",
     [ValidateRange(1, 256)]
     [int]$Samples = 64,
-    [string]$Blender
+    [string]$Blender,
+    [ValidateRange(0.001, 86400.0)]
+    [double]$Duration = 38.0
 )
 
 $ErrorActionPreference = "Stop"
@@ -16,7 +18,7 @@ $Blender = if ($Blender) {
 }
 $Script = Join-Path $RepoRoot "production\blender\build_scene.py"
 
-& $Blender --background --factory-startup --python-exit-code 1 --python $Script -- --mode $Mode --samples $Samples
+& $Blender --background --factory-startup --python-exit-code 1 --python $Script -- --mode $Mode --duration $Duration --samples $Samples
 if ($LASTEXITCODE -ne 0) {
     throw "$Mode render failed with exit code $LASTEXITCODE"
 }

@@ -39,6 +39,7 @@ yarn-error.log*
 production/renders/
 production/scenes/
 production/source-scenes/
+production/logs/
 production/twinmotion/import/
 production/twinmotion/project/
 production/twinmotion/library/

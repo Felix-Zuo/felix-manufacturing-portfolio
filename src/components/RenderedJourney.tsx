@@ -65,22 +65,14 @@ type TimelineState = {
   target: number;
 };
 
-type GestureState = {
-  active: boolean;
-  direction: -1 | 0 | 1;
-  startIndex: number;
-  startProgress: number;
-};
-
 const DEFAULT_DESKTOP_SRC = "/media/felix-journey-desktop.mp4";
 const DEFAULT_MOBILE_SRC = "/media/felix-journey-mobile.mp4";
 const DEFAULT_POSTER_SRC = "/media/felix-journey-poster.webp";
 const DEFAULT_MOBILE_POSTER_SRC = "/media/felix-journey-mobile-poster.webp";
 const DEFAULT_MOBILE_MEDIA_QUERY = "(max-width: 767px)";
-const DILATION_STRENGTH = 0.68;
 const FOLLOW_RATE = 7.2;
-const MINIMUM_GESTURE_PROGRESS = 0.012;
-const RENDERED_FRAME_COUNT = 672;
+const RENDERED_FPS = 24;
+const RENDERED_FRAME_COUNT = 912;
 const SEEK_EPSILON_SECONDS = 1 / 90;
 const HASH_CHAPTER_INDEX: Readonly<Record<string, number>> = {
   about: 0,
@@ -93,7 +85,8 @@ const HASH_CHAPTER_INDEX: Readonly<Record<string, number>> = {
 };
 
 function mediaProgressAtFrame(frame: number) {
-  return (frame - 1) / (RENDERED_FRAME_COUNT - 1);
+  const boundedFrame = clamp(Math.round(frame), 1, RENDERED_FRAME_COUNT);
+  return (boundedFrame - 1) / (RENDERED_FRAME_COUNT - 1);
 }
 
 export const DEFAULT_RENDERED_JOURNEY_CHAPTERS: readonly RenderedJourneyChapter[] = [
@@ -109,7 +102,8 @@ export const DEFAULT_RENDERED_JOURNEY_CHAPTERS: readonly RenderedJourneyChapter[
         label: "View public work",
       },
     ],
-    mediaProgress: mediaProgressAtFrame(54),
+    mediaProgress: mediaProgressAtFrame(91),
+    metrics: [{ label: "Operating focus", value: "Launch to delivery" }],
     summary:
       "Manufacturing project chaos, turned into measurable improvement through trial production, workflow control, and operations visibility.",
     title: "Felix Zuo",
@@ -119,12 +113,8 @@ export const DEFAULT_RENDERED_JOURNEY_CHAPTERS: readonly RenderedJourneyChapter[
     eyebrow: "Measured impact",
     id: "impact",
     label: "Signal",
-    mediaProgress: mediaProgressAtFrame(127),
-    metrics: [
-      { label: "Notice preparation", value: "< 1 min" },
-      { label: "Trial adjustment", value: "3 d to 1 d" },
-      { label: "Scrap reduction", value: "about 90%" },
-    ],
+    mediaProgress: mediaProgressAtFrame(169),
+    metrics: [{ label: "Notice preparation", value: "< 1 min" }],
     summary:
       "Real workflow outcomes, represented with public-safe evidence and synthetic data.",
     title: "Outcomes first. Tools second.",
@@ -141,7 +131,8 @@ export const DEFAULT_RENDERED_JOURNEY_CHAPTERS: readonly RenderedJourneyChapter[
         label: "Open takt simulator",
       },
     ],
-    mediaProgress: mediaProgressAtFrame(211),
+    mediaProgress: mediaProgressAtFrame(301),
+    metrics: [{ label: "Decision signal", value: "Observe first" }],
     summary:
       "Controlled observation isolates the critical operation and creates a slower decision moment before ramp-up.",
     title: "Observe the process before changing it.",
@@ -162,7 +153,8 @@ export const DEFAULT_RENDERED_JOURNEY_CHAPTERS: readonly RenderedJourneyChapter[
         label: "View project",
       },
     ],
-    mediaProgress: mediaProgressAtFrame(295),
+    mediaProgress: mediaProgressAtFrame(433),
+    metrics: [{ label: "Control point", value: "Human final review" }],
     summary:
       "Structured inputs turn repeated cross-system checking into a reviewable release packet while final control stays human.",
     title: "Production Notice Workflow Standardization",
@@ -183,7 +175,8 @@ export const DEFAULT_RENDERED_JOURNEY_CHAPTERS: readonly RenderedJourneyChapter[
         label: "View source",
       },
     ],
-    mediaProgress: mediaProgressAtFrame(379),
+    mediaProgress: mediaProgressAtFrame(553),
+    metrics: [{ label: "Adjustment cycle", value: "3 d to 1 d" }],
     summary:
       "Full-line simulation exposes bottlenecks, buffers, waiting, and blocking before physical trial-and-error consumes more time and material.",
     title: "Trial Production Takt Simulation",
@@ -204,7 +197,8 @@ export const DEFAULT_RENDERED_JOURNEY_CHAPTERS: readonly RenderedJourneyChapter[
         label: "View project",
       },
     ],
-    mediaProgress: mediaProgressAtFrame(463),
+    mediaProgress: mediaProgressAtFrame(673),
+    metrics: [{ label: "Operating span", value: "Supply to delivery" }],
     summary:
       "Scattered spreadsheet exports become a consistent operating view for supply, production, delivery, and exception closure.",
     title: "Supply-Production-Delivery Visibility",
@@ -226,7 +220,8 @@ export const DEFAULT_RENDERED_JOURNEY_CHAPTERS: readonly RenderedJourneyChapter[
         label: "Open HulunGuard",
       },
     ],
-    mediaProgress: mediaProgressAtFrame(547),
+    mediaProgress: mediaProgressAtFrame(793),
+    metrics: [{ label: "Evidence standard", value: "Sanitized + synthetic" }],
     summary:
       "Operations intelligence, manufacturing data literacy, Six Sigma learning, and evidence-first verification extend the same control logic.",
     title: "One operating method, several public tools.",
@@ -242,7 +237,8 @@ export const DEFAULT_RENDERED_JOURNEY_CHAPTERS: readonly RenderedJourneyChapter[
         label: "Email Felix",
       },
     ],
-    mediaProgress: mediaProgressAtFrame(631),
+    mediaProgress: mediaProgressAtFrame(877),
+    metrics: [{ label: "Working mode", value: "Execution + tooling" }],
     summary:
       "The strongest fit is where manufacturing execution, launch readiness, and practical workflow tooling must work together.",
     title: "Build the next improvement loop.",
@@ -253,31 +249,45 @@ function clamp(value: number, minimum = 0, maximum = 1) {
   return Math.min(Math.max(value, minimum), maximum);
 }
 
-function chapterStop(index: number, chapterCount: number) {
-  if (chapterCount <= 1) return 0;
-  return clamp(index, 0, chapterCount - 1) / (chapterCount - 1);
-}
-
-function nearestChapterIndex(progress: number, chapterCount: number) {
-  return Math.round(clamp(progress) * Math.max(chapterCount - 1, 0));
-}
-
-function mapJourneyProgressToMedia(
-  journeyProgress: number,
+function nearestChapterIndex(
+  progress: number,
   chapters: readonly RenderedJourneyChapter[],
 ) {
-  if (chapters.length <= 1) return clamp(chapters[0]?.mediaProgress ?? 0);
+  const boundedProgress = clamp(progress);
+  let nearestIndex = 0;
+  let nearestDistance = Number.POSITIVE_INFINITY;
 
-  const scaled = clamp(journeyProgress) * (chapters.length - 1);
-  const startIndex = Math.min(Math.floor(scaled), chapters.length - 2);
-  const localProgress = scaled - startIndex;
-  const smoothProgress = localProgress * localProgress * (3 - 2 * localProgress);
-  const dilatedProgress =
-    localProgress + (smoothProgress - localProgress) * DILATION_STRENGTH;
-  const start = clamp(chapters[startIndex].mediaProgress);
-  const end = clamp(chapters[startIndex + 1].mediaProgress);
+  chapters.forEach((chapter, index) => {
+    const distance = Math.abs(clamp(chapter.mediaProgress) - boundedProgress);
+    if (distance >= nearestDistance) return;
 
-  return start + (end - start) * dilatedProgress;
+    nearestDistance = distance;
+    nearestIndex = index;
+  });
+
+  return nearestIndex;
+}
+
+function frameAtMediaProgress(progress: number) {
+  return Math.round(clamp(progress) * (RENDERED_FRAME_COUNT - 1)) + 1;
+}
+
+function formatFrameLabel(frame: number) {
+  return `F${String(frame).padStart(3, "0")}`;
+}
+
+function formatTimecode(frame: number) {
+  const frameIndex = clamp(Math.round(frame), 1, RENDERED_FRAME_COUNT) - 1;
+  const frames = frameIndex % RENDERED_FPS;
+  const totalSeconds = Math.floor(frameIndex / RENDERED_FPS);
+  const seconds = totalSeconds % 60;
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  const minutes = totalMinutes % 60;
+  const hours = Math.floor(totalMinutes / 60);
+
+  return [hours, minutes, seconds, frames]
+    .map((unit) => String(unit).padStart(2, "0"))
+    .join(":");
 }
 
 function normalizeWheelDelta(event: WheelEvent) {
@@ -352,23 +362,26 @@ export function RenderedJourney({
     [chapters],
   );
   const initialIndex = clamp(Math.round(initialChapter), 0, chapterList.length - 1);
-  const initialProgress = chapterStop(initialIndex, chapterList.length);
+  const initialProgress = clamp(chapterList[initialIndex]?.mediaProgress ?? 0);
+  const rootStyle = useMemo(
+    () =>
+      ({
+        "--chapter-count": chapterList.length,
+        "--journey-progress": initialProgress.toFixed(5),
+      }) as CSSProperties,
+    [chapterList.length, initialProgress],
+  );
   const instanceId = useId().replaceAll(":", "");
   const rootRef = useRef<HTMLElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const frameReadoutRef = useRef<HTMLSpanElement>(null);
+  const timecodeReadoutRef = useRef<HTMLSpanElement>(null);
   const durationRef = useRef(0);
   const timelineRef = useRef<TimelineState>({
     current: initialProgress,
     target: initialProgress,
   });
-  const gestureRef = useRef<GestureState>({
-    active: false,
-    direction: 0,
-    startIndex: initialIndex,
-    startProgress: initialProgress,
-  });
   const touchYRef = useRef<number | null>(null);
-  const snapTimerRef = useRef<number | null>(null);
   const chaptersRef = useRef(chapterList);
   const onChapterChangeRef = useRef(onChapterChange);
   const activeIndexRef = useRef(initialIndex);
@@ -398,19 +411,16 @@ export function RenderedJourney({
     onChapterChangeRef.current?.(currentChapters[boundedIndex], boundedIndex);
   }, []);
 
-  const seekToProgress = useCallback((journeyProgress: number) => {
+  const seekToProgress = useCallback((progress: number) => {
     const video = videoRef.current;
     if (!video || video.readyState < HTMLMediaElement.HAVE_METADATA) return;
 
     const duration = durationRef.current || video.duration;
     if (!Number.isFinite(duration) || duration <= 0) return;
 
-    const mediaProgress = mapJourneyProgressToMedia(
-      journeyProgress,
-      chaptersRef.current,
-    );
-    const maximumTime = Math.max(duration - 0.04, 0);
-    const nextTime = clamp(duration * mediaProgress, 0, maximumTime);
+    const frameDuration = duration / RENDERED_FRAME_COUNT;
+    const maximumTime = Math.max(duration - frameDuration, 0);
+    const nextTime = maximumTime * clamp(progress);
 
     if (Math.abs(video.currentTime - nextTime) <= SEEK_EPSILON_SECONDS) return;
 
@@ -418,6 +428,17 @@ export function RenderedJourney({
       video.currentTime = nextTime;
     } catch {
       // The selected source can change while a responsive video is loading.
+    }
+  }, []);
+
+  const updateTimelineReadout = useCallback((progress: number) => {
+    const frame = frameAtMediaProgress(progress);
+
+    if (frameReadoutRef.current) {
+      frameReadoutRef.current.textContent = `${formatFrameLabel(frame)} / ${RENDERED_FRAME_COUNT}`;
+    }
+    if (timecodeReadoutRef.current) {
+      timecodeReadoutRef.current.textContent = formatTimecode(frame);
     }
   }, []);
 
@@ -430,93 +451,46 @@ export function RenderedJourney({
         boundedProgress.toFixed(5),
       );
       seekToProgress(boundedProgress);
+      updateTimelineReadout(boundedProgress);
       commitActiveChapter(
-        nearestChapterIndex(boundedProgress, chaptersRef.current.length),
+        nearestChapterIndex(boundedProgress, chaptersRef.current),
       );
     },
-    [commitActiveChapter, seekToProgress],
-  );
-
-  const clearSnapTimer = useCallback(() => {
-    if (snapTimerRef.current === null) return;
-    window.clearTimeout(snapTimerRef.current);
-    snapTimerRef.current = null;
-  }, []);
-
-  const settleAtChapter = useCallback(() => {
-    clearSnapTimer();
-    const gesture = gestureRef.current;
-    if (!gesture.active) return;
-
-    const chapterCount = chaptersRef.current.length;
-    const moved = timelineRef.current.target - gesture.startProgress;
-    let nextIndex = nearestChapterIndex(timelineRef.current.target, chapterCount);
-
-    if (
-      nextIndex === gesture.startIndex &&
-      Math.abs(moved) >= MINIMUM_GESTURE_PROGRESS &&
-      gesture.direction !== 0
-    ) {
-      nextIndex = clamp(
-        gesture.startIndex + gesture.direction,
-        0,
-        chapterCount - 1,
-      );
-    }
-
-    timelineRef.current.target = chapterStop(nextIndex, chapterCount);
-    gesture.active = false;
-    gesture.direction = 0;
-  }, [clearSnapTimer]);
-
-  const scheduleSettle = useCallback(
-    (delay = 190) => {
-      clearSnapTimer();
-      snapTimerRef.current = window.setTimeout(settleAtChapter, delay);
-    },
-    [clearSnapTimer, settleAtChapter],
+    [commitActiveChapter, seekToProgress, updateTimelineReadout],
   );
 
   const applyInputDelta = useCallback((delta: number) => {
     if (pausedRef.current || !Number.isFinite(delta) || delta === 0) return;
 
-    const direction = delta > 0 ? 1 : -1;
-    const gesture = gestureRef.current;
-    if (!gesture.active) {
-      gesture.active = true;
-      gesture.startProgress = timelineRef.current.target;
-      gesture.startIndex = nearestChapterIndex(
-        timelineRef.current.target,
-        chaptersRef.current.length,
-      );
-    }
-    gesture.direction = direction;
     timelineRef.current.target = clamp(timelineRef.current.target + delta);
   }, []);
 
-  const goToChapter = useCallback(
-    (index: number) => {
-      clearSnapTimer();
-      const chapterCount = chaptersRef.current.length;
-      const boundedIndex = clamp(Math.round(index), 0, chapterCount - 1);
-      const progress = chapterStop(boundedIndex, chapterCount);
-
-      gestureRef.current.active = false;
-      gestureRef.current.direction = 0;
-      timelineRef.current.target = progress;
+  const goToProgress = useCallback(
+    (progress: number) => {
+      const boundedProgress = clamp(progress);
+      timelineRef.current.target = boundedProgress;
 
       if (pausedRef.current || reducedMotion === true) {
-        renderProgressImmediately(progress);
+        renderProgressImmediately(boundedProgress);
       }
     },
-    [clearSnapTimer, reducedMotion, renderProgressImmediately],
+    [reducedMotion, renderProgressImmediately],
+  );
+
+  const goToChapter = useCallback(
+    (index: number) => {
+      const chapterCount = chaptersRef.current.length;
+      const boundedIndex = clamp(Math.round(index), 0, chapterCount - 1);
+      goToProgress(chaptersRef.current[boundedIndex].mediaProgress);
+    },
+    [goToProgress],
   );
 
   const goToRelativeChapter = useCallback(
     (direction: -1 | 1) => {
       const currentTargetIndex = nearestChapterIndex(
         timelineRef.current.target,
-        chaptersRef.current.length,
+        chaptersRef.current,
       );
       goToChapter(currentTargetIndex + direction);
     },
@@ -541,15 +515,13 @@ export function RenderedJourney({
       pausedRef.current = nextPaused;
 
       if (nextPaused) {
-        clearSnapTimer();
-        gestureRef.current.active = false;
         timelineRef.current.target = timelineRef.current.current;
         videoRef.current?.pause();
       }
 
       return nextPaused;
     });
-  }, [clearSnapTimer]);
+  }, []);
 
   useEffect(() => {
     if (reducedMotion !== false) return;
@@ -560,7 +532,6 @@ export function RenderedJourney({
     setIsVideoReady(false);
     setVideoFailed(false);
     durationRef.current = 0;
-    video.preload = "metadata";
     video.load();
   }, [desktopSrc, mobileMediaQuery, mobileSrc, reducedMotion]);
 
@@ -577,12 +548,10 @@ export function RenderedJourney({
 
       const viewportHeight = Math.max(window.innerHeight, 480);
       applyInputDelta(normalizeWheelDelta(event) / (viewportHeight * 3.25));
-      scheduleSettle();
     };
 
     const onTouchStart = (event: TouchEvent) => {
       if (event.touches.length !== 1) return;
-      clearSnapTimer();
       touchYRef.current = event.touches[0].clientY;
     };
 
@@ -601,7 +570,6 @@ export function RenderedJourney({
 
     const onTouchEnd = () => {
       touchYRef.current = null;
-      scheduleSettle(80);
     };
 
     root.addEventListener("wheel", onWheel, { passive: false });
@@ -619,9 +587,7 @@ export function RenderedJourney({
     };
   }, [
     applyInputDelta,
-    clearSnapTimer,
     reducedMotion,
-    scheduleSettle,
   ]);
 
   useEffect(() => {
@@ -671,22 +637,16 @@ export function RenderedJourney({
         progress.toFixed(5),
       );
       seekToProgress(progress);
+      updateTimelineReadout(progress);
       commitActiveChapter(
-        nearestChapterIndex(progress, chaptersRef.current.length),
+        nearestChapterIndex(progress, chaptersRef.current),
       );
       frame = window.requestAnimationFrame(tick);
     };
 
     frame = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(frame);
-  }, [commitActiveChapter, reducedMotion, seekToProgress]);
-
-  useEffect(
-    () => () => {
-      clearSnapTimer();
-    },
-    [clearSnapTimer],
-  );
+  }, [commitActiveChapter, reducedMotion, seekToProgress, updateTimelineReadout]);
 
   const handleKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
     const target = event.target as HTMLElement;
@@ -708,7 +668,7 @@ export function RenderedJourney({
 
     if (event.key === "Home" || event.key === "End") {
       event.preventDefault();
-      goToChapter(event.key === "Home" ? 0 : chapterList.length - 1);
+      goToProgress(event.key === "Home" ? 0 : 1);
       return;
     }
 
@@ -720,13 +680,11 @@ export function RenderedJourney({
 
   const safeActiveIndex = clamp(activeIndex, 0, chapterList.length - 1);
   const activeChapter = chapterList[safeActiveIndex];
+  const activeSignal = activeChapter.metrics?.[0];
   const chapterTitleId = `${instanceId}-${activeChapter.id}-title`;
   const isFirstChapter = safeActiveIndex === 0;
   const isLastChapter = safeActiveIndex === chapterList.length - 1;
-  const rootStyle = {
-    "--chapter-count": chapterList.length,
-    "--journey-progress": initialProgress.toFixed(5),
-  } as CSSProperties;
+  const renderedFrame = frameAtMediaProgress(activeChapter.mediaProgress);
   const mediaState = isStatic
     ? "Static frame"
     : videoFailed
@@ -782,7 +740,7 @@ export function RenderedJourney({
           }}
           playsInline
           poster={posterSrc}
-          preload="none"
+          preload="metadata"
           ref={videoRef}
           tabIndex={-1}
         >
@@ -802,12 +760,16 @@ export function RenderedJourney({
       </span>
 
       <article
+        aria-atomic="true"
         aria-live="polite"
         className={`${styles.chapter} ${activeChapter.align === "right" ? styles.chapterRight : ""}`}
         key={activeChapter.id}
       >
         <p className={styles.eyebrow}>
-          <span>{String(safeActiveIndex + 1).padStart(2, "0")}</span>
+          <span>
+            {String(safeActiveIndex + 1).padStart(2, "0")} /{" "}
+            {String(chapterList.length).padStart(2, "0")}
+          </span>
           {activeChapter.eyebrow}
         </p>
         <h1 className={styles.title} id={chapterTitleId}>
@@ -815,24 +777,33 @@ export function RenderedJourney({
         </h1>
         <p className={styles.summary}>{activeChapter.summary}</p>
 
-        {activeChapter.metrics && activeChapter.metrics.length > 0 && (
-          <dl className={styles.metrics}>
-            {activeChapter.metrics.map((metric) => (
-              <div key={metric.label}>
-                <dt>{metric.label}</dt>
-                <dd>{metric.value}</dd>
+        <div className={styles.evidenceRow}>
+          {activeSignal && (
+            <dl className={styles.signal}>
+              <div>
+                <dt>{activeSignal.label}</dt>
+                <dd>{activeSignal.value}</dd>
               </div>
-            ))}
-          </dl>
-        )}
+            </dl>
+          )}
 
-        {activeChapter.links && activeChapter.links.length > 0 && (
-          <div className={styles.chapterLinks}>
-            {activeChapter.links.map((link) => (
-              <ChapterLink key={`${link.href}-${link.label}`} link={link} />
-            ))}
-          </div>
-        )}
+          {activeChapter.links && activeChapter.links.length > 0 && (
+            <div className={styles.chapterLinks}>
+              {activeChapter.links.map((link) => (
+                <ChapterLink key={`${link.href}-${link.label}`} link={link} />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <footer className={styles.slateFooter}>
+          <span>38.000 SEC / 24 FPS</span>
+          <span aria-hidden="true" className={styles.slateProgress} />
+          <span ref={frameReadoutRef}>
+            {formatFrameLabel(renderedFrame)} / {RENDERED_FRAME_COUNT}
+          </span>
+          <span ref={timecodeReadoutRef}>{formatTimecode(renderedFrame)}</span>
+        </footer>
       </article>
 
       <div className={styles.controls}>
@@ -850,10 +821,17 @@ export function RenderedJourney({
         <nav aria-label="Journey chapters" className={styles.chapterNav}>
           <ol>
             {chapterList.map((chapter, index) => (
-              <li key={chapter.id}>
+              <li
+                key={chapter.id}
+                style={
+                  {
+                    "--chapter-progress": clamp(chapter.mediaProgress).toFixed(5),
+                  } as CSSProperties
+                }
+              >
                 <button
                   aria-current={index === safeActiveIndex ? "step" : undefined}
-                  aria-label={`Go to chapter ${index + 1}: ${chapter.label}`}
+                  aria-label={`Go to chapter ${index + 1}: ${chapter.label}, ${formatFrameLabel(frameAtMediaProgress(chapter.mediaProgress))}`}
                   className={index === safeActiveIndex ? styles.activeStop : ""}
                   onClick={() => goToChapter(index)}
                   title={chapter.label}

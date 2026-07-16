@@ -23,10 +23,13 @@ import modeling  # noqa: E402
 import mature_factory  # noqa: E402
 import industrial_robot  # noqa: E402
 import precision_grinder  # noqa: E402
+import fpv_stage  # noqa: E402
+import fpv_vfx  # noqa: E402
+import fpv_lighting  # noqa: E402
 import animation  # noqa: E402
 
 
-FALLBACK_CHAPTER_FRAMES = [1, 88, 168, 256, 352, 448, 544, 656]
+FALLBACK_CHAPTER_FRAMES = [91, 169, 301, 433, 553, 673, 793, 877]
 
 
 def blender_args() -> argparse.Namespace:
@@ -46,8 +49,9 @@ def blender_args() -> argparse.Namespace:
         default="storyboard",
     )
     parser.add_argument("--fps", type=int, default=24)
-    parser.add_argument("--duration", type=float, default=28.0)
+    parser.add_argument("--duration", type=float, default=38.0)
     parser.add_argument("--samples", type=int)
+    parser.add_argument("--render-step", type=int, choices=(1, 2), default=1)
     argv = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     return parser.parse_args(argv)
 
@@ -67,11 +71,22 @@ def reset_scene() -> None:
                 datablocks.remove(block)
 
 
-def configure_scene(mode: str, fps: int, duration: float, samples: int | None) -> None:
+def configure_scene(
+    mode: str,
+    fps: int,
+    duration: float,
+    samples: int | None,
+    render_step: int,
+) -> None:
     scene = bpy.context.scene
     scene.frame_start = 1
     scene.frame_end = round(fps * duration)
-    scene.render.fps = fps
+    scene.frame_step = render_step
+    if render_step > 1 and not mode.startswith("playblast"):
+        raise ValueError("--render-step is currently supported only for playblast modes")
+    if fps % render_step != 0:
+        raise ValueError("fps must be divisible by --render-step")
+    scene.render.fps = fps // render_step
     scene.render.fps_base = 1.0
     scene.render.engine = "BLENDER_EEVEE_NEXT"
 
@@ -81,8 +96,8 @@ def configure_scene(mode: str, fps: int, duration: float, samples: int | None) -
     render.use_file_extension = True
 
     if mode in {"mobile", "blend-mobile"}:
-        render.resolution_x = 900
-        render.resolution_y = 1600
+        render.resolution_x = 1080
+        render.resolution_y = 1920
         render.resolution_percentage = 100
     elif mode == "playblast-mobile":
         render.resolution_x = 360
@@ -101,12 +116,14 @@ def configure_scene(mode: str, fps: int, duration: float, samples: int | None) -
         render.resolution_y = 720
         render.resolution_percentage = 60
     else:
-        render.resolution_x = 1600
-        render.resolution_y = 900
+        render.resolution_x = 1920
+        render.resolution_y = 1080
         render.resolution_percentage = 100
 
     scene.render.image_settings.file_format = "PNG"
-    scene.render.image_settings.color_depth = "8"
+    scene.render.image_settings.color_depth = (
+        "16" if mode in {"desktop", "mobile", "blend", "blend-mobile"} else "8"
+    )
     scene.render.image_settings.compression = 30
 
     eevee = scene.eevee
@@ -141,10 +158,10 @@ def restore_render_samples(mode: str, samples: int | None) -> None:
 
 def set_screen_textures(assets: dict[str, object]) -> None:
     evidence = [
-        ROOT / "public" / "evidence" / "notice-workbench-product.png",
-        ROOT / "public" / "evidence" / "takt-simulator-product.png",
-        ROOT / "public" / "evidence" / "excel-ops-product.png",
-        ROOT / "public" / "evidence" / "ops-platform-product.png",
+        ROOT / "public" / "evidence" / "notice-cinematic.png",
+        ROOT / "public" / "evidence" / "takt-cinematic.png",
+        ROOT / "public" / "evidence" / "visibility-cinematic.png",
+        ROOT / "public" / "evidence" / "lab-cinematic.png",
     ]
 
     screens = assets.get("screen_displays") or assets.get("screens", [])
@@ -173,25 +190,8 @@ def set_screen_textures(assets: dict[str, object]) -> None:
         screen.data.materials.clear()
         screen.data.materials.append(material)
 
-    hero_screen = assets.get("hero_screen")
-    if isinstance(hero_screen, bpy.types.Object) and hero_screen.type == "MESH":
-        image_path = evidence[1]
-        if image_path.exists():
-            image = bpy.data.images.load(str(image_path), check_existing=True)
-            material = bpy.data.materials.new("MAT_ProjectScreen_Hero_Takt")
-            material.use_nodes = True
-            nodes = material.node_tree.nodes
-            links = material.node_tree.links
-            nodes.clear()
-            output = nodes.new("ShaderNodeOutputMaterial")
-            emission = nodes.new("ShaderNodeEmission")
-            texture = nodes.new("ShaderNodeTexImage")
-            texture.image = image
-            emission.inputs["Strength"].default_value = 1.20
-            links.new(texture.outputs["Color"], emission.inputs["Color"])
-            links.new(emission.outputs["Emission"], output.inputs["Surface"])
-            hero_screen.data.materials.clear()
-            hero_screen.data.materials.append(material)
+    # The entrance command bay is environmental scale only. Repeating a hero
+    # project before the four evidence beats weakens the one-shot hierarchy.
 
 
 def widen_mobile_camera(camera: bpy.types.Object, factor: float = 0.68) -> None:
@@ -259,12 +259,19 @@ def render_playblast(mode: str) -> None:
 def main() -> None:
     args = blender_args()
     reset_scene()
-    configure_scene(args.mode, args.fps, args.duration, args.samples)
+    configure_scene(
+        args.mode,
+        args.fps,
+        args.duration,
+        args.samples,
+        args.render_step,
+    )
 
     assets = modeling.build_models()
     mature_factory.augment_factory(assets)
     industrial_robot.replace_robot(assets)
     precision_grinder.augment_grinder(assets)
+    fpv_stage.augment_fpv_stage(assets)
     camera = cinematography.build_cinematography(
         assets,
         fps=args.fps,
@@ -273,9 +280,17 @@ def main() -> None:
     if args.mode in {"mobile", "storyboard-mobile", "playblast-mobile", "blend-mobile"}:
         widen_mobile_camera(camera)
     lookdev.setup_lookdev(assets, camera)
+    fpv_lighting.augment_fpv_lighting(assets)
     set_screen_textures(assets)
+    fpv_vfx.augment_fpv_vfx(assets)
     animation.animate_assets(assets, fps=args.fps, duration=args.duration)
     restore_render_samples(args.mode, args.samples)
+    # Lookdev owns general render defaults and restores 24 fps. Reassert the
+    # intentional half-rate output only after every augmentation has run.
+    bpy.context.scene.frame_step = args.render_step
+    bpy.context.scene.render.fps = args.fps // args.render_step
+    bpy.context.scene["source_animation_fps"] = args.fps
+    bpy.context.scene["render_frame_step"] = args.render_step
 
     save_blend(args.mode)
 

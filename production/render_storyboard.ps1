@@ -1,6 +1,8 @@
 param(
     [string]$Blender,
-    [switch]$Mobile
+    [switch]$Mobile,
+    [ValidateRange(0.001, 86400.0)]
+    [double]$Duration = 38.0
 )
 
 $ErrorActionPreference = "Stop"
@@ -14,7 +16,7 @@ $Blender = if ($Blender) {
 $Script = Join-Path $RepoRoot "production\blender\build_scene.py"
 $Mode = if ($Mobile) { "storyboard-mobile" } else { "storyboard" }
 
-& $Blender --background --factory-startup --python-exit-code 1 --python $Script -- --mode $Mode
+& $Blender --background --factory-startup --python-exit-code 1 --python $Script -- --mode $Mode --duration $Duration
 if ($LASTEXITCODE -ne 0) {
     throw "Storyboard render failed with exit code $LASTEXITCODE"
 }

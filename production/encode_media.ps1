@@ -1,7 +1,9 @@
 param(
     [ValidateSet("desktop", "mobile")]
     [string]$Mode = "desktop",
-    [string]$Ffmpeg
+    [string]$Ffmpeg,
+    [ValidateRange(0.001, 86400.0)]
+    [double]$Duration = 38.0
 )
 
 $ErrorActionPreference = "Stop"
@@ -15,24 +17,48 @@ $Ffmpeg = if ($Ffmpeg) {
 $FrameDir = Join-Path $RepoRoot "production\renders\$Mode-frames"
 $MediaDir = Join-Path $RepoRoot "public\media"
 $Output = Join-Path $MediaDir "felix-journey-$Mode.mp4"
+$FrameRate = 24
+$FrameCount = $Duration * $FrameRate
+
+if ([Math]::Abs($FrameCount - [Math]::Round($FrameCount)) -gt 0.000001) {
+    throw "Duration $Duration does not resolve to a whole frame at $FrameRate fps"
+}
+
+$ExpectedFrameCount = [int][Math]::Round($FrameCount)
+$MissingFrames = @(
+    for ($Frame = 1; $Frame -le $ExpectedFrameCount; $Frame++) {
+        $FramePath = Join-Path $FrameDir ("frame-{0:D4}.png" -f $Frame)
+        if (-not (Test-Path -LiteralPath $FramePath)) {
+            $Frame
+        }
+    }
+)
 
 New-Item -ItemType Directory -Force -Path $MediaDir | Out-Null
 
-if (-not (Test-Path (Join-Path $FrameDir "frame-0001.png"))) {
-    throw "Missing render frames in $FrameDir"
+if ($MissingFrames.Count -gt 0) {
+    $MissingPreview = ($MissingFrames | Select-Object -First 8 | ForEach-Object { "F{0:D4}" -f $_ }) -join ", "
+    throw "Missing $($MissingFrames.Count) of $ExpectedFrameCount required render frames in $FrameDir ($MissingPreview)"
 }
 
 & $Ffmpeg `
     -y `
-    -framerate 24 `
+    -framerate $FrameRate `
     -start_number 1 `
     -i (Join-Path $FrameDir "frame-%04d.png") `
+    -frames:v $ExpectedFrameCount `
     -an `
     -c:v libx264 `
     -preset slow `
     -crf 19 `
     -pix_fmt yuv420p `
+    -color_primaries bt709 `
+    -color_trc bt709 `
+    -colorspace bt709 `
+    -color_range tv `
     -movflags +faststart `
+    -flags +cgop `
+    -x264-params "keyint=12:min-keyint=12:scenecut=0:open-gop=0:colorprim=bt709:transfer=bt709:colormatrix=bt709" `
     -g 12 `
     -keyint_min 12 `
     -sc_threshold 0 `
@@ -42,30 +68,21 @@ if ($LASTEXITCODE -ne 0) {
     throw "$Mode video encoding failed with exit code $LASTEXITCODE"
 }
 
-if ($Mode -eq "desktop") {
-    & $Ffmpeg `
-        -y `
-        -i (Join-Path $FrameDir "frame-0054.png") `
-        -frames:v 1 `
-        -c:v libwebp `
-        -quality 88 `
-        (Join-Path $MediaDir "felix-journey-poster.webp")
+$PosterFrameNumber = [Math]::Min(91, $ExpectedFrameCount)
+$PosterInput = Join-Path $FrameDir ("frame-{0:D4}.png" -f $PosterFrameNumber)
+$PosterName = if ($Mode -eq "desktop") { "felix-journey-poster.webp" } else { "felix-journey-mobile-poster.webp" }
+$PosterOutput = Join-Path $MediaDir $PosterName
 
-    if ($LASTEXITCODE -ne 0) {
-        throw "Poster encoding failed with exit code $LASTEXITCODE"
-    }
-} else {
-    & $Ffmpeg `
-        -y `
-        -i (Join-Path $FrameDir "frame-0054.png") `
-        -frames:v 1 `
-        -c:v libwebp `
-        -quality 88 `
-        (Join-Path $MediaDir "felix-journey-mobile-poster.webp")
+& $Ffmpeg `
+    -y `
+    -i $PosterInput `
+    -frames:v 1 `
+    -c:v libwebp `
+    -quality 88 `
+    $PosterOutput
 
-    if ($LASTEXITCODE -ne 0) {
-        throw "Mobile poster encoding failed with exit code $LASTEXITCODE"
-    }
+if ($LASTEXITCODE -ne 0) {
+    throw "$Mode poster encoding failed with exit code $LASTEXITCODE"
 }
 
 Get-Item $Output | Select-Object FullName, Length

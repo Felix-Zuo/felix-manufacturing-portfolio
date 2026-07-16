@@ -16,20 +16,66 @@ from typing import Any
 
 try:
     import bpy
-    from mathutils import Matrix, Vector
+    from mathutils import Matrix, Quaternion, Vector
 except ModuleNotFoundError:  # Allow static checks outside Blender.
     bpy = None
     Matrix = None
+    Quaternion = None
     Vector = None
 
 
-BASE_DURATION = 28.0
+BASE_DURATION = 38.0
 COLLECTION_NAME = "CINEMATOGRAPHY"
-CORRIDOR_WAYPOINT_SECONDS = 10.1
-GRINDING_CLEAR_SECONDS = 9.35
-CORRIDOR_GUIDE_START_SECONDS = 9.67
-CORRIDOR_GUIDE_END_SECONDS = 10.33
-TERMINAL_SETTLE_SECONDS = 27.2
+CORRIDOR_WAYPOINT_SECONDS = 14.45
+GRINDING_CLEAR_SECONDS = 13.55
+GRINDING_APPROACH_SECONDS = 10.75
+CORRIDOR_GUIDE_START_SECONDS = 14.10
+CORRIDOR_GUIDE_END_SECONDS = 14.85
+TERMINAL_SETTLE_SECONDS = 37.25
+
+# Screen exits must hand the gaze back to the aisle before the camera passes
+# the bay. Without these forward-looking keys the target briefly fell behind
+# the moving camera, producing accidental full-frame enclosure wipes.
+SCREEN_TRANSITION_LOOKS = (
+    (19.45, (0.0, 63.0, 2.05)),
+    (21.50, (0.0, 70.0, 2.12)),
+    (24.55, (0.0, 86.0, 2.05)),
+    (26.55, (0.0, 94.0, 2.12)),
+    (29.55, (0.0, 109.0, 2.08)),
+    (31.35, (0.0, 117.0, 2.14)),
+    (34.70, (0.0, 132.0, 2.12)),
+    (35.55, (0.0, 138.0, 2.32)),
+)
+
+GRINDING_TRANSITION_LOOKS = (
+    (8.35, (0.0, 22.0, 1.82)),
+    (9.85, (0.0, 28.0, 1.86)),
+    (10.75, (5.15, 25.88, 1.82)),
+)
+
+# The bank is a transition accent, not a permanent FPV horizon effect. Every
+# subject focus returns to level so machinery and project screens remain easy
+# to inspect. Values are authored in seconds and degrees.
+ROLL_KEYFRAMES = (
+    (0.00, 0.0),
+    (3.25, -2.50),
+    (3.75, 0.0),
+    (6.10, 1.75),
+    (7.00, 0.0),
+    (9.15, 2.75),
+    (12.50, 0.0),
+    (13.35, -2.00),
+    (15.00, 0.0),
+    (20.35, 2.25),
+    (23.00, 0.0),
+    (25.35, -2.25),
+    (28.00, 0.0),
+    (30.35, 2.25),
+    (33.00, 0.0),
+    (34.55, -1.50),
+    (36.50, 0.0),
+    (38.00, 0.0),
+)
 
 
 @dataclass(frozen=True)
@@ -57,7 +103,7 @@ class BulletWindow:
     capture_fps: int
 
 
-# Eight focus beats, 672 frames at the default settings. The opening rail
+# Eight focus beats, 912 frames at the default settings. The opening rail
 # takeover is the approach into the bearing beat rather than a separate hero
 # frame. Fallbacks use authoring (X lateral, +Y travel, +Z up) and are converted
 # to film (X lateral, +Y up, -Z travel).
@@ -66,37 +112,37 @@ NARRATIVE_BEATS = (
         "bearing",
         "Bearing datum",
         0.0,
-        3.5,
-        2.20,
-        0.90,
+        4.5,
+        3.75,
+        1.20,
         (-3.70, 8.00, 1.23),
-        (-4.40, 5.15, 1.55),
-        55.0,
-        0.48,
+        (-1.55, 6.30, 2.75),
+        70.0,
+        0.28,
         ("bearing_rotation_root",),
     ),
     NarrativeBeat(
         "handoff",
         "Mechanical arm handoff",
-        3.5,
-        7.0,
-        5.25,
-        1.10,
+        4.5,
+        9.0,
+        7.00,
+        1.50,
         (-4.00, 11.50, 1.83),
-        (0.00, 11.00, 1.58),
-        38.0,
+        (1.15, 11.20, 2.10),
+        35.0,
         0.22,
         ("SUM_Robot_EndEffector_Frame", "robot_tcp"),
     ),
     NarrativeBeat(
         "grinding",
         "Grinding evidence",
-        7.0,
-        10.5,
-        8.75,
-        1.30,
+        9.0,
+        15.0,
+        12.50,
+        1.60,
         (5.45, 26.03, 1.82),
-        (4.633, 25.100, 1.996),
+        (3.25, 26.18, 2.00),
         90.0,
         0.16,
         ("SUM_ANCHOR_GrindingContact",),
@@ -104,66 +150,66 @@ NARRATIVE_BEATS = (
     NarrativeBeat(
         "notice",
         "Notice control card",
-        10.5,
-        14.0,
-        12.25,
-        0.95,
-        (-5.54, 52.0, 2.54),
-        (-2.25, 47.20, 1.25),
-        44.0,
-        0.38,
+        15.0,
+        20.0,
+        18.00,
+        1.50,
+        (-2.65, 52.0, 2.45),
+        (0.35, 49.15, 2.45),
+        42.0,
+        0.24,
         ("screen_display_01",),
     ),
     NarrativeBeat(
         "takt",
         "Takt control card",
-        14.0,
-        17.5,
-        15.75,
-        0.95,
-        (5.54, 75.0, 2.54),
-        (1.30, 68.20, 2.95),
-        58.0,
-        0.38,
+        20.0,
+        25.0,
+        23.00,
+        1.50,
+        (2.65, 75.0, 2.45),
+        (-0.35, 72.10, 2.55),
+        42.0,
+        0.24,
         ("screen_display_02", "screen_takt"),
     ),
     NarrativeBeat(
         "visibility",
         "Operations visibility",
-        17.5,
-        21.0,
-        19.25,
-        0.95,
-        (-5.54, 99.0, 2.54),
-        (-2.90, 93.60, 3.25),
-        38.0,
-        0.40,
+        25.0,
+        30.0,
+        28.00,
+        1.50,
+        (-2.65, 99.0, 2.45),
+        (0.30, 96.05, 2.34),
+        40.0,
+        0.24,
         ("screen_display_03",),
     ),
     NarrativeBeat(
         "systems",
         "Connected systems",
-        21.0,
-        24.5,
-        22.75,
-        0.95,
-        (5.54, 121.0, 2.54),
-        (2.10, 115.90, 0.95),
-        52.0,
-        0.45,
+        30.0,
+        35.0,
+        33.00,
+        2.00,
+        (2.65, 121.0, 2.45),
+        (-0.30, 117.85, 2.28),
+        38.0,
+        0.22,
         ("screen_display_04",),
     ),
     NarrativeBeat(
         "close",
         "Final improvement loop",
-        24.5,
-        28.0,
-        26.25,
-        1.20,
+        35.0,
+        38.0,
+        36.50,
+        1.25,
         (0.0, 140.0, 2.75),
-        (0.45, 126.5, 1.35),
-        30.0,
-        0.55,
+        (0.0, 132.20, 2.00),
+        35.0,
+        0.45,
         (
             "final_inspection_portal",
             "final_precision_inspection_portal",
@@ -177,18 +223,14 @@ NARRATIVE_BEATS = (
 
 
 BULLET_WINDOWS = (
-    BulletWindow("bearing_inspection", 1.75, 2.75, 0.34, 0.42, 48),
-    BulletWindow("arm_handoff", 4.35, 6.15, 0.50, 0.18, 96),
-    BulletWindow("grinding_sparks", 7.85, 9.65, 0.22, 0.16, 120),
-    BulletWindow("notice_card", 11.65, 12.85, 0.36, 0.34, 48),
-    BulletWindow("takt_card", 15.15, 16.35, 0.36, 0.34, 48),
-    BulletWindow("visibility_card", 18.65, 19.85, 0.36, 0.38, 48),
-    BulletWindow("systems_card", 22.15, 23.35, 0.34, 0.38, 48),
+    BulletWindow("bearing_inspection", 3.25, 4.25, 0.34, 0.42, 48),
+    BulletWindow("arm_handoff", 6.00, 8.00, 0.48, 0.22, 96),
+    BulletWindow("grinding_sparks", 11.50, 13.25, 0.22, 0.16, 120),
 )
 
 
 def _require_blender() -> None:
-    if bpy is None or Matrix is None or Vector is None:
+    if bpy is None or Matrix is None or Quaternion is None or Vector is None:
         raise RuntimeError("build_cinematography() must run inside Blender")
 
 
@@ -728,12 +770,29 @@ def _film_look_quaternion(camera_position: Any, target_position: Any) -> Any:
     return rotation.to_quaternion().normalized()
 
 
+def _smooth_scalar_keyframes(seconds: float, keys: Sequence[tuple[float, float]]) -> float:
+    """Interpolate authored scalar keys with zero velocity at each control point."""
+
+    if not keys:
+        return 0.0
+    if seconds <= keys[0][0]:
+        return float(keys[0][1])
+    for (start_s, start_value), (end_s, end_value) in zip(keys, keys[1:]):
+        if seconds <= end_s:
+            span = max(end_s - start_s, 1.0e-6)
+            phase = _smootherstep((seconds - start_s) / span)
+            return float(start_value + (end_value - start_value) * phase)
+    return float(keys[-1][1])
+
+
 def _bake_camera_orientation(
     scene: Any,
     camera: Any,
     look_at: Any,
     camera_action: Any,
     frame_end: int,
+    fps: int,
+    duration: float,
     hold_from_frame: int | None = None,
 ) -> None:
     frames = list(range(1, frame_end + 1))
@@ -745,6 +804,12 @@ def _bake_camera_orientation(
         quaternion = _film_look_quaternion(
             camera.matrix_world.translation.copy(),
             look_at.matrix_world.translation.copy(),
+        )
+        seconds = (frame - 1) / float(fps)
+        authored_seconds = seconds * BASE_DURATION / float(duration)
+        bank_degrees = _smooth_scalar_keyframes(authored_seconds, ROLL_KEYFRAMES)
+        quaternion = quaternion @ Quaternion(
+            (0.0, 0.0, 1.0), math.radians(bank_degrees)
         )
         if previous is not None and previous.dot(quaternion) < 0.0:
             quaternion.negate()
@@ -785,7 +850,7 @@ def _create_markers(scene: Any, beats: Sequence[NarrativeBeat], fps: int, durati
         )
 
 
-def build_cinematography(assets: Any, fps: int = 24, duration: float = 28) -> Any:
+def build_cinematography(assets: Any, fps: int = 24, duration: float = 38) -> Any:
     """Build the continuous 8-beat camera move and return the camera object.
 
     ``assets`` may be a mapping, namespace, Blender collection, or nested set of
@@ -876,15 +941,18 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 28) -> An
             "Narrative anchors must progress bearing -> robot -> grinding -> screens -> final along film -Z"
         )
 
-    opening_start = _authoring_to_film((0.0, -4.0, 1.55))
-    grinding_clear_camera = _authoring_to_film((3.55, 25.20, 1.96))
-    corridor_camera = _authoring_to_film((0.0, 34.0, 1.55))
-    corridor_look = _authoring_to_film((0.0, 45.0, 1.35))
+    opening_start = _authoring_to_film((0.0, -4.0, 2.25))
+    grinding_approach_camera = _authoring_to_film((2.60, 25.75, 1.92))
+    grinding_clear_camera = _authoring_to_film((2.75, 26.35, 1.96))
+    corridor_camera = _authoring_to_film((0.0, 34.0, 1.72))
+    corridor_look = _authoring_to_film((0.0, 45.0, 1.55))
     closing_end = _authoring_to_film((0.0, final_travel - 4.0, 1.65))
     closing_look = targets[-1].copy()
     path_coordinates = [
         opening_start,
-        *camera_positions[:3],
+        *camera_positions[:2],
+        grinding_approach_camera,
+        camera_positions[2],
         grinding_clear_camera,
         corridor_camera,
         *camera_positions[3:],
@@ -935,12 +1003,15 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 28) -> An
     follow.offset_factor = 0.0
 
     focus_seconds = [item["focus_s"] for item in scaled_beats]
+    grinding_approach_seconds = _scaled_seconds(GRINDING_APPROACH_SECONDS, duration)
     grinding_clear_seconds = _scaled_seconds(GRINDING_CLEAR_SECONDS, duration)
     corridor_seconds = _scaled_seconds(CORRIDOR_WAYPOINT_SECONDS, duration)
     terminal_settle_seconds = _scaled_seconds(TERMINAL_SETTLE_SECONDS, duration)
     path_times = [
         0.0,
-        *focus_seconds[:3],
+        *focus_seconds[:2],
+        grinding_approach_seconds,
+        focus_seconds[2],
         grinding_clear_seconds,
         corridor_seconds,
         *focus_seconds[3:],
@@ -957,7 +1028,9 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 28) -> An
     progress_values = _path_progress_values(path_coordinates)
     speed_scales = [
         1.0,
-        *[beat.speed_scale for beat in NARRATIVE_BEATS[:3]],
+        *[beat.speed_scale for beat in NARRATIVE_BEATS[:2]],
+        0.72,
+        NARRATIVE_BEATS[2].speed_scale,
         0.34,
         0.62,
         *[beat.speed_scale for beat in NARRATIVE_BEATS[3:]],
@@ -977,7 +1050,9 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 28) -> An
 
     lens_values = [
         24.0,
-        *[beat.lens_mm for beat in NARRATIVE_BEATS[:3]],
+        *[beat.lens_mm for beat in NARRATIVE_BEATS[:2]],
+        48.0,
+        NARRATIVE_BEATS[2].lens_mm,
         70.0,
         36.0,
         *[beat.lens_mm for beat in NARRATIVE_BEATS[3:]],
@@ -989,6 +1064,7 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 28) -> An
         5.6,
         4.8,
         5.0,
+        5.6,
         8.0,
         8.0,
         5.6,
@@ -1028,6 +1104,20 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 28) -> An
     )
     target_keys.append((corridor_guide_start_frame, corridor_look))
     target_keys.append((corridor_guide_end_frame, corridor_look))
+    for seconds, coordinate in GRINDING_TRANSITION_LOOKS:
+        target_keys.append(
+            (
+                _frame_at(_scaled_seconds(seconds, duration), fps, frame_end),
+                _authoring_to_film(coordinate),
+            )
+        )
+    for seconds, coordinate in SCREEN_TRANSITION_LOOKS:
+        target_keys.append(
+            (
+                _frame_at(_scaled_seconds(seconds, duration), fps, frame_end),
+                _authoring_to_film(coordinate),
+            )
+        )
     target_keys.append((terminal_settle_frame, closing_look))
     target_keys.append((frame_end, closing_look))
     target_keys = _dedupe_vector_keys(target_keys)
@@ -1047,6 +1137,8 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 28) -> An
         look_at,
         camera_action,
         frame_end,
+        fps,
+        float(duration),
         hold_from_frame=terminal_settle_frame,
     )
 
@@ -1112,10 +1204,13 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 28) -> An
             "speed_never_zero": False,
             "film_z_monotone": True,
             "film_z_strict_until_terminal_settle": True,
-            "orientation": "per_frame_world_quaternion",
+            "orientation": "per_frame_world_quaternion_with_authored_fpv_bank",
             "look_at_exact_at_integer_frames": True,
             "horizon_up_axis": "+Y",
             "roll_limit_degrees": 3.0,
+            "roll_keyframes_seconds_degrees": [
+                [seconds, degrees] for seconds, degrees in ROLL_KEYFRAMES
+            ],
             "corridor_guide": corridor_guide.name,
             "corridor_waypoint_frame": path_frames[4],
             "corridor_guide_hold_frames": [
@@ -1168,7 +1263,7 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 28) -> An
     camera["cin_camera_path"] = path.name
     camera["cin_look_at"] = look_at.name
     camera["cin_corridor_guide"] = corridor_guide.name
-    camera["cin_orientation"] = "per_frame_world_quaternion"
+    camera["cin_orientation"] = "per_frame_world_quaternion_with_authored_fpv_bank"
     camera["cin_roll_limit_degrees"] = 3.0
     camera["cin_terminal_hold_frames"] = frame_end - terminal_settle_frame + 1
     camera["cin_time_control"] = time_control.name

@@ -16,6 +16,15 @@ ROOT = Path(__file__).resolve().parents[2]
 VENDOR_ROOT = ROOT / "production" / "vendor" / "ros-industrial-kuka-kr210"
 VISUAL_ROOT = VENDOR_ROOT / "meshes" / "visual"
 UPSTREAM_COMMIT = "8d9292b04a22628b1b78d989e2ddd3abb913bf92"
+MODEL_COLLECTION = "SUM_MODEL_KUKA_KR210"
+
+# Tool-local dimensions before the uniform design scale is applied.  The
+# resulting payload is approximately 228 mm OD x 52 mm wide in world space.
+GRIPPER_SCALE = 0.94
+WORKPIECE_OUTER_RADIUS = 0.121
+WORKPIECE_INNER_RADIUS = 0.077
+WORKPIECE_WIDTH = 0.056
+GRIP_PAD_INNER_FACE = 0.122
 
 JOINTS = (
     ("A1", (-0.00262, 0.00097586, 0.33099), (0.0, 0.0, 1.0)),
@@ -66,6 +75,29 @@ def _move_to_collection(obj: bpy.types.Object, collection: bpy.types.Collection)
     for current in tuple(obj.users_collection):
         current.objects.unlink(obj)
     collection.objects.link(obj)
+
+
+def _reset_model_collection(
+    parent: bpy.types.Collection,
+) -> bpy.types.Collection:
+    """Replace this generated asset collection without accumulating datablocks."""
+
+    existing = bpy.data.collections.get(MODEL_COLLECTION)
+    if existing is not None:
+        owned_data = [
+            obj.data
+            for obj in existing.all_objects
+            if getattr(obj, "data", None) is not None
+        ]
+        modeling._remove_collection_tree(existing)
+        for datablock in owned_data:
+            if datablock.users != 0:
+                continue
+            if isinstance(datablock, bpy.types.Mesh):
+                bpy.data.meshes.remove(datablock)
+            elif isinstance(datablock, bpy.types.Curve):
+                bpy.data.curves.remove(datablock)
+    return modeling._child_collection(parent, MODEL_COLLECTION)
 
 
 def _import_link_mesh(
@@ -197,54 +229,159 @@ def _build_dress_pack(
     collection: bpy.types.Collection,
     materials: dict[str, bpy.types.Material],
 ) -> None:
-    base_hose = modeling._bezier_tube(
+    def hose(
+        name: str,
+        points: list[tuple[float, float, float]],
+        radius: float,
+        parent: bpy.types.Object,
+        role: str,
+    ) -> bpy.types.Object:
+        result = modeling._bezier_tube(
+            name,
+            points,
+            radius,
+            collection,
+            parent=parent,
+            material=materials["rubber"],
+            role=role,
+            resolution=12,
+        )
+        result["lookdev_role"] = "rubber"
+        result["dress_pack_function"] = "robot power, servo brake, and tool I/O"
+        return result
+
+    hose(
         "SUM_KUKA_KR210_BaseDressPack",
         [
-            (-0.30, -0.30, 0.42),
-            (-0.42, -0.28, 0.78),
-            (-0.36, -0.18, 1.12),
-            (-0.20, -0.10, 1.46),
+            (-0.30, -0.30, 0.38),
+            (-0.35, -0.25, 0.43),
+            (-0.24, -0.14, 0.47),
+            (-0.08, -0.04, 0.48),
+            (-0.00262, 0.00098, 0.45099),
         ],
         0.038,
-        collection,
-        parent=root,
-        material=materials["rubber"],
-        role="industrial_robot_base_dress_pack",
-        resolution=10,
+        root,
+        "industrial_robot_base_dress_pack",
     )
-    base_hose["lookdev_role"] = "rubber"
-
-    upper_hose = modeling._bezier_tube(
+    hose(
+        "SUM_KUKA_KR210_ShoulderDressPack",
+        [
+            (0.00, 0.00, 0.12),
+            (0.05, -0.08, 0.21),
+            (0.16, -0.16, 0.34),
+            (0.29, -0.17, 0.43),
+            (0.35277, -0.13998, 0.41920),
+        ],
+        0.035,
+        joints[0],
+        "industrial_robot_shoulder_dress_pack",
+    )
+    hose(
         "SUM_KUKA_KR210_UpperArmDressPack",
         [
-            (0.04, -0.24, 0.10),
-            (0.22, -0.30, 0.30),
-            (0.48, -0.25, 0.38),
-            (0.76, -0.16, 0.28),
-            (0.94, -0.10, 0.12),
+            (0.00, -0.10250, 0.00),
+            (-0.14, -0.17, 0.22),
+            (-0.18, -0.21, 0.58),
+            (-0.15, -0.24, 0.94),
+            (-0.05, -0.24, 1.13),
+            (0.00, -0.23, 1.24990),
         ],
-        0.028,
-        collection,
-        parent=joints[2],
-        material=materials["rubber"],
-        role="industrial_robot_forearm_dress_pack",
-        resolution=10,
+        0.032,
+        joints[1],
+        "industrial_robot_upper_arm_dress_pack",
     )
-    upper_hose["lookdev_role"] = "rubber"
+    hose(
+        "SUM_KUKA_KR210_ForearmDressPack",
+        [
+            (0.00, -0.08250, 0.00),
+            (0.04, -0.24, 0.16),
+            (0.36, -0.28, 0.33),
+            (0.65, -0.16, 0.26),
+            (0.87, 0.02, 0.10),
+            (0.95795, 0.184, -0.05506),
+        ],
+        0.029,
+        joints[2],
+        "industrial_robot_forearm_dress_pack",
+    )
+    hose(
+        "SUM_KUKA_KR210_WristDressPack",
+        [
+            (0.00, 0.00, 0.00),
+            (0.08, -0.16, 0.14),
+            (0.27, -0.16, 0.13),
+            (0.46, -0.10, 0.07),
+            (0.542, -0.05, 0.00),
+        ],
+        0.024,
+        joints[3],
+        "industrial_robot_wrist_dress_pack",
+    )
+    hose(
+        "SUM_KUKA_KR210_A5ServiceLoop",
+        [
+            (0.00, -0.05, 0.00),
+            (0.04, -0.13, 0.11),
+            (0.13, -0.15, 0.09),
+            (0.20, -0.08, 0.03),
+            (0.2025, 0.00, 0.00),
+        ],
+        0.021,
+        joints[4],
+        "industrial_robot_a5_service_loop",
+    )
+    hose(
+        "SUM_KUKA_KR210_ToolIOUmbilical",
+        [
+            (0.01, 0.00, 0.00),
+            (0.02, -0.075, 0.070),
+            (0.05, -0.105, 0.080),
+            (0.0563, -0.0987, 0.0705),
+        ],
+        0.016,
+        joints[5],
+        "industrial_robot_tool_io_umbilical",
+    )
 
-    clamps = []
-    for x in (0.18, 0.48, 0.78):
-        clamps.append(((x, -0.22, 0.22), (0.055, 0.10, 0.16)))
-    clamp_obj = modeling._box_array(
-        "SUM_KUKA_KR210_DressPackClamps",
-        clamps,
-        collection,
-        parent=joints[2],
-        material=materials["black_oxide"],
-        bevel=0.008,
-        role="industrial_robot_dress_pack_clamps",
+    clamp_specs = (
+        (
+            "SUM_KUKA_KR210_UpperArmDressPackClamps",
+            joints[1],
+            [
+                ((-0.17, -0.205, 0.38), (0.095, 0.070, 0.045)),
+                ((-0.17, -0.225, 0.73), (0.095, 0.070, 0.045)),
+                ((-0.11, -0.235, 1.04), (0.095, 0.070, 0.045)),
+            ],
+        ),
+        (
+            "SUM_KUKA_KR210_ForearmDressPackClamps",
+            joints[2],
+            [
+                ((0.20, -0.285, 0.29), (0.055, 0.090, 0.080)),
+                ((0.49, -0.235, 0.31), (0.055, 0.090, 0.080)),
+                ((0.76, -0.080, 0.19), (0.055, 0.090, 0.080)),
+            ],
+        ),
+        (
+            "SUM_KUKA_KR210_WristDressPackClamps",
+            joints[3],
+            [
+                ((0.18, -0.155, 0.13), (0.045, 0.075, 0.065)),
+                ((0.39, -0.125, 0.09), (0.045, 0.075, 0.065)),
+            ],
+        ),
     )
-    clamp_obj["lookdev_role"] = "dark_metal"
+    for name, parent, boxes in clamp_specs:
+        clamp_obj = modeling._box_array(
+            name,
+            boxes,
+            collection,
+            parent=parent,
+            material=materials["black_oxide"],
+            bevel=0.006,
+            role="industrial_robot_dress_pack_clamps",
+        )
+        clamp_obj["lookdev_role"] = "dark_metal"
 
 
 def _build_end_effector(
@@ -258,9 +395,12 @@ def _build_end_effector(
         parent=tcp,
         display_size=0.10,
     )
-    tool.scale = (0.78, 0.78, 0.78)
+    if WORKPIECE_OUTER_RADIUS >= GRIP_PAD_INNER_FACE:
+        raise ValueError("bearing workpiece must clear both compliant pads")
+    tool.scale = (GRIPPER_SCALE,) * 3
     tool["sum_asset_type"] = "servo_parallel_bearing_transfer_gripper"
-    tool["design_scale"] = "compact 78 percent production end effector"
+    tool["design_scale"] = "production-scale KR210 bearing transfer end effector"
+    tool["rated_payload_kg"] = 18.0
 
     flange = modeling._cylinder_between(
         "SUM_KUKA_Gripper_ISOFlange",
@@ -286,11 +426,22 @@ def _build_end_effector(
         role="sealed_servo_gripper_housing",
     )
     housing["lookdev_role"] = "powder_coat"
+    faceplate = modeling._box(
+        "SUM_KUKA_Gripper_ServoFaceplate",
+        (0.035, 0.28, 0.20),
+        collection,
+        location=(0.315, 0.0, 0.0),
+        parent=tool,
+        material=materials["robot_paint"],
+        bevel=0.010,
+        role="servo_gripper_actuator_faceplate",
+    )
+    faceplate["lookdev_role"] = "powder_coat"
     rail = modeling._box(
         "SUM_KUKA_Gripper_CrossRail",
-        (0.10, 0.54, 0.10),
+        (0.11, 0.58, 0.11),
         collection,
-        location=(0.33, 0.0, 0.0),
+        location=(0.35, 0.0, 0.0),
         parent=tool,
         material=materials["brushed_steel"],
         bevel=0.012,
@@ -298,29 +449,96 @@ def _build_end_effector(
     )
     rail["lookdev_role"] = "brushed_metal"
 
-    for side in (-1.0, 1.0):
-        jaw = modeling._box(
-            f"SUM_KUKA_Gripper_Jaw_{'L' if side < 0 else 'R'}",
-            (0.30, 0.11, 0.18),
+    for z in (-0.052, 0.052):
+        guide = modeling._cylinder_between(
+            f"SUM_KUKA_Gripper_LinearGuide_{'Lower' if z < 0 else 'Upper'}",
+            (0.405, -0.245, z),
+            (0.405, 0.245, z),
+            0.012,
             collection,
-            location=(0.43, side * 0.20, 0.0),
             parent=tool,
             material=materials["machined_steel"],
-            bevel=0.020,
-            role="servo_parallel_gripper_jaw",
+            segments=32,
+            bevel=0.002,
+            role="servo_gripper_linear_guide_rod",
         )
-        jaw["lookdev_role"] = "brushed_metal"
-        pad = modeling._box(
-            f"SUM_KUKA_Gripper_CompliantPad_{'L' if side < 0 else 'R'}",
-            (0.16, 0.045, 0.14),
+        guide["lookdev_role"] = "brushed_metal"
+
+    for side in (-1.0, 1.0):
+        suffix = "L" if side < 0 else "R"
+        carrier = modeling._box(
+            f"SUM_KUKA_Gripper_JawCarrier_{suffix}",
+            (0.13, 0.13, 0.19),
             collection,
-            location=(0.50, side * 0.137, 0.0),
+            location=(0.405, side * 0.21, 0.0),
+            parent=tool,
+            material=materials["machined_steel"],
+            bevel=0.016,
+            role="servo_parallel_gripper_jaw_carrier",
+        )
+        carrier["lookdev_role"] = "brushed_metal"
+        finger = modeling._box(
+            f"SUM_KUKA_Gripper_Finger_{suffix}",
+            (0.26, 0.080, 0.125),
+            collection,
+            location=(0.525, side * 0.185, 0.0),
+            parent=tool,
+            material=materials["machined_steel"],
+            bevel=0.014,
+            role="servo_parallel_gripper_replaceable_finger",
+        )
+        finger["lookdev_role"] = "brushed_metal"
+        pad = modeling._box(
+            f"SUM_KUKA_Gripper_CompliantPad_{suffix}",
+            (0.19, 0.044, 0.105),
+            collection,
+            location=(0.55, side * (GRIP_PAD_INNER_FACE + 0.022), 0.0),
             parent=tool,
             material=materials["rubber"],
-            bevel=0.014,
+            bevel=0.010,
             role="replaceable_nonmarking_bearing_grip_pad",
         )
         pad["lookdev_role"] = "rubber"
+
+    workpiece = modeling._annular_prism(
+        "SUM_KUKA_Gripper_HeldBearingRing_WIP",
+        WORKPIECE_OUTER_RADIUS,
+        WORKPIECE_INNER_RADIUS,
+        WORKPIECE_WIDTH,
+        collection,
+        location=(0.55, 0.0, 0.0),
+        rotation=(0.0, math.pi * 0.5, 0.0),
+        parent=tool,
+        material=materials["machined_steel"],
+        segments=96,
+        bevel=0.003,
+        role="robot_held_in_process_bearing_outer_ring",
+    )
+    workpiece["lookdev_role"] = "brushed_metal"
+    workpiece["manufacturing_state"] = "turned and heat-treated, awaiting finish grind"
+    workpiece["nominal_outer_diameter_mm"] = 228
+    workpiece["nominal_bore_diameter_mm"] = 145
+    workpiece["nominal_width_mm"] = 52
+    workpiece["radial_pad_clearance_mm"] = round(
+        (GRIP_PAD_INNER_FACE - WORKPIECE_OUTER_RADIUS)
+        * GRIPPER_SCALE
+        * 1000.0,
+        2,
+    )
+    raceway_witness = modeling._torus(
+        "SUM_KUKA_Gripper_HeldBearingRing_RacewayWitness",
+        0.097,
+        0.0035,
+        collection,
+        location=(0.579, 0.0, 0.0),
+        rotation=(0.0, math.pi * 0.5, 0.0),
+        parent=tool,
+        material=materials["brushed_steel"],
+        major_segments=72,
+        minor_segments=10,
+        role="in_process_bearing_raceway_witness",
+    )
+    raceway_witness["lookdev_role"] = "brushed_metal"
     sensor = modeling._box(
         "SUM_KUKA_Gripper_PositionSensor",
         (0.11, 0.08, 0.075),
@@ -335,11 +553,12 @@ def _build_end_effector(
     cable = modeling._bezier_tube(
         "SUM_KUKA_Gripper_ServiceCable",
         [
-            (0.02, -0.11, 0.08),
-            (0.10, -0.17, 0.12),
-            (0.22, -0.19, 0.10),
+            (0.02, -0.105, 0.075),
+            (0.09, -0.145, 0.115),
+            (0.18, -0.185, 0.105),
+            (0.22, -0.205, 0.055),
         ],
-        0.012,
+        0.014,
         collection,
         parent=tool,
         material=materials["rubber"],
@@ -347,6 +566,21 @@ def _build_end_effector(
         resolution=8,
     )
     cable["lookdev_role"] = "rubber"
+    gland = modeling._cylinder_between(
+        "SUM_KUKA_Gripper_ServiceCableGland",
+        (0.22, -0.170, 0.055),
+        (0.22, -0.205, 0.055),
+        0.018,
+        collection,
+        parent=tool,
+        material=materials["black_oxide"],
+        segments=24,
+        bevel=0.002,
+        role="gripper_service_cable_strain_relief",
+    )
+    gland["lookdev_role"] = "dark_metal"
+    tool["held_payload"] = workpiece.name
+    tool["grip_strategy"] = "external-diameter parallel grip with compliant pads"
     return tool
 
 
@@ -371,7 +605,7 @@ def replace_robot(assets: dict[str, Any]) -> dict[str, Any]:
             raise FileNotFoundError(f"Incomplete KUKA source package: {link_name}.dae")
 
     _exclude_proxy_robot(assets)
-    collection = modeling._child_collection(root_collection, "SUM_MODEL_KUKA_KR210")
+    collection = _reset_model_collection(root_collection)
     root = modeling._empty(
         "SUM_ASSET_KUKA_KR210_L150",
         collection,

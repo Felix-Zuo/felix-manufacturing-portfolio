@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Felix Zuo cinematic evidence surfaces</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #071014;
+        --panel: #0d171b;
+        --line: #26363d;
+        --muted: #91a1a6;
+        --text: #f2f5f3;
+        --amber: #e8a33d;
+        --green: #58c78d;
+        --steel: #6e9ab0;
+      }
+
+      * { box-sizing: border-box; }
+      html, body { width: 1920px; height: 1200px; margin: 0; overflow: hidden; }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: Arial, Helvetica, sans-serif;
+      }
+
+      .surface {
+        position: relative;
+        width: 1920px;
+        height: 1200px;
+        padding: 72px 86px 64px;
+        background-color: var(--bg);
+        background-image:
+          linear-gradient(var(--line) 1px, transparent 1px),
+          linear-gradient(90deg, var(--line) 1px, transparent 1px);
+        background-size: 80px 80px;
+      }
+
+      .surface::before {
+        content: "";
+        position: absolute;
+        inset: 32px;
+        border: 2px solid #34464d;
+        pointer-events: none;
+      }
+
+      .topline,
+      .footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-family: Consolas, "Courier New", monospace;
+        font-size: 24px;
+        line-height: 1;
+        color: var(--muted);
+        text-transform: uppercase;
+      }
+
+      .topline strong { color: var(--amber); font-weight: 700; }
+      .title { margin: 86px 0 18px; max-width: 1480px; font-size: 92px; line-height: 1.02; font-weight: 700; }
+      .subtitle { margin: 0; color: #aebabe; font-size: 31px; line-height: 1.4; }
+      .body { position: absolute; inset: 430px 86px 110px; display: grid; gap: 38px; }
+      .metric { font-family: Consolas, "Courier New", monospace; font-size: 164px; line-height: 0.9; font-weight: 700; }
+      .metric small { display: block; margin-top: 25px; font: 26px/1.2 Arial, sans-serif; color: var(--muted); text-transform: uppercase; }
+      .accent-green { color: var(--green); }
+      .accent-amber { color: var(--amber); }
+      .accent-steel { color: #a6d5e8; }
+
+      .flow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; align-items: stretch; }
+      .flow.four { grid-template-columns: repeat(4, 1fr); }
+      .node {
+        position: relative;
+        display: flex;
+        min-height: 205px;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 32px 32px 28px;
+        border: 2px solid #405159;
+        background: rgba(10, 21, 25, 0.94);
+      }
+      .node::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        right: -26px;
+        width: 26px;
+        height: 2px;
+        background: var(--amber);
+      }
+      .node:last-child::after { display: none; }
+      .node .index { font: 22px/1 Consolas, monospace; color: var(--amber); }
+      .node h2 { margin: 26px 0 0; font-size: 38px; line-height: 1.08; }
+      .node p { margin: 18px 0 0; color: var(--muted); font: 23px/1.3 Consolas, monospace; }
+
+      .notice .body { grid-template-columns: 0.9fr 1.8fr; align-items: center; }
+      .takt .body { grid-template-columns: 0.82fr 1.5fr; align-items: center; }
+      .visibility .body { grid-template-rows: 1fr auto; }
+      .lab .body { grid-template-rows: auto 1fr; }
+
+      .chart {
+        position: relative;
+        height: 330px;
+        border-left: 2px solid #53636a;
+        border-bottom: 2px solid #53636a;
+        background: repeating-linear-gradient(0deg, transparent 0 64px, rgba(66, 88, 97, 0.4) 65px 66px);
+      }
+      .chart svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+      .chart-labels { display: flex; justify-content: space-between; margin-top: 18px; color: var(--muted); font: 22px/1 Consolas, monospace; }
+      .status-row { display: flex; gap: 16px; align-items: center; color: var(--muted); font: 24px/1 Consolas, monospace; }
+      .signal { width: 14px; height: 14px; background: var(--green); box-shadow: 0 0 18px rgba(88,199,141,.6); }
+      .footer { position: absolute; left: 86px; right: 86px; bottom: 58px; }
+
+      .card { display: none; }
+      body[data-view="notice"] .notice,
+      body[data-view="takt"] .takt,
+      body[data-view="visibility"] .visibility,
+      body[data-view="lab"] .lab { display: block; }
+    </style>
+  </head>
+  <body data-view="notice">
+    <main class="surface card notice">
+      <div class="topline"><span><strong>Case 01</strong> / Workflow control</span><span>Public-safe evidence / Human review retained</span></div>
+      <h1 class="title">Production Notice Workflow Standardization</h1>
+      <p class="subtitle">Structured work-package inputs become a consistent, reviewable release packet.</p>
+      <section class="body">
+        <div class="metric accent-green">&lt; 1 min<small>notice preparation</small></div>
+        <div class="flow">
+          <article class="node"><span class="index">01 / INPUT</span><h2>Structured request</h2><p>validated fields</p></article>
+          <article class="node"><span class="index">02 / REVIEW</span><h2>Human control gate</h2><p>draft → reviewed</p></article>
+          <article class="node"><span class="index">03 / RELEASE</span><h2>Consistent packet</h2><p>released / traceable</p></article>
+        </div>
+      </section>
+      <div class="footer"><span class="status-row"><i class="signal"></i> SYSTEM READY</span><span>Felix Zuo / Manufacturing workflow improvement</span></div>
+    </main>
+
+    <main class="surface card takt">
+      <div class="topline"><span><strong>Case 02</strong> / Flow simulation</span><span>Synthetic line / Deterministic run</span></div>
+      <h1 class="title">Trial Production Takt Simulation</h1>
+      <p class="subtitle">Expose bottlenecks, buffers, waiting, and blocking before physical trial-and-error.</p>
+      <section class="body">
+        <div class="metric accent-amber">3 d → 1 d<small>adjustment cycle</small></div>
+        <div>
+          <div class="chart">
+            <svg viewBox="0 0 1000 330" preserveAspectRatio="none" aria-hidden="true">
+              <polyline points="0,260 110,236 220,242 330,180 440,194 550,108 660,142 770,76 880,92 1000,44" fill="none" stroke="#6e9ab0" stroke-width="8" />
+              <line x1="550" y1="0" x2="550" y2="330" stroke="#e8a33d" stroke-width="4" stroke-dasharray="14 12" />
+              <circle cx="550" cy="108" r="15" fill="#e8a33d" />
+            </svg>
+          </div>
+          <div class="chart-labels"><span>FEED</span><span>BOTTLENECK ISOLATED</span><span>OUTPUT</span></div>
+        </div>
+      </section>
+      <div class="footer"><span class="status-row"><i class="signal"></i> SIMULATION RUNNING</span><span>Felix Zuo / Trial production improvement</span></div>
+    </main>
+
+    <main class="surface card visibility">
+      <div class="topline"><span><strong>Case 03</strong> / Operations visibility</span><span>Supply / Production / Delivery / Exceptions</span></div>
+      <h1 class="title">Operations Data, Made Reviewable</h1>
+      <p class="subtitle">Scattered exports become one consistent operating view for daily follow-up and closure.</p>
+      <section class="body">
+        <div class="flow four">
+          <article class="node"><span class="index">01</span><h2>Classify</h2><p>identify source</p></article>
+          <article class="node"><span class="index">02</span><h2>Normalize</h2><p>map headers</p></article>
+          <article class="node"><span class="index">03</span><h2>Calculate</h2><p>apply metrics</p></article>
+          <article class="node"><span class="index">04</span><h2>Review</h2><p>close exceptions</p></article>
+        </div>
+        <div class="metric accent-steel">ONE VIEW<small>supply → production → delivery</small></div>
+      </section>
+      <div class="footer"><span class="status-row"><i class="signal"></i> EXCEPTIONS VISIBLE</span><span>Felix Zuo / Operations visibility</span></div>
+    </main>
+
+    <main class="surface card lab">
+      <div class="topline"><span><strong>Portfolio Lab</strong> / Connected public systems</span><span>Evidence-first / Local-first / Public-safe</span></div>
+      <h1 class="title">One Operating Method, Several Public Tools</h1>
+      <p class="subtitle">Four supporting projects extend the same control logic beyond the three manufacturing cases.</p>
+      <section class="body">
+        <div class="flow four">
+          <article class="node"><span class="index">OPS / 01</span><h2>Operations Intelligence</h2><p>connected control layer</p></article>
+          <article class="node"><span class="index">DATA / 02</span><h2>Factory Data Pocket Lab</h2><p>manufacturing literacy</p></article>
+          <article class="node"><span class="index">METHOD / 03</span><h2>Six Sigma Study</h2><p>validated learning</p></article>
+          <article class="node"><span class="index">RELIABILITY / 04</span><h2>HulunGuard</h2><p>claim → evidence → state</p></article>
+        </div>
+        <div class="metric accent-green">7 PROJECTS<small>three cases + four supporting systems</small></div>
+      </section>
+      <div class="footer"><span class="status-row"><i class="signal"></i> PORTFOLIO CONNECTED</span><span>github.com/Felix-Zuo</span></div>
+    </main>
+
+    <script>
+      const view = new URLSearchParams(location.search).get("view") || "notice";
+      document.body.dataset.view = ["notice", "takt", "visibility", "lab"].includes(view) ? view : "notice";
+    </script>
+  </body>
+</html>
