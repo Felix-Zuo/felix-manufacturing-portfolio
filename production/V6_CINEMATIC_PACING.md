@@ -44,6 +44,21 @@ provides visible deceleration into and acceleration out of each anchor.
   uses a bounded bottom editorial layer with internal overflow protection.
 - Reduced-motion mode keeps the F001 poster and removes timeline animation.
 
+## Final Handoff
+
+- The accepted V6 film still owns the factory journey. No source MP4 is re-encoded.
+- The media layer uses slight overscan during project reframing so motion never
+  exposes the page background at the lower or side edges.
+- After the final door movement, story progress 0.978-1.000 drives a scroll-bound
+  black gate into the interactive operations control deck.
+- The control deck exposes four real project channels: Release, Flow, Inventory,
+  and System. Each channel uses existing public screenshots, case-study routes,
+  live demos, repositories, outcomes, and public-data boundaries.
+- Two matched generated control-room frames crossfade on a five-second
+  0-1-0 loop. The geometry remains fixed; only restrained status lighting changes.
+- The final deck keeps direct contact, GitHub, supporting systems, and a return
+  control back to the final factory frame.
+
 ## Verified Browser States
 
 - Desktop project times: 18.0 s, 23.0 s, 28.0 s, and 33.0 s.

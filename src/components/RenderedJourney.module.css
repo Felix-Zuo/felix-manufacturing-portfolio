@@ -1,5 +1,6 @@
 .root {
   --chapter-count: 8;
+  --control-progress: 0;
   --journey-progress: 0;
 
   position: fixed;
@@ -38,7 +39,7 @@
   overflow: hidden;
   background: #080a0c;
   pointer-events: none;
-  transform: scale(1) translateX(0);
+  transform: scale(1.006) translateX(0);
   transform-origin: center center;
   transition: transform 900ms cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -80,37 +81,53 @@
   z-index: 2;
   background:
     linear-gradient(90deg, rgba(5, 7, 8, 0.9) 0%, rgba(5, 7, 8, 0.48) 42%, rgba(5, 7, 8, 0.08) 72%),
-    linear-gradient(180deg, rgba(5, 7, 8, 0.5) 0%, transparent 28%, transparent 62%, rgba(5, 7, 8, 0.78) 100%);
+    linear-gradient(180deg, rgba(5, 7, 8, 0.5) 0%, transparent 28%, transparent 68%, rgba(5, 7, 8, 0.62) 100%);
   box-shadow:
     inset 0 0 110px 18px rgba(0, 0, 0, 0.52),
-    inset 0 -130px 100px -80px rgba(0, 0, 0, 0.86);
+    inset 0 -90px 70px -72px rgba(0, 0, 0, 0.58);
   transition: background 800ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .root[data-panel-align="right"] .shade {
   background:
     linear-gradient(270deg, rgba(5, 7, 8, 0.88) 0%, rgba(5, 7, 8, 0.46) 40%, rgba(5, 7, 8, 0.06) 72%),
-    linear-gradient(180deg, rgba(5, 7, 8, 0.5) 0%, transparent 28%, transparent 62%, rgba(5, 7, 8, 0.78) 100%);
+    linear-gradient(180deg, rgba(5, 7, 8, 0.5) 0%, transparent 28%, transparent 68%, rgba(5, 7, 8, 0.62) 100%);
 }
 
 .root[data-project-focused][data-panel-align="left"] .media {
-  transform: scale(0.965) translateX(4.5%);
+  transform: scale(1.06) translateX(2%);
 }
 
 .root[data-project-focused][data-panel-align="right"] .media {
-  transform: scale(0.965) translateX(-4.5%);
+  transform: scale(1.06) translateX(-2%);
 }
 
 .root[data-project-focused][data-panel-align="left"] .shade {
   background:
     linear-gradient(90deg, rgba(4, 6, 7, 0.98) 0%, rgba(4, 6, 7, 0.76) 29%, rgba(4, 6, 7, 0.14) 52%, transparent 72%),
-    linear-gradient(180deg, rgba(5, 7, 8, 0.46) 0%, transparent 30%, transparent 64%, rgba(5, 7, 8, 0.84) 100%);
+    linear-gradient(180deg, rgba(5, 7, 8, 0.46) 0%, transparent 30%, transparent 68%, rgba(5, 7, 8, 0.7) 100%);
 }
 
 .root[data-project-focused][data-panel-align="right"] .shade {
   background:
     linear-gradient(270deg, rgba(4, 6, 7, 0.98) 0%, rgba(4, 6, 7, 0.76) 29%, rgba(4, 6, 7, 0.14) 52%, transparent 72%),
-    linear-gradient(180deg, rgba(5, 7, 8, 0.46) 0%, transparent 30%, transparent 64%, rgba(5, 7, 8, 0.84) 100%);
+    linear-gradient(180deg, rgba(5, 7, 8, 0.46) 0%, transparent 30%, transparent 68%, rgba(5, 7, 8, 0.7) 100%);
+}
+
+.controlGate {
+  position: absolute;
+  z-index: 7;
+  inset: 0;
+  background: #030405;
+  opacity: clamp(0, calc(var(--control-progress) * 1.62), 1);
+  pointer-events: none;
+}
+
+.root[data-control-deck] .meta,
+.root[data-control-deck] .chapter,
+.root[data-control-deck] .controls {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .meta {
@@ -658,7 +675,7 @@
 @media (max-width: 560px) {
   .root[data-project-focused][data-panel-align="left"] .media,
   .root[data-project-focused][data-panel-align="right"] .media {
-    transform: scale(1) translateX(0);
+    transform: scale(1.006) translateX(0);
   }
 
   .root[data-project-focused][data-panel-align="left"] .shade,

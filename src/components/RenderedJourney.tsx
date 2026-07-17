@@ -22,6 +22,7 @@ import {
 
 import { profile } from "@/data/profile";
 
+import { JourneyControlDeck } from "./JourneyControlDeck";
 import styles from "./RenderedJourney.module.css";
 
 export type RenderedJourneyLink = {
@@ -80,6 +81,8 @@ const WHEEL_PROGRESS_STEP = 0.0052;
 const TOUCH_PROGRESS_PER_VIEWPORT = 0.12;
 const PROJECT_FOCUS_RADIUS = 0.024;
 const INPUT_IDLE_MILLISECONDS = 260;
+const CONTROL_DECK_REVEAL_START = 0.978;
+const CONTROL_DECK_ACTIVE_PROGRESS = 0.988;
 const RENDERED_FPS = 24;
 const RENDERED_FRAME_COUNT = 912;
 const SEEK_EPSILON_SECONDS = 1 / 90;
@@ -285,6 +288,10 @@ export const DEFAULT_RENDERED_JOURNEY_CHAPTERS: readonly RenderedJourneyChapter[
     label: "Close",
     links: [
       {
+        href: "#control",
+        label: "Open control deck",
+      },
+      {
         href: `mailto:${profile.email}`,
         label: "Email Felix",
       },
@@ -300,6 +307,13 @@ export const DEFAULT_RENDERED_JOURNEY_CHAPTERS: readonly RenderedJourneyChapter[
 
 function clamp(value: number, minimum = 0, maximum = 1) {
   return Math.min(Math.max(value, minimum), maximum);
+}
+
+function controlDeckProgressAtStoryProgress(progress: number) {
+  return clamp(
+    (progress - CONTROL_DECK_REVEAL_START) /
+      (1 - CONTROL_DECK_REVEAL_START),
+  );
 }
 
 function storyProgressAtChapter(
@@ -494,7 +508,11 @@ function ChapterLink({ link }: { link: RenderedJourneyLink }) {
     );
   }
 
-  if (link.href.startsWith("mailto:") || link.href.startsWith("tel:")) {
+  if (
+    link.href.startsWith("#") ||
+    link.href.startsWith("mailto:") ||
+    link.href.startsWith("tel:")
+  ) {
     return (
       <a className={styles.chapterLink} href={link.href}>
         {content}
@@ -538,10 +556,15 @@ export function RenderedJourney({
     initialProgress,
     chapterList,
   );
+  const initialControlDeckActive =
+    initialProgress >= CONTROL_DECK_ACTIVE_PROGRESS;
   const rootStyle = useMemo(
     () =>
       ({
         "--chapter-count": chapterList.length,
+        "--control-progress": controlDeckProgressAtStoryProgress(
+          initialProgress,
+        ).toFixed(5),
         "--journey-progress": initialProgress.toFixed(5),
       }) as CSSProperties,
     [chapterList.length, initialProgress],
@@ -562,6 +585,7 @@ export function RenderedJourney({
   const activeIndexRef = useRef(initialIndex);
   const focusedProjectIndexRef = useRef<number | null>(initialFocusedProjectIndex);
   const magneticStopIndexRef = useRef<number | null>(null);
+  const controlDeckActiveRef = useRef(initialControlDeckActive);
   const stopReleaseReadyRef = useRef(false);
   const inputIdleTimerRef = useRef<number | null>(null);
   const pausedRef = useRef(false);
@@ -570,6 +594,9 @@ export function RenderedJourney({
     initialFocusedProjectIndex,
   );
   const [magneticStopIndex, setMagneticStopIndex] = useState<number | null>(null);
+  const [controlDeckActive, setControlDeckActive] = useState(
+    initialControlDeckActive,
+  );
   const [isPaused, setIsPaused] = useState(false);
   const [isVideoReady, setIsVideoReady] = useState(false);
   const [videoFailed, setVideoFailed] = useState(false);
@@ -605,6 +632,12 @@ export function RenderedJourney({
     magneticStopIndexRef.current = index;
     stopReleaseReadyRef.current = false;
     setMagneticStopIndex(index);
+  }, []);
+
+  const commitControlDeckActive = useCallback((active: boolean) => {
+    if (controlDeckActiveRef.current === active) return;
+    controlDeckActiveRef.current = active;
+    setControlDeckActive(active);
   }, []);
 
   const scheduleInputIdle = useCallback(() => {
@@ -676,6 +709,10 @@ export function RenderedJourney({
         "--journey-progress",
         boundedProgress.toFixed(5),
       );
+      rootRef.current?.style.setProperty(
+        "--control-progress",
+        controlDeckProgressAtStoryProgress(boundedProgress).toFixed(5),
+      );
       seekToProgress(boundedProgress);
       updateTimelineReadout(mediaProgress);
       commitActiveChapter(
@@ -687,9 +724,13 @@ export function RenderedJourney({
           chaptersRef.current,
         ),
       );
+      commitControlDeckActive(
+        boundedProgress >= CONTROL_DECK_ACTIVE_PROGRESS,
+      );
     },
     [
       commitActiveChapter,
+      commitControlDeckActive,
       commitFocusedProject,
       seekToProgress,
       updateTimelineReadout,
@@ -776,9 +817,23 @@ export function RenderedJourney({
     [goToChapter],
   );
 
+  const returnFromControlDeck = useCallback(() => {
+    goToChapter(chaptersRef.current.length - 1);
+    if (window.location.hash === "#control") {
+      window.history.replaceState(null, "", "#contact");
+    }
+  }, [goToChapter]);
+
   useEffect(() => {
     const followHash = () => {
       const hash = window.location.hash.slice(1);
+      if (hash === "control") {
+        timelineRef.current.target = 1;
+        renderProgressImmediately(1);
+        commitMagneticStop(null);
+        return;
+      }
+
       const chapterIndex = HASH_CHAPTER_INDEX[hash];
       if (chapterIndex === undefined) return;
 
@@ -939,6 +994,10 @@ export function RenderedJourney({
         "--journey-progress",
         progress.toFixed(5),
       );
+      rootRef.current?.style.setProperty(
+        "--control-progress",
+        controlDeckProgressAtStoryProgress(progress).toFixed(5),
+      );
       seekToProgress(progress);
       updateTimelineReadout(mediaProgress);
       commitActiveChapter(
@@ -947,6 +1006,7 @@ export function RenderedJourney({
       commitFocusedProject(
         focusedProjectIndexAtProgress(progress, chaptersRef.current),
       );
+      commitControlDeckActive(progress >= CONTROL_DECK_ACTIVE_PROGRESS);
       frame = window.requestAnimationFrame(tick);
     };
 
@@ -954,6 +1014,7 @@ export function RenderedJourney({
     return () => window.cancelAnimationFrame(frame);
   }, [
     commitActiveChapter,
+    commitControlDeckActive,
     commitFocusedProject,
     reducedMotion,
     seekToProgress,
@@ -1012,10 +1073,11 @@ export function RenderedJourney({
 
   return (
     <section
-      aria-label={ariaLabel}
-      aria-labelledby={chapterTitleId}
+      aria-label={controlDeckActive ? "Felix Zuo operations control deck" : ariaLabel}
+      aria-labelledby={controlDeckActive ? undefined : chapterTitleId}
       className={`${styles.root} ${isStatic ? styles.reducedMotion : ""} ${className}`.trim()}
       data-chapter-kind={activeKind}
+      data-control-deck={controlDeckActive || undefined}
       data-magnetic-stop={
         magneticStopIndex !== null
           ? chapterList[magneticStopIndex]?.id
@@ -1076,6 +1138,14 @@ export function RenderedJourney({
         <div className={styles.shade} />
       </div>
 
+      <div aria-hidden="true" className={styles.controlGate} />
+      <JourneyControlDeck
+        active={controlDeckActive}
+        onReturn={returnFromControlDeck}
+      />
+
+      {!controlDeckActive && (
+        <>
       <header className={styles.meta}>
         <span>FZ / Manufacturing operations</span>
         <span>{activeChapter.label}</span>
@@ -1209,16 +1279,20 @@ export function RenderedJourney({
         )}
 
         <button
-          aria-label="Next chapter"
+          aria-label={isLastChapter ? "Open control deck" : "Next chapter"}
           className={styles.iconButton}
-          disabled={isLastChapter}
-          onClick={() => goToRelativeChapter(1)}
-          title="Next chapter"
+          disabled={isLastChapter && controlDeckActive}
+          onClick={() =>
+            isLastChapter ? goToProgress(1) : goToRelativeChapter(1)
+          }
+          title={isLastChapter ? "Open control deck" : "Next chapter"}
           type="button"
         >
           <ChevronRight aria-hidden="true" size={18} />
         </button>
       </div>
+        </>
+      )}
     </section>
   );
 }
