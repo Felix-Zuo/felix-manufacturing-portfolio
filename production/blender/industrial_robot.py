@@ -343,6 +343,73 @@ def _build_dress_pack(
         "industrial_robot_tool_io_umbilical",
     )
 
+    # Keep low-current feedback and pneumatic blow-off services distinct from
+    # the main power loom so their bend radii and clamp loads remain plausible.
+    hose(
+        "SUM_KUKA_KR210_UpperArmFeedbackCable",
+        [
+            (0.035, -0.152, 0.08),
+            (-0.09, -0.184, 0.34),
+            (-0.12, -0.205, 0.70),
+            (-0.08, -0.215, 1.02),
+            (0.015, -0.205, 1.20),
+        ],
+        0.009,
+        joints[1],
+        "industrial_robot_encoder_feedback_cable",
+    )
+    hose(
+        "SUM_KUKA_KR210_ForearmBlowoffLine",
+        [
+            (0.02, -0.132, 0.03),
+            (0.18, -0.205, 0.20),
+            (0.46, -0.205, 0.23),
+            (0.72, -0.105, 0.14),
+            (0.91, 0.105, -0.015),
+        ],
+        0.008,
+        joints[2],
+        "industrial_robot_tool_blowoff_air_line",
+    )
+
+    gland_specs = (
+        (
+            "SUM_KUKA_KR210_BaseDressPackBulkheadGland",
+            root,
+            (-0.34, -0.30, 0.38),
+            (-0.29, -0.30, 0.38),
+            0.052,
+        ),
+        (
+            "SUM_KUKA_KR210_ShoulderDressPackGland",
+            joints[0],
+            (0.00, -0.015, 0.12),
+            (0.02, -0.060, 0.16),
+            0.044,
+        ),
+        (
+            "SUM_KUKA_KR210_WristDressPackGland",
+            joints[3],
+            (0.455, -0.085, 0.065),
+            (0.515, -0.045, 0.018),
+            0.030,
+        ),
+    )
+    for name, parent, start, end, radius in gland_specs:
+        gland = modeling._cylinder_between(
+            name,
+            start,
+            end,
+            radius,
+            collection,
+            parent=parent,
+            material=materials["black_oxide"],
+            segments=28,
+            bevel=0.004,
+            role="industrial_robot_dress_pack_strain_relief_gland",
+        )
+        gland["lookdev_role"] = "dark_metal"
+
     clamp_specs = (
         (
             "SUM_KUKA_KR210_UpperArmDressPackClamps",
@@ -448,6 +515,32 @@ def _build_end_effector(
         role="precision_gripper_cross_slide",
     )
     rail["lookdev_role"] = "brushed_metal"
+
+    lead_screw = modeling._cylinder_between(
+        "SUM_KUKA_Gripper_ServoLeadScrew",
+        (0.395, -0.235, 0.0),
+        (0.395, 0.235, 0.0),
+        0.016,
+        collection,
+        parent=tool,
+        material=materials["machined_steel"],
+        segments=32,
+        bevel=0.002,
+        role="servo_gripper_ground_opposed_lead_screw",
+    )
+    lead_screw["lookdev_role"] = "machined_steel"
+    for side in (-1.0, 1.0):
+        bearing_block = modeling._box(
+            f"SUM_KUKA_Gripper_LeadScrewBearingBlock_{'L' if side < 0 else 'R'}",
+            (0.085, 0.050, 0.070),
+            collection,
+            location=(0.395, side * 0.235, 0.0),
+            parent=tool,
+            material=materials["black_oxide"],
+            bevel=0.009,
+            role="servo_gripper_lead_screw_end_bearing_block",
+        )
+        bearing_block["lookdev_role"] = "dark_metal"
 
     for z in (-0.052, 0.052):
         guide = modeling._cylinder_between(

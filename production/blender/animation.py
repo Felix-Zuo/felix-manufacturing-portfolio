@@ -26,6 +26,10 @@ _BASE_DURATION = 38.0
 _ACTION_PREFIX = "SUM_ANIM_"
 _ACTION_TAG = "sum_animation_generated"
 _BASE_VALUE_PREFIX = "sum_animation_base_"
+_AGV_OPENING_END_SECONDS = 2.40
+_AGV_ESCORT_END_SECONDS = 5.25
+_AGV_OPENING_GAP_METERS = (4.25, 4.25)
+_AGV_FINAL_AISLE_Y_METERS = 146.0
 
 
 @dataclass(frozen=True)
@@ -613,6 +617,112 @@ def _spark_light_action(
     )
 
 
+def _cubic_hermite(
+    phase: float,
+    start: float,
+    end: float,
+    start_velocity: float,
+    end_velocity: float,
+    duration: float,
+) -> float:
+    phase = min(1.0, max(0.0, phase))
+    phase_2 = phase * phase
+    phase_3 = phase_2 * phase
+    return (
+        (2.0 * phase_3 - 3.0 * phase_2 + 1.0) * start
+        + (phase_3 - 2.0 * phase_2 + phase) * start_velocity * duration
+        + (-2.0 * phase_3 + 3.0 * phase_2) * end
+        + (phase_3 - phase_2) * end_velocity * duration
+    )
+
+
+def _agv_route_channels(
+    agv: bpy.types.Object,
+    scene: bpy.types.Scene,
+    fps: int,
+    frame_end: int,
+    duration: float,
+) -> tuple[
+    list[tuple[str, int, Sequence[tuple[int, float, float]]]],
+    dict[str, float | int | str],
+]:
+    """Bake the complete AGV root against the live camera's aisle progress."""
+
+    camera = scene.camera
+    if camera is None:
+        raise ValueError("AGV route animation requires the cinematography camera")
+    if agv.parent is None:
+        raise ValueError("AGV assembly root must retain its factory parent")
+
+    opening_end = _frame_at(
+        _AGV_OPENING_END_SECONDS, fps, frame_end, duration
+    )
+    escort_end = _frame_at(_AGV_ESCORT_END_SECONDS, fps, frame_end, duration)
+    if escort_end <= opening_end:
+        raise ValueError("AGV camera escort must extend beyond the opening")
+
+    original_frame = scene.frame_current
+    escort_x: list[float] = []
+    escort_y: list[float] = []
+    escort_frames = list(range(1, escort_end + 1))
+    try:
+        for frame in escort_frames:
+            scene.frame_set(frame)
+            bpy.context.view_layer.update()
+            camera_local = agv.parent.matrix_world.inverted() @ camera.matrix_world.translation
+            opening_phase = min(1.0, (frame - 1) / max(1, opening_end - 1))
+            gap = (
+                _AGV_OPENING_GAP_METERS[0]
+                + (_AGV_OPENING_GAP_METERS[1] - _AGV_OPENING_GAP_METERS[0])
+                * _smootherstep(opening_phase)
+            )
+            # Stay inside the painted aisle while gently favoring the camera side.
+            lane_x = min(0.72, max(-0.72, float(camera_local[0]) * 0.42))
+            if frame > opening_end:
+                center_phase = (frame - opening_end) / float(escort_end - opening_end)
+                lane_x *= 1.0 - _smootherstep(center_phase)
+            escort_x.append(lane_x)
+            escort_y.append(float(camera_local[1]) + gap)
+    finally:
+        scene.frame_set(original_frame)
+        bpy.context.view_layer.update()
+
+    frame_seconds = 1.0 / float(fps)
+    start_y = escort_y[-1]
+    start_vy = (escort_y[-1] - escort_y[-2]) / frame_seconds
+    recede_seconds = (frame_end - escort_end) / float(fps)
+    final_y = max(_AGV_FINAL_AISLE_Y_METERS, start_y + 1.0)
+
+    frames = list(range(1, frame_end + 1))
+    x_values = list(escort_x)
+    y_values = list(escort_y)
+    for frame in range(escort_end + 1, frame_end + 1):
+        phase = (frame - escort_end) / float(frame_end - escort_end)
+        x_values.append(0.0)
+        y_values.append(
+            _cubic_hermite(
+                phase, start_y, final_y, start_vy, 1.5, recede_seconds
+            )
+        )
+    if any(following <= current for current, following in zip(y_values, y_values[1:])):
+        raise ValueError("AGV center-aisle route must advance monotonically")
+    channels = [
+        ("location", 0, _sampled_keys(frames, x_values)),
+        ("location", 1, _sampled_keys(frames, y_values)),
+    ]
+    route = {
+        "opening_end_frame": opening_end,
+        "escort_end_frame": escort_end,
+        "opening_gap_min_m": min(_AGV_OPENING_GAP_METERS),
+        "opening_gap_max_m": max(_AGV_OPENING_GAP_METERS),
+        "final_x_m": 0.0,
+        "final_y_m": final_y,
+        "recede_policy": "straight_center_aisle_no_lateral_exit",
+        "assembly_policy": "root_only_children_inherit",
+    }
+    return channels, route
+
+
 def animate_assets(assets: Any, fps: int = 24, duration: float = 38) -> dict[str, Any]:
     """Animate SUM mechanical assets without changing the camera clock.
 
@@ -659,6 +769,7 @@ def animate_assets(assets: Any, fps: int = 24, duration: float = 38) -> dict[str
     animated_data: list[Any] = []
     rpm_summary: dict[str, dict[str, float | int]] = {}
     missing_optional: list[str] = []
+    agv_route: dict[str, float | int | str] | None = None
 
     bearing_keys, bearing_rpm, bearing_turns = _spin_channel(
         bearing, bearing_clock, nominal_rpm=84.0, direction=1.0
@@ -692,20 +803,22 @@ def animate_assets(assets: Any, fps: int = 24, duration: float = 38) -> dict[str
         animated_objects.append(joint)
 
     if isinstance(agv, bpy.types.Object):
-        base_location = _stored_vector(agv, "location", agv.location)
-        travel_distance = 24.0
-        agv_frames = (1, frame_end)
-        agv_values = (base_location[1], base_location[1] + travel_distance)
+        _stored_vector(agv, "location", agv.location)
+        agv_channels, agv_route = _agv_route_channels(
+            agv, scene, fps, frame_end, duration
+        )
         actions["agv_translation"] = _create_action(
             agv,
             f"{_ACTION_PREFIX}AGV07Translation",
-            "agv_constant_speed_translation",
-            (("location", 1, _sampled_keys(agv_frames, agv_values)),),
+            "agv_camera_escort_then_center_aisle_recede",
+            agv_channels,
             fps,
             duration,
         )
-        agv["sum_animation_speed_mps"] = travel_distance / duration
-        agv["sum_animation_route"] = "painted_center_aisle"
+        agv["sum_animation_route"] = "camera_escort_then_center_aisle_recede"
+        agv["sum_animation_opening_end_frame"] = agv_route["opening_end_frame"]
+        agv["sum_animation_escort_end_frame"] = agv_route["escort_end_frame"]
+        agv["sum_animation_assembly_policy"] = agv_route["assembly_policy"]
         animated_objects.append(agv)
     else:
         missing_optional.append("agv")
@@ -853,6 +966,7 @@ def animate_assets(assets: Any, fps: int = 24, duration: float = 38) -> dict[str
         "actions": {key: action.name for key, action in actions.items()},
         "animated_objects": [obj.name for obj in animated_objects],
         "windows": windows,
+        "agv_route": agv_route,
     }
     scene["sum_animation_manifest"] = json.dumps(
         manifest, separators=(",", ":"), ensure_ascii=True
@@ -875,6 +989,7 @@ def animate_assets(assets: Any, fps: int = 24, duration: float = 38) -> dict[str
         "animated_data": tuple(animated_data),
         "animated_data_names": tuple(data.name for data in animated_data),
         "rpm": rpm_summary,
+        "agv_route": agv_route,
         "slow_motion_windows": tuple(windows),
         "screen_motion_policy": "emission_only_no_card_transforms",
         "missing_optional": tuple(missing_optional),

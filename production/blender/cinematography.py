@@ -27,11 +27,18 @@ except ModuleNotFoundError:  # Allow static checks outside Blender.
 BASE_DURATION = 38.0
 COLLECTION_NAME = "CINEMATOGRAPHY"
 CORRIDOR_WAYPOINT_SECONDS = 14.45
-GRINDING_CLEAR_SECONDS = 13.55
+GRINDING_PULLBACK_SECONDS = 13.25
+GRINDING_CLEAR_SECONDS = 14.05
 GRINDING_APPROACH_SECONDS = 10.75
 CORRIDOR_GUIDE_START_SECONDS = 14.10
 CORRIDOR_GUIDE_END_SECONDS = 14.85
 TERMINAL_SETTLE_SECONDS = 37.25
+AGV_OPENING_END_SECONDS = 2.40
+ORIENTATION_SMOOTHING_PASSES = 4
+MAX_ANGULAR_STEP_DEGREES = 1.70
+MAX_ANGULAR_ACCEL_DEGREES = 0.30
+ORIENTATION_BAKE_ACCELERATION_DEGREES = 0.25
+ORIENTATION_LIMIT_SAFETY_FACTOR = 0.96
 
 # Screen exits must hand the gaze back to the aisle before the camera passes
 # the bay. Without these forward-looking keys the target briefly fell behind
@@ -48,9 +55,31 @@ SCREEN_TRANSITION_LOOKS = (
 )
 
 GRINDING_TRANSITION_LOOKS = (
-    (8.35, (0.0, 22.0, 1.82)),
-    (9.85, (0.0, 28.0, 1.86)),
-    (10.75, (5.15, 25.88, 1.82)),
+    # Hand the gaze forward before the camera passes the robot.  Keeping every
+    # target in front of the lens avoids the near-180 degree correction that
+    # previously made the stabilized camera stare into the machine shell.
+    (7.20, (-2.80, 11.80, 1.55)),
+    (7.55, (-2.30, 13.20, 1.65)),
+    (8.00, (-1.40, 16.00, 1.70)),
+    (8.55, (-0.40, 19.20, 1.75)),
+    (9.15, (0.20, 22.30, 1.80)),
+    (9.85, (1.50, 24.20, 1.82)),
+    (10.25, (3.20, 25.20, 1.82)),
+    (10.75, (5.45, 26.03, 1.82)),
+    (13.00, (5.45, 26.03, 1.82)),
+    # Leave the process cavity on a forward guide rather than carrying a
+    # side-looking target behind the camera after the grinding hold.
+    (13.20, (4.50, 28.00, 1.82)),
+    (13.50, (3.00, 34.00, 1.78)),
+    (13.80, (1.50, 40.00, 1.70)),
+    (14.10, (0.00, 45.00, 1.58)),
+)
+
+# The camera deliberately escorts the AGV before handing attention to the
+# bearing datum. Coordinates are authored as (lateral, aisle travel, height).
+AGV_OPENING_LOOKS = (
+    (0.00, (0.00, -0.15, 0.35)),
+    (AGV_OPENING_END_SECONDS, (-0.62, 7.20, 0.75)),
 )
 
 # The bank is a transition accent, not a permanent FPV horizon effect. Every
@@ -58,21 +87,21 @@ GRINDING_TRANSITION_LOOKS = (
 # to inspect. Values are authored in seconds and degrees.
 ROLL_KEYFRAMES = (
     (0.00, 0.0),
-    (3.25, -2.50),
+    (3.25, -1.00),
     (3.75, 0.0),
-    (6.10, 1.75),
+    (6.10, 0.75),
     (7.00, 0.0),
-    (9.15, 2.75),
+    (9.15, 1.25),
     (12.50, 0.0),
-    (13.35, -2.00),
+    (13.35, -0.85),
     (15.00, 0.0),
-    (20.35, 2.25),
+    (20.35, 0.75),
     (23.00, 0.0),
-    (25.35, -2.25),
+    (25.35, -0.75),
     (28.00, 0.0),
-    (30.35, 2.25),
+    (30.35, 0.75),
     (33.00, 0.0),
-    (34.55, -1.50),
+    (34.55, -0.60),
     (36.50, 0.0),
     (38.00, 0.0),
 )
@@ -142,8 +171,8 @@ NARRATIVE_BEATS = (
         12.50,
         1.60,
         (5.45, 26.03, 1.82),
-        (3.25, 26.18, 2.00),
-        90.0,
+        (2.80, 23.20, 2.15),
+        72.0,
         0.16,
         ("SUM_ANCHOR_GrindingContact",),
     ),
@@ -425,6 +454,16 @@ def _c1_progress_slopes(
     for index in range(1, len(values) - 1):
         slopes.append(min(secants[index - 1], secants[index]) * speed_scales[index])
     slopes.append(secants[-1] * speed_scales[-1])
+    # Keep every Hermite interval monotone. This prevents a locally negative
+    # speed even when adjacent narrative beats have very different pacing.
+    for index, secant in enumerate(secants):
+        alpha = slopes[index] / secant
+        beta = slopes[index + 1] / secant
+        magnitude = alpha * alpha + beta * beta
+        if magnitude > 9.0:
+            scale = 3.0 / math.sqrt(magnitude)
+            slopes[index] = scale * alpha * secant
+            slopes[index + 1] = scale * beta * secant
     if not all(slope > 0.0 and math.isfinite(slope) for slope in slopes[:-1]):
         raise ValueError("Camera progress must stay finite and positive while moving")
     if not math.isclose(slopes[-1], 0.0, abs_tol=1.0e-12):
@@ -582,7 +621,7 @@ def _bezier_point(p0: Any, p1: Any, p2: Any, p3: Any, factor: float) -> Any:
     )
 
 
-def _path_progress_values(coordinates: Sequence[Any], samples_per_segment: int = 64) -> list[float]:
+def _path_progress_values(coordinates: Sequence[Any], samples_per_segment: int = 128) -> list[float]:
     tangents = _path_tangents(coordinates)
     cumulative = [0.0]
     total = 0.0
@@ -624,8 +663,8 @@ def _assert_monotone_film_path(coordinates: Sequence[Any], samples_per_segment: 
 def _build_bezier_path(collection: Any, coordinates: Sequence[Any]) -> Any:
     curve_data = bpy.data.curves.new("CIN_CameraPathData", type="CURVE")
     curve_data.dimensions = "3D"
-    curve_data.resolution_u = 32
-    curve_data.render_resolution_u = 64
+    curve_data.resolution_u = 64
+    curve_data.render_resolution_u = 128
     curve_data.twist_smooth = 16
 
     spline = curve_data.splines.new("BEZIER")
@@ -785,6 +824,88 @@ def _smooth_scalar_keyframes(seconds: float, keys: Sequence[tuple[float, float]]
     return float(keys[-1][1])
 
 
+def _aligned_quaternion(reference: Any, value: Any) -> Any:
+    aligned = value.copy()
+    if reference.dot(aligned) < 0.0:
+        aligned.negate()
+    return aligned
+
+
+def _quaternion_step_vector(start: Any, end: Any) -> Any:
+    delta = start.rotation_difference(_aligned_quaternion(start, end))
+    if delta.w < 0.0:
+        delta.negate()
+    angle = min(math.pi, max(0.0, float(delta.angle)))
+    if angle <= 1.0e-10:
+        return Vector((0.0, 0.0, 0.0))
+    return delta.axis.normalized() * angle
+
+
+def _clamp_vector_length(value: Any, maximum: float) -> Any:
+    if value.length <= maximum or value.length <= 1.0e-12:
+        return value
+    return value.normalized() * maximum
+
+
+def _quaternion_from_step(value: Any) -> Any:
+    if value.length <= 1.0e-10:
+        return Quaternion((1.0, 0.0, 0.0, 0.0))
+    return Quaternion(value.normalized(), value.length)
+
+
+def _stabilize_quaternions(
+    quaternions: Sequence[Any],
+    hold_from_frame: int | None,
+) -> list[Any]:
+    """Low-pass authored aim and cap per-frame angular acceleration."""
+
+    if len(quaternions) < 2:
+        return [value.copy() for value in quaternions]
+    hold_index = (
+        min(len(quaternions) - 1, max(0, hold_from_frame - 1))
+        if hold_from_frame is not None
+        else len(quaternions)
+    )
+    smoothed = [value.copy() for value in quaternions]
+    for _ in range(ORIENTATION_SMOOTHING_PASSES):
+        updated = [value.copy() for value in smoothed]
+        for index in range(1, min(hold_index, len(smoothed) - 1)):
+            following = _aligned_quaternion(smoothed[index - 1], smoothed[index + 1])
+            midpoint = smoothed[index - 1].slerp(following, 0.5)
+            midpoint = _aligned_quaternion(smoothed[index], midpoint)
+            updated[index] = smoothed[index].slerp(midpoint, 0.55).normalized()
+        smoothed = updated
+
+    # Quaternion component curves are normalized again by Blender evaluation.
+    # Keep a small margin so evaluated world rotations remain inside the gate.
+    max_step = math.radians(
+        MAX_ANGULAR_STEP_DEGREES * ORIENTATION_LIMIT_SAFETY_FACTOR
+    )
+    max_acceleration = math.radians(
+        ORIENTATION_BAKE_ACCELERATION_DEGREES * ORIENTATION_LIMIT_SAFETY_FACTOR
+    )
+    stabilized = [smoothed[0].copy()]
+    previous_step = Vector((0.0, 0.0, 0.0))
+    for target in smoothed[1:]:
+        desired_step = _clamp_vector_length(
+            _quaternion_step_vector(stabilized[-1], target), max_step
+        )
+        acceleration = _clamp_vector_length(
+            desired_step - previous_step, max_acceleration
+        )
+        step = _clamp_vector_length(previous_step + acceleration, max_step)
+        value = (stabilized[-1] @ _quaternion_from_step(step)).normalized()
+        value = _aligned_quaternion(stabilized[-1], value)
+        stabilized.append(value)
+        previous_step = step
+
+    if hold_from_frame is not None:
+        locked = stabilized[hold_index].copy()
+        for index in range(hold_index, len(stabilized)):
+            stabilized[index] = locked.copy()
+    return stabilized
+
+
 def _bake_camera_orientation(
     scene: Any,
     camera: Any,
@@ -816,6 +937,7 @@ def _bake_camera_orientation(
         quaternions.append(quaternion)
         previous = quaternion
 
+    quaternions = _stabilize_quaternions(quaternions, hold_from_frame)
     channels = []
     for component in range(4):
         values = [float(quaternion[component]) for quaternion in quaternions]
@@ -942,8 +1064,9 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 38) -> An
         )
 
     opening_start = _authoring_to_film((0.0, -4.0, 2.25))
-    grinding_approach_camera = _authoring_to_film((2.60, 25.75, 1.92))
-    grinding_clear_camera = _authoring_to_film((2.75, 26.35, 1.96))
+    grinding_approach_camera = _authoring_to_film((2.40, 21.80, 1.92))
+    grinding_pullback_camera = _authoring_to_film((-1.20, 23.85, 2.00))
+    grinding_clear_camera = _authoring_to_film((-0.40, 30.00, 1.90))
     corridor_camera = _authoring_to_film((0.0, 34.0, 1.72))
     corridor_look = _authoring_to_film((0.0, 45.0, 1.55))
     closing_end = _authoring_to_film((0.0, final_travel - 4.0, 1.65))
@@ -953,6 +1076,7 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 38) -> An
         *camera_positions[:2],
         grinding_approach_camera,
         camera_positions[2],
+        grinding_pullback_camera,
         grinding_clear_camera,
         corridor_camera,
         *camera_positions[3:],
@@ -1004,6 +1128,7 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 38) -> An
 
     focus_seconds = [item["focus_s"] for item in scaled_beats]
     grinding_approach_seconds = _scaled_seconds(GRINDING_APPROACH_SECONDS, duration)
+    grinding_pullback_seconds = _scaled_seconds(GRINDING_PULLBACK_SECONDS, duration)
     grinding_clear_seconds = _scaled_seconds(GRINDING_CLEAR_SECONDS, duration)
     corridor_seconds = _scaled_seconds(CORRIDOR_WAYPOINT_SECONDS, duration)
     terminal_settle_seconds = _scaled_seconds(TERMINAL_SETTLE_SECONDS, duration)
@@ -1012,6 +1137,7 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 38) -> An
         *focus_seconds[:2],
         grinding_approach_seconds,
         focus_seconds[2],
+        grinding_pullback_seconds,
         grinding_clear_seconds,
         corridor_seconds,
         *focus_seconds[3:],
@@ -1031,7 +1157,8 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 38) -> An
         *[beat.speed_scale for beat in NARRATIVE_BEATS[:2]],
         0.72,
         NARRATIVE_BEATS[2].speed_scale,
-        0.34,
+        0.30,
+        0.45,
         0.62,
         *[beat.speed_scale for beat in NARRATIVE_BEATS[3:]],
         0.0,
@@ -1053,7 +1180,8 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 38) -> An
         *[beat.lens_mm for beat in NARRATIVE_BEATS[:2]],
         48.0,
         NARRATIVE_BEATS[2].lens_mm,
-        70.0,
+        72.0,
+        50.0,
         36.0,
         *[beat.lens_mm for beat in NARRATIVE_BEATS[3:]],
         46.0,
@@ -1067,6 +1195,7 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 38) -> An
         5.6,
         8.0,
         8.0,
+        6.3,
         5.6,
         4.5,
         4.5,
@@ -1096,6 +1225,13 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 38) -> An
         leave = min(item["end_s"], item["focus_s"] + half_hold)
         target_keys.append((_frame_at(enter, fps, frame_end), targets[index]))
         target_keys.append((_frame_at(leave, fps, frame_end), targets[index]))
+    for seconds, coordinate in AGV_OPENING_LOOKS:
+        target_keys.append(
+            (
+                _frame_at(_scaled_seconds(seconds, duration), fps, frame_end),
+                _authoring_to_film(coordinate),
+            )
+        )
     corridor_guide_start_frame = _frame_at(
         _scaled_seconds(CORRIDOR_GUIDE_START_SECONDS, duration), fps, frame_end
     )
@@ -1192,6 +1328,10 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 38) -> An
             "lens_mm": 24.0,
             "rail_takeover_frame": path_frames[1],
             "starts_with_nonzero_velocity": True,
+            "agv_escort_end_frame": _frame_at(
+                _scaled_seconds(AGV_OPENING_END_SECONDS, duration), fps, frame_end
+            ),
+            "look_policy": "agv_escort_then_bearing_handoff",
         },
         "camera": {
             "object": camera.name,
@@ -1204,15 +1344,21 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 38) -> An
             "speed_never_zero": False,
             "film_z_monotone": True,
             "film_z_strict_until_terminal_settle": True,
-            "orientation": "per_frame_world_quaternion_with_authored_fpv_bank",
-            "look_at_exact_at_integer_frames": True,
+            "orientation": "stabilized_per_frame_world_quaternion_with_restrained_bank",
+            "look_at_exact_at_integer_frames": False,
+            "look_at_policy": "smoothed_aim_preserves_authored_target_holds",
             "horizon_up_axis": "+Y",
-            "roll_limit_degrees": 3.0,
+            "roll_limit_degrees": 1.25,
+            "orientation_smoothing_passes": ORIENTATION_SMOOTHING_PASSES,
+            "max_angular_step_degrees_per_frame": MAX_ANGULAR_STEP_DEGREES,
+            "max_angular_acceleration_degrees_per_frame2": MAX_ANGULAR_ACCEL_DEGREES,
             "roll_keyframes_seconds_degrees": [
                 [seconds, degrees] for seconds, degrees in ROLL_KEYFRAMES
             ],
             "corridor_guide": corridor_guide.name,
-            "corridor_waypoint_frame": path_frames[4],
+            "grinding_pullback_frame": path_frames[5],
+            "grinding_clear_frame": path_frames[6],
+            "corridor_waypoint_frame": path_frames[7],
             "corridor_guide_hold_frames": [
                 corridor_guide_start_frame,
                 corridor_guide_end_frame,
@@ -1263,8 +1409,12 @@ def build_cinematography(assets: Any, fps: int = 24, duration: float = 38) -> An
     camera["cin_camera_path"] = path.name
     camera["cin_look_at"] = look_at.name
     camera["cin_corridor_guide"] = corridor_guide.name
-    camera["cin_orientation"] = "per_frame_world_quaternion_with_authored_fpv_bank"
-    camera["cin_roll_limit_degrees"] = 3.0
+    camera["cin_orientation"] = (
+        "stabilized_per_frame_world_quaternion_with_restrained_bank"
+    )
+    camera["cin_roll_limit_degrees"] = 1.25
+    camera["cin_max_angular_step_degrees"] = MAX_ANGULAR_STEP_DEGREES
+    camera["cin_max_angular_acceleration_degrees"] = MAX_ANGULAR_ACCEL_DEGREES
     camera["cin_terminal_hold_frames"] = frame_end - terminal_settle_frame + 1
     camera["cin_time_control"] = time_control.name
     camera["cin_beat_count"] = len(beat_manifest)

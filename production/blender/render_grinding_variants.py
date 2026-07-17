@@ -33,6 +33,13 @@ def main() -> None:
         raise RuntimeError("The master scene has no active camera")
     for constraint in camera.constraints:
         constraint.mute = True
+    # Detach baked cinematography while auditioning fixed viewpoints.  Merely
+    # muting Follow Path is insufficient because the per-frame quaternion
+    # action would otherwise overwrite `_aim()` during render evaluation.
+    if camera.animation_data is not None:
+        camera.animation_data.action = None
+    if camera.data.animation_data is not None:
+        camera.data.animation_data.action = None
 
     target_obj = bpy.data.objects.get("SUM_ANCHOR_GrindingContact")
     target = (
@@ -41,10 +48,12 @@ def main() -> None:
         else Vector((5.52, 1.82, -25.96))
     )
     variants = (
-        ("a-current-axis", (3.37, 2.00, -26.03), 90.0),
-        ("b-front-oblique", (3.28, 2.16, -25.34), 72.0),
-        ("c-rear-oblique", (3.32, 2.20, -26.72), 72.0),
-        ("d-raised-oblique", (3.52, 2.55, -25.38), 78.0),
+        ("a-aisle-tele", (2.80, 2.15, -23.20), 72.0),
+        ("b-front-oblique", (3.20, 2.10, -23.80), 70.0),
+        ("c-raised-oblique", (2.80, 2.60, -24.20), 75.0),
+        ("d-close-oblique", (3.40, 2.20, -24.40), 80.0),
+        ("e-wheel-side", (2.50, 2.35, -26.50), 68.0),
+        ("f-wheel-raised", (2.10, 2.75, -26.80), 72.0),
     )
     output_dir = Path(args.output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)

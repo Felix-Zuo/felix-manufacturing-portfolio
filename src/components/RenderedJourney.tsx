@@ -24,6 +24,7 @@ import { profile } from "@/data/profile";
 
 import { JourneyControlDeck } from "./JourneyControlDeck";
 import styles from "./RenderedJourney.module.css";
+import { VideoFrameSeekScheduler } from "./videoFrameSeekScheduler";
 
 export type RenderedJourneyLink = {
   external?: boolean;
@@ -85,7 +86,6 @@ const CONTROL_DECK_REVEAL_START = 0.978;
 const CONTROL_DECK_ACTIVE_PROGRESS = 0.988;
 const RENDERED_FPS = 24;
 const RENDERED_FRAME_COUNT = 912;
-const SEEK_EPSILON_SECONDS = 1 / 90;
 const HASH_CHAPTER_INDEX: Readonly<Record<string, number>> = {
   about: 0,
   impact: 1,
@@ -572,6 +572,8 @@ export function RenderedJourney({
   const instanceId = useId().replaceAll(":", "");
   const rootRef = useRef<HTMLElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const seekSchedulerRef = useRef<VideoFrameSeekScheduler | null>(null);
+  const seekSchedulerVideoRef = useRef<HTMLVideoElement | null>(null);
   const frameReadoutRef = useRef<HTMLSpanElement>(null);
   const timecodeReadoutRef = useRef<HTMLSpanElement>(null);
   const durationRef = useRef(0);
@@ -662,6 +664,15 @@ export function RenderedJourney({
     [],
   );
 
+  useEffect(
+    () => () => {
+      seekSchedulerRef.current?.dispose();
+      seekSchedulerRef.current = null;
+      seekSchedulerVideoRef.current = null;
+    },
+    [],
+  );
+
   const seekToProgress = useCallback((progress: number) => {
     const video = videoRef.current;
     if (!video || video.readyState < HTMLMediaElement.HAVE_METADATA) return;
@@ -669,21 +680,24 @@ export function RenderedJourney({
     const duration = durationRef.current || video.duration;
     if (!Number.isFinite(duration) || duration <= 0) return;
 
-    const frameDuration = duration / RENDERED_FRAME_COUNT;
-    const maximumTime = Math.max(duration - frameDuration, 0);
     const mediaProgress = mediaProgressAtStoryProgress(
       progress,
       chaptersRef.current,
     );
-    const nextTime = maximumTime * mediaProgress;
 
-    if (Math.abs(video.currentTime - nextTime) <= SEEK_EPSILON_SECONDS) return;
-
-    try {
-      video.currentTime = nextTime;
-    } catch {
-      // The selected source can change while a responsive video is loading.
+    if (
+      seekSchedulerRef.current === null ||
+      seekSchedulerVideoRef.current !== video
+    ) {
+      seekSchedulerRef.current?.dispose();
+      seekSchedulerRef.current = new VideoFrameSeekScheduler(video, {
+        fps: RENDERED_FPS,
+        frameCount: RENDERED_FRAME_COUNT,
+      });
+      seekSchedulerVideoRef.current = video;
     }
+
+    seekSchedulerRef.current.schedule(mediaProgress, duration);
   }, []);
 
   const updateTimelineReadout = useCallback((progress: number) => {
@@ -879,6 +893,7 @@ export function RenderedJourney({
     setIsVideoReady(false);
     setVideoFailed(false);
     durationRef.current = 0;
+    seekSchedulerRef.current?.reset();
     video.load();
   }, [desktopSrc, mobileMediaQuery, mobileSrc, reducedMotion]);
 
@@ -1112,6 +1127,7 @@ export function RenderedJourney({
           className={`${styles.video} ${isVideoReady && !isStatic ? styles.videoReady : ""}`}
           muted
           onError={() => {
+            seekSchedulerRef.current?.reset();
             setVideoFailed(true);
             setIsVideoReady(false);
           }}
@@ -1124,6 +1140,7 @@ export function RenderedJourney({
             const video = event.currentTarget;
             durationRef.current = Number.isFinite(video.duration) ? video.duration : 0;
             video.pause();
+            seekSchedulerRef.current?.reset();
             seekToProgress(timelineRef.current.current);
           }}
           playsInline

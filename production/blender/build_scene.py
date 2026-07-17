@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -52,6 +53,9 @@ def blender_args() -> argparse.Namespace:
     parser.add_argument("--duration", type=float, default=38.0)
     parser.add_argument("--samples", type=int)
     parser.add_argument("--render-step", type=int, choices=(1, 2), default=1)
+    parser.add_argument("--frame-start", type=int)
+    parser.add_argument("--frame-end", type=int)
+    parser.add_argument("--resume", action="store_true")
     argv = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     return parser.parse_args(argv)
 
@@ -233,11 +237,95 @@ def render_storyboard(mode: str) -> None:
         bpy.ops.render.render(write_still=True)
 
 
-def render_video_frames(mode: str) -> None:
+def _source_fingerprint() -> str:
+    digest = hashlib.sha256()
+    source_paths = sorted(BLENDER_DIR.glob("*.py"))
+    evidence_paths = sorted((ROOT / "public" / "evidence").glob("*"))
+    for path in (*source_paths, *evidence_paths):
+        if not path.is_file():
+            continue
+        digest.update(path.relative_to(ROOT).as_posix().encode("utf-8"))
+        digest.update(path.read_bytes())
+    return digest.hexdigest()
+
+
+def _prepare_frame_output(
+    mode: str,
+    frame_start: int,
+    frame_end: int,
+    samples: int,
+    duration: float,
+    resume: bool,
+) -> Path:
     output = RENDER_DIR / f"{mode}-frames"
     output.mkdir(parents=True, exist_ok=True)
-    bpy.context.scene.render.filepath = str(output / "frame-")
-    bpy.ops.render.render(animation=True)
+    scene = bpy.context.scene
+    manifest_path = output / "render-manifest.json"
+    manifest = {
+        "mode": mode,
+        "fps": int(scene.render.fps),
+        "frame_count": int(round(scene.render.fps * duration)),
+        "duration_seconds": float(duration),
+        "resolution": [int(scene.render.resolution_x), int(scene.render.resolution_y)],
+        "samples": int(samples),
+        "source_fingerprint": _source_fingerprint(),
+    }
+
+    existing_frames = list(output.glob("frame-*.png"))
+    if resume and existing_frames:
+        if not manifest_path.exists():
+            raise RuntimeError(f"Cannot resume {output}: render-manifest.json is missing")
+        existing_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if existing_manifest != manifest:
+            raise RuntimeError(
+                f"Cannot resume {output}: scene, quality, or resolution changed. "
+                "Start a fresh frame directory instead of mixing renders."
+            )
+    elif existing_frames and not resume:
+        overlapping = [
+            output / f"frame-{frame:04d}.png"
+            for frame in range(frame_start, frame_end + 1)
+            if (output / f"frame-{frame:04d}.png").exists()
+        ]
+        if overlapping:
+            raise RuntimeError(
+                f"Refusing to overwrite {len(overlapping)} existing frames in {output}; "
+                "use --resume to keep matching frames or clear the directory for a fresh render."
+            )
+
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=True) + "\n",
+        encoding="utf-8",
+    )
+    return output
+
+
+def render_video_frames(
+    mode: str,
+    frame_start: int,
+    frame_end: int,
+    samples: int,
+    duration: float,
+    resume: bool,
+) -> None:
+    output = _prepare_frame_output(
+        mode,
+        frame_start,
+        frame_end,
+        samples,
+        duration,
+        resume,
+    )
+    scene = bpy.context.scene
+    for frame in range(frame_start, frame_end + 1):
+        frame_path = output / f"frame-{frame:04d}.png"
+        if resume and frame_path.exists():
+            print(f"RENDER_SKIP_EXISTING={frame_path.name}")
+            continue
+        scene.frame_set(frame)
+        scene.render.filepath = str(frame_path)
+        bpy.ops.render.render(write_still=True)
+        print(f"RENDER_FRAME_COMPLETE={frame_path.name}")
 
 
 def render_playblast(mode: str) -> None:
@@ -258,6 +346,14 @@ def render_playblast(mode: str) -> None:
 
 def main() -> None:
     args = blender_args()
+    full_frame_end = int(round(args.fps * args.duration))
+    render_frame_start = args.frame_start or 1
+    render_frame_end = args.frame_end or full_frame_end
+    if not 1 <= render_frame_start <= render_frame_end <= full_frame_end:
+        raise ValueError(
+            f"render frame range must be within 1-{full_frame_end}, got "
+            f"{render_frame_start}-{render_frame_end}"
+        )
     reset_scene()
     configure_scene(
         args.mode,
@@ -297,9 +393,18 @@ def main() -> None:
     if args.mode in {"storyboard", "storyboard-mobile"}:
         render_storyboard(args.mode)
     elif args.mode in {"playblast", "playblast-mobile"}:
+        bpy.context.scene.frame_start = render_frame_start
+        bpy.context.scene.frame_end = render_frame_end
         render_playblast(args.mode)
     elif args.mode in {"desktop", "mobile"}:
-        render_video_frames(args.mode)
+        render_video_frames(
+            args.mode,
+            render_frame_start,
+            render_frame_end,
+            args.samples or 64,
+            args.duration,
+            args.resume,
+        )
 
 
 if __name__ == "__main__":

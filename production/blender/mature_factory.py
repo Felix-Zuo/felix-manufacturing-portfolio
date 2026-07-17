@@ -611,6 +611,52 @@ def _build_machine_bay(
         detail="machine_window_structural_trim",
         bevel=0.006,
     )
+    _box(
+        f"SUM_Machine_{side_name}{index:02d}_WindowDripSill",
+        (0.070, 2.32, 0.075),
+        collection,
+        location=(trim_x + toward_aisle * 0.008, -0.50, 1.34),
+        parent=bay,
+        material=materials["brushed_steel"],
+        role="wet_steel",
+        detail="stainless_machine_window_coolant_drip_sill",
+        bevel=0.008,
+    )
+
+    service_reveals = [
+        ((trim_x, -1.72, 0.84), (0.045, 0.020, 1.00)),
+        ((trim_x, 0.72, 0.84), (0.045, 0.020, 1.00)),
+        ((trim_x, -0.50, 0.34), (0.045, 2.42, 0.020)),
+        ((trim_x, -0.50, 1.34), (0.045, 2.42, 0.020)),
+    ]
+    _boxes(
+        f"SUM_Machine_{side_name}{index:02d}_LowerServicePanelReveals",
+        service_reveals,
+        collection,
+        parent=bay,
+        material=materials["black_oxide"],
+        role="dark_metal",
+        detail="machine_lower_service_panel_shadow_reveals",
+        bevel=0.002,
+    )
+
+    _boxes(
+        f"SUM_Machine_{side_name}{index:02d}_ServicePanelFasteners",
+        [
+            (
+                (trim_x + toward_aisle * 0.014, y, z),
+                (0.024, 0.035, 0.035),
+            )
+            for y in (-1.61, 0.61)
+            for z in (0.47, 1.21)
+        ],
+        collection,
+        parent=bay,
+        material=materials["machined_steel"],
+        role="machined_steel",
+        detail="quarter_turn_machine_service_panel_fasteners",
+        bevel=0.004,
+    )
 
     hmi_x = inner_face + toward_aisle * 0.14
     _box(
@@ -634,6 +680,17 @@ def _build_machine_bay(
         role="screen_glass",
         detail="machine_hmi_display_glass",
         bevel=0.008,
+    )
+    _box(
+        f"SUM_Machine_{side_name}{index:02d}_HMIMountingArm",
+        (0.18, 0.16, 0.16),
+        collection,
+        location=(inner_face - toward_aisle * 0.01, 1.65, 2.04),
+        parent=bay,
+        material=materials["black_oxide"],
+        role="dark_metal",
+        detail="short_rigid_machine_hmi_mounting_arm",
+        bevel=0.025,
     )
     _cylinder(
         f"SUM_Machine_{side_name}{index:02d}_EmergencyStop",
@@ -925,6 +982,9 @@ def _build_agv(
     agv["sum_asset_type"] = "low_profile_autonomous_mobile_robot"
     agv["vehicle_number"] = "07"
     agv["route"] = "painted_floor_route_no_raised_rail"
+    agv["footprint_m"] = "1.32 x 1.74"
+    agv["deck_height_m"] = 0.63
+    agv["wheel_diameter_m"] = 0.34
 
     _box(
         "SUM_AGV07_LowerChassis",
@@ -971,6 +1031,63 @@ def _build_agv(
         bevel=0.015,
     )
 
+    deck_reveals = [
+        ((-0.565, 0.02, 0.505), (0.018, 1.28, 0.018)),
+        ((0.565, 0.02, 0.505), (0.018, 1.28, 0.018)),
+        ((0.0, -0.63, 0.505), (1.12, 0.018, 0.018)),
+        ((0.0, 0.67, 0.505), (1.12, 0.018, 0.018)),
+    ]
+    _boxes(
+        "SUM_AGV07_UpperDeckServiceReveals",
+        deck_reveals,
+        collection,
+        parent=agv,
+        material=materials["black_oxide"],
+        role="dark_metal",
+        detail="agv_removable_deck_service_panel_reveals",
+        bevel=0.002,
+    )
+
+    bumper_sections = [
+        ((-0.39, -0.885, 0.25), (0.43, 0.055, 0.11)),
+        ((0.39, -0.885, 0.25), (0.43, 0.055, 0.11)),
+        ((-0.39, 0.885, 0.25), (0.43, 0.055, 0.11)),
+        ((0.39, 0.885, 0.25), (0.43, 0.055, 0.11)),
+    ]
+    for x in (-0.675, 0.675):
+        bumper_sections.extend(
+            (
+                ((x, -0.74, 0.25), (0.055, 0.16, 0.11)),
+                ((x, 0.0, 0.25), (0.055, 0.24, 0.11)),
+                ((x, 0.74, 0.25), (0.055, 0.16, 0.11)),
+            )
+        )
+    _boxes(
+        "SUM_AGV07_CompliantBumperBand",
+        bumper_sections,
+        collection,
+        parent=agv,
+        material=materials["rubber"],
+        role="rubber",
+        detail="segmented_compliant_agv_safety_bumper_band",
+        bevel=0.018,
+    )
+
+    _boxes(
+        "SUM_AGV07_WheelGuardHoods",
+        [
+            ((x, y, 0.355), (0.15, 0.42, 0.075))
+            for x in (-0.61, 0.61)
+            for y in (-0.48, 0.48)
+        ],
+        collection,
+        parent=agv,
+        material=materials["paint_graphite"],
+        role="powder_coat",
+        detail="agv_recessed_wheel_guard_hoods",
+        bevel=0.025,
+    )
+
     for wheel_index, (x, y) in enumerate(
         ((-0.61, -0.48), (0.61, -0.48), (-0.61, 0.48), (0.61, 0.48)),
         start=1,
@@ -988,6 +1105,37 @@ def _build_agv(
             detail="agv_recessed_protected_drive_wheel",
             segments=28,
         )
+        _cylinder(
+            f"SUM_AGV07_WheelHub_{wheel_index:02d}",
+            0.060,
+            0.020,
+            collection,
+            location=(x + math.copysign(0.075, x), y, 0.18),
+            rotation=(0.0, math.pi * 0.5, 0.0),
+            parent=agv,
+            material=materials["machined_steel"],
+            role="machined_steel",
+            detail="agv_sealed_drive_wheel_hub",
+            segments=24,
+        )
+
+    locating_pins = modeling._prism_array(
+        "SUM_AGV07_PayloadCassetteLocatingPins",
+        [(x, y, 0.67) for x in (-0.31, 0.31) for y in (-0.35, 0.39)],
+        0.018,
+        0.045,
+        12,
+        collection,
+        parent=agv,
+        material=materials["machined_steel"],
+        bevel=0.002,
+        role="agv_payload_cassette_hardened_locating_pins",
+    )
+    _tag(
+        locating_pins,
+        "machined_steel",
+        "agv_payload_cassette_hardened_locating_pins",
+    )
 
     for end_index, y in enumerate((-0.88, 0.88), start=1):
         _cylinder(

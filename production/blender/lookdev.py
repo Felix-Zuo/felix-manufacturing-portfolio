@@ -134,6 +134,17 @@ _EXPLICIT_ROLE_ALIASES = {
     "metal": "brushed_metal",
     "brushed": "brushed_metal",
     "brushed_metal": "brushed_metal",
+    "brushed_stainless": "brushed_metal",
+    "stainless": "brushed_metal",
+    "stainless_steel": "brushed_metal",
+    "machined": "machined_steel",
+    "machined_steel": "machined_steel",
+    "ground_steel": "machined_steel",
+    "cast": "cast_iron",
+    "cast_iron": "cast_iron",
+    "wet_steel": "wet_steel",
+    "oily_steel": "wet_steel",
+    "coolant_wear": "wet_steel",
     "dark_metal": "dark_metal",
     "black_oxide": "dark_metal",
     "abrasive": "abrasive",
@@ -342,6 +353,56 @@ def _asset_entries(assets: Any) -> list[tuple[Any, str]]:
 def _object_role(obj: Any, hint: str) -> str:
     for property_name in ("lookdev_role", "material_role", "role"):
         try:
+            authored_role = _explicit_role(obj.get(property_name))
+        except (AttributeError, TypeError):
+            authored_role = None
+        if authored_role in {"machined_steel", "cast_iron", "wet_steel"}:
+            return authored_role
+
+    semantic_labels = [hint, getattr(obj, "name", "")]
+    for property_name in ("sum_design_detail", "sum_part_role"):
+        try:
+            semantic_labels.append(str(obj.get(property_name, "")))
+        except (AttributeError, TypeError):
+            pass
+    semantic = _normalized_label(" ".join(semantic_labels))
+    semantic_tokens = set(semantic.split("_"))
+
+    # Manufacturing semantics are more specific than broad authored categories
+    # such as ``dark_metal`` or ``powder_coat``.
+    if any(
+        phrase in semantic
+        for phrase in (
+            "coolant_chamber",
+            "coolant_sump",
+            "coolant_and_swarf",
+            "splash_service",
+            "chamber_side_return",
+        )
+    ):
+        return "wet_steel"
+    if "stainless" in semantic_tokens:
+        return "brushed_metal"
+    if any(
+        phrase in semantic
+        for phrase in (
+            "machined_steel",
+            "precision_wheel_arbor",
+            "wheel_arbor_nose",
+            "taper_arbor",
+            "wheel_quill",
+            "spindle_nose_labyrinth",
+            "spindle_balance_collar",
+            "linear_guide_rail",
+            "bearing_cartridge",
+        )
+    ):
+        return "machined_steel"
+    if "cast_iron" in semantic or "ribbed_cast_spindle" in semantic:
+        return "cast_iron"
+
+    for property_name in ("lookdev_role", "material_role", "role"):
+        try:
             raw_role = obj.get(property_name)
         except (AttributeError, TypeError):
             raw_role = None
@@ -373,6 +434,8 @@ def _new_principled_material(
     micro_scale: float | None = None,
     micro_strength: float = 0.0,
     micro_distance: float = 0.005,
+    roughness_variation: float = 0.0,
+    directional_scale: tuple[float, float, float] | None = None,
 ) -> Any:
     material = bpy.data.materials.get(name) or bpy.data.materials.new(name)
     material.use_nodes = True
@@ -402,21 +465,49 @@ def _new_principled_material(
 
     _link(material.node_tree, shader.outputs.get("BSDF"), output.inputs.get("Surface"))
 
-    if micro_scale is not None and micro_strength > 0.0:
+    if micro_scale is not None and (micro_strength > 0.0 or roughness_variation > 0.0):
         tex_coord = nodes.new("ShaderNodeTexCoord")
         tex_coord.location = (-720.0, -150.0)
         noise = nodes.new("ShaderNodeTexNoise")
         noise.location = (-500.0, -150.0)
-        bump = nodes.new("ShaderNodeBump")
-        bump.location = (-80.0, -120.0)
         _set_socket(noise, ("Scale",), micro_scale)
         _set_socket(noise, ("Detail",), 2.5)
         _set_socket(noise, ("Roughness",), 0.68)
-        _set_socket(bump, ("Strength",), micro_strength)
-        _set_socket(bump, ("Distance",), micro_distance)
-        _link(material.node_tree, tex_coord.outputs.get("Generated"), noise.inputs.get("Vector"))
-        _link(material.node_tree, noise.outputs.get("Fac"), bump.inputs.get("Height"))
-        _link(material.node_tree, bump.outputs.get("Normal"), shader.inputs.get("Normal"))
+        vector_output = tex_coord.outputs.get("Generated")
+        if directional_scale is not None:
+            mapping = nodes.new("ShaderNodeMapping")
+            mapping.location = (-620.0, -150.0)
+            _set_socket(mapping, ("Scale",), directional_scale)
+            _link(material.node_tree, vector_output, mapping.inputs.get("Vector"))
+            vector_output = mapping.outputs.get("Vector")
+            noise.location = (-390.0, -150.0)
+        _link(material.node_tree, vector_output, noise.inputs.get("Vector"))
+
+        if roughness_variation > 0.0:
+            roughness_range = nodes.new("ShaderNodeMapRange")
+            roughness_range.location = (-80.0, 95.0)
+            _set_socket(roughness_range, ("From Min",), 0.0)
+            _set_socket(roughness_range, ("From Max",), 1.0)
+            _set_socket(
+                roughness_range,
+                ("To Min",),
+                max(0.0, roughness - roughness_variation),
+            )
+            _set_socket(
+                roughness_range,
+                ("To Max",),
+                min(1.0, roughness + roughness_variation),
+            )
+            _link(material.node_tree, noise.outputs.get("Fac"), roughness_range.inputs.get("Value"))
+            _link(material.node_tree, roughness_range.outputs.get("Result"), shader.inputs.get("Roughness"))
+
+        if micro_strength > 0.0:
+            bump = nodes.new("ShaderNodeBump")
+            bump.location = (-80.0, -120.0)
+            _set_socket(bump, ("Strength",), micro_strength)
+            _set_socket(bump, ("Distance",), micro_distance)
+            _link(material.node_tree, noise.outputs.get("Fac"), bump.inputs.get("Height"))
+            _link(material.node_tree, bump.outputs.get("Normal"), shader.inputs.get("Normal"))
 
     return material
 
@@ -492,14 +583,53 @@ def _make_materials() -> dict[str, Any]:
     materials = {
         "brushed_metal": _new_principled_material(
             "LD_Brushed_Metal",
-            base_color=(0.34, 0.39, 0.44, 1.0),
+            base_color=(0.42, 0.46, 0.49, 1.0),
             metallic=0.96,
-            roughness=0.25,
+            roughness=0.27,
             coat=0.08,
-            anisotropic=0.34,
-            micro_scale=155.0,
-            micro_strength=0.075,
-            micro_distance=0.0025,
+            anisotropic=0.48,
+            micro_scale=5.0,
+            micro_strength=0.055,
+            micro_distance=0.0012,
+            roughness_variation=0.055,
+            directional_scale=(5.0, 140.0, 5.0),
+        ),
+        "machined_steel": _new_principled_material(
+            "LD_Machined_Steel",
+            base_color=(0.31, 0.34, 0.36, 1.0),
+            metallic=0.98,
+            roughness=0.18,
+            coat=0.10,
+            coat_roughness=0.10,
+            anisotropic=0.62,
+            micro_scale=7.0,
+            micro_strength=0.030,
+            micro_distance=0.00035,
+            roughness_variation=0.035,
+            directional_scale=(7.0, 7.0, 180.0),
+        ),
+        "cast_iron": _new_principled_material(
+            "LD_Cast_Iron",
+            base_color=(0.055, 0.064, 0.068, 1.0),
+            metallic=0.68,
+            roughness=0.48,
+            coat=0.025,
+            micro_scale=72.0,
+            micro_strength=0.16,
+            micro_distance=0.0018,
+            roughness_variation=0.075,
+        ),
+        "wet_steel": _new_principled_material(
+            "LD_Wet_Process_Steel",
+            base_color=(0.075, 0.088, 0.086, 1.0),
+            metallic=0.86,
+            roughness=0.24,
+            coat=0.32,
+            coat_roughness=0.10,
+            micro_scale=18.0,
+            micro_strength=0.035,
+            micro_distance=0.0012,
+            roughness_variation=0.10,
         ),
         "powder_coat": _new_principled_material(
             "LD_Clean_Powder_Coat",
@@ -511,6 +641,7 @@ def _make_materials() -> dict[str, Any]:
             micro_scale=210.0,
             micro_strength=0.12,
             micro_distance=0.003,
+            roughness_variation=0.045,
         ),
         "steel_blue": _new_principled_material(
             "LD_Steel_Blue_Structure",
@@ -522,6 +653,7 @@ def _make_materials() -> dict[str, Any]:
             micro_scale=180.0,
             micro_strength=0.08,
             micro_distance=0.0025,
+            roughness_variation=0.04,
         ),
         "dark_metal": _new_principled_material(
             "LD_Dark_Oxide_Metal",
@@ -533,6 +665,7 @@ def _make_materials() -> dict[str, Any]:
             micro_scale=145.0,
             micro_strength=0.06,
             micro_distance=0.002,
+            roughness_variation=0.055,
         ),
         "abrasive": _new_cbn_abrasive_material("LD_CBN_Profiled_Abrasive"),
         "abrasive_bond": _new_principled_material(
@@ -581,16 +714,16 @@ def _make_materials() -> dict[str, Any]:
         ),
         "coolant": _new_principled_material(
             "LD_Grinding_Coolant_Stream",
-            base_color=(0.12, 0.22, 0.15, 1.0),
+            base_color=(0.42, 0.55, 0.48, 1.0),
             metallic=0.0,
-            roughness=0.075,
-            coat=0.20,
-            coat_roughness=0.05,
-            transmission=0.62,
+            roughness=0.12,
+            coat=0.12,
+            coat_roughness=0.08,
+            transmission=0.22,
             ior=1.34,
-            emission_color=(0.015, 0.045, 0.025, 1.0),
-            emission_strength=0.14,
-            alpha=0.48,
+            emission_color=(0.025, 0.055, 0.040, 1.0),
+            emission_strength=0.08,
+            alpha=0.72,
         ),
         "rubber": _new_principled_material(
             "LD_Black_Rubber",
@@ -601,6 +734,7 @@ def _make_materials() -> dict[str, Any]:
             micro_scale=72.0,
             micro_strength=0.14,
             micro_distance=0.006,
+            roughness_variation=0.075,
         ),
         "screen_glass": _new_principled_material(
             "LD_Screen_Glass",
@@ -646,6 +780,7 @@ def _make_materials() -> dict[str, Any]:
             micro_scale=180.0,
             micro_strength=0.07,
             micro_distance=0.003,
+            roughness_variation=0.045,
         ),
         "floor": _new_principled_material(
             "LD_Clean_Industrial_Floor",
@@ -680,7 +815,7 @@ def _make_materials() -> dict[str, Any]:
         "spark": _new_emission_material(
             "LD_Grinding_Spark",
             color=(1.0, 0.20, 0.006, 1.0),
-            strength=4.5,
+            strength=7.5,
         ),
     }
 
@@ -1267,21 +1402,21 @@ def _ensure_spark_curves(
     curve.dimensions = "3D"
     curve.resolution_u = 1
     curve.bevel_resolution = 2
-    curve.bevel_depth = min(max(diagonal * 0.000025, 0.00014), 0.00035)
+    curve.bevel_depth = min(max(diagonal * 0.000035, 0.00020), 0.00055)
     curve.resolution_v = 1
     curve.materials.append(material)
 
     view, right, up = basis
     rng = random.Random(74291)
-    travel = min(max(diagonal * 0.0018, 0.025), 0.065)
-    for _ in range(3):
+    travel = min(max(diagonal * 0.0045, 0.070), 0.160)
+    for _ in range(7):
         spline = curve.splines.new("POLY")
         spline.points.add(2)
-        fan_axis = (-right * 0.82 - up * 0.30).normalized()
+        fan_axis = (-right * 0.62 + up * 0.18).normalized()
         direction = (
             fan_axis
-            + up * rng.uniform(-0.58, 0.62)
-            + right * rng.uniform(-0.12, 0.18)
+            + up * rng.uniform(-0.45, 0.56)
+            + right * rng.uniform(-0.18, 0.20)
             + view * rng.uniform(-0.035, 0.045)
         ).normalized()
         length = travel * rng.uniform(0.30, 1.0)
@@ -1296,7 +1431,7 @@ def _ensure_spark_curves(
 
     obj = bpy.data.objects.new(name, curve)
     collection.objects.link(obj)
-    obj.location = origin
+    obj.location = origin - view * 0.012
     obj["lookdev_generated"] = True
     _safe_set(obj, "visible_shadow", False)
 
@@ -1307,7 +1442,7 @@ def _ensure_spark_curves(
     if grinding_marker is not None:
         focus_obj = bpy.data.objects.new(focus_name, curve)
         collection.objects.link(focus_obj)
-        focus_obj.location = origin
+        focus_obj.location = origin - view * 0.012
         focus_obj["lookdev_generated"] = True
         focus_obj["lookdev_focus_spark"] = True
         _safe_set(focus_obj, "visible_shadow", False)

@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import bpy
+from mathutils import Vector
 
 import modeling
 
@@ -656,6 +657,14 @@ _DROPLETS = (
     (0.061, 0.013, 0.041, 0.0035, 1.65),
     (0.078, -0.006, 0.078, 0.0040, 2.00),
     (0.094, 0.022, 0.055, 0.0035, 1.70),
+    (-0.066, 0.026, 0.052, 0.0040, 1.80),
+    (-0.044, -0.034, 0.073, 0.0035, 2.10),
+    (-0.020, 0.032, 0.088, 0.0045, 1.65),
+    (0.012, -0.036, 0.094, 0.0040, 2.20),
+    (0.044, 0.036, 0.102, 0.0045, 1.85),
+    (0.072, -0.032, 0.112, 0.0038, 2.05),
+    (0.108, 0.028, 0.086, 0.0042, 1.75),
+    (0.128, -0.020, 0.062, 0.0036, 1.95),
 )
 
 
@@ -724,6 +733,23 @@ def _build_grinding_mist(
         material=material,
         smooth=True,
     )
+    scene = bpy.context.scene
+    camera = scene.camera
+    original_frame = scene.frame_current
+    if camera is not None:
+        try:
+            scene.frame_set(FILM_FOCUS_FRAMES[2])
+            bpy.context.view_layer.update()
+            contact_world = contact.matrix_world.translation.copy()
+            toward_camera = camera.matrix_world.translation - contact_world
+            if toward_camera.length_squared > 1.0e-8:
+                toward_camera.normalize()
+                world_offset = toward_camera * 0.040 + Vector((0.0, 0.012, 0.0))
+                droplets.location = root.matrix_world.inverted().to_3x3() @ world_offset
+        finally:
+            scene.frame_set(original_frame)
+            bpy.context.view_layer.update()
+    droplets.scale = (1.18, 1.18, 1.18)
     _tag_object(
         droplets,
         family="grinding_mist_droplets",
@@ -1204,11 +1230,11 @@ def augment_fpv_vfx(assets: dict[str, Any]) -> dict[str, Any]:
     )
     mist_material = _vfx_material(
         "SUM_FPV_VFX_MAT_GrindingCoolantMist",
-        (0.52, 0.68, 0.70, 0.30),
+        (0.56, 0.68, 0.64, 0.48),
         metallic=0.0,
-        roughness=0.18,
-        alpha=0.30,
-        transmission=0.28,
+        roughness=0.25,
+        alpha=0.48,
+        transmission=0.12,
     )
     practical_material = _vfx_material(
         "SUM_FPV_VFX_MAT_ScreenPractical",

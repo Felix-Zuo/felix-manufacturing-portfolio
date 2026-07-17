@@ -54,15 +54,26 @@ def _set_material_color(material_name: str, color: tuple[float, float, float, fl
         shader.inputs["Base Color"].default_value = color
 
 
-def _set_material_scalar(material_name: str, sockets: tuple[str, ...], value: float) -> None:
+def _set_material_roughness(material_name: str, value: float) -> None:
+    """Recenter linked procedural roughness without removing its variation."""
+
     shader = _principled(material_name)
     if shader is None:
         return
-    for name in sockets:
-        socket = shader.inputs.get(name)
-        if socket is not None:
-            socket.default_value = value
-            return
+    roughness = shader.inputs.get("Roughness")
+    if roughness is None:
+        return
+    if roughness.is_linked and roughness.links:
+        source = roughness.links[0].from_node
+        if source.type == "MAP_RANGE":
+            low = source.inputs.get("To Min")
+            high = source.inputs.get("To Max")
+            if low is not None and high is not None:
+                half_span = abs(float(high.default_value) - float(low.default_value)) * 0.5
+                low.default_value = max(0.0, value - half_span)
+                high.default_value = min(1.0, value + half_span)
+                return
+    roughness.default_value = value
 
 
 def _set_light_energy(obj: bpy.types.Object, scale: float) -> None:
@@ -188,9 +199,19 @@ def augment_fpv_lighting(assets: dict[str, Any]) -> dict[str, Any]:
     _set_material_color("LD_Clean_Industrial_Floor", (0.085, 0.105, 0.125, 1.0))
     _set_material_color("LD_Steel_Blue_Structure", (0.045, 0.075, 0.115, 1.0))
     _set_material_color("LD_Grinding_Workpiece_Steel", (0.12, 0.14, 0.155, 1.0))
-    _set_material_scalar("LD_Clean_Powder_Coat", ("Roughness",), 0.38)
-    _set_material_scalar("LD_Clean_Industrial_Floor", ("Roughness",), 0.48)
-    _set_material_scalar("LD_Grinding_Workpiece_Steel", ("Roughness",), 0.20)
+    _set_material_color("LD_Brushed_Metal", (0.34, 0.37, 0.39, 1.0))
+    _set_material_color("LD_Machined_Steel", (0.27, 0.30, 0.32, 1.0))
+    _set_material_color("LD_Cast_Iron", (0.032, 0.040, 0.043, 1.0))
+    _set_material_color("LD_Wet_Process_Steel", (0.045, 0.067, 0.062, 1.0))
+    _set_material_color("LD_Black_Rubber", (0.008, 0.011, 0.014, 1.0))
+    _set_material_roughness("LD_Clean_Powder_Coat", 0.38)
+    _set_material_roughness("LD_Clean_Industrial_Floor", 0.48)
+    _set_material_roughness("LD_Grinding_Workpiece_Steel", 0.20)
+    _set_material_roughness("LD_Brushed_Metal", 0.29)
+    _set_material_roughness("LD_Machined_Steel", 0.17)
+    _set_material_roughness("LD_Cast_Iron", 0.50)
+    _set_material_roughness("LD_Wet_Process_Steel", 0.22)
+    _set_material_roughness("LD_Black_Rubber", 0.60)
     _grade_abrasive()
     _grade_existing_rig(scene)
 
@@ -236,6 +257,16 @@ def augment_fpv_lighting(assets: dict[str, Any]) -> dict[str, Any]:
                 energy=145.0,
                 size=1.0,
                 size_y=0.55,
+            ),
+            _area_light(
+                collection,
+                "CIN_Grinding_WetSteelRake",
+                (4.35, 25.35, 2.55),
+                (5.57, 25.88, 1.74),
+                color=(0.66, 0.82, 0.94),
+                energy=115.0,
+                size=1.45,
+                size_y=0.24,
             ),
         )
     )

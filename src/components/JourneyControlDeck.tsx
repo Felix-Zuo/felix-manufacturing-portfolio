@@ -17,7 +17,7 @@ import {
 import { motion, useReducedMotion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { portfolioProjects } from "@/data/portfolioProjects";
 import { profile } from "@/data/profile";
@@ -94,6 +94,7 @@ type JourneyControlDeckProps = {
 export function JourneyControlDeck({ active, onReturn }: JourneyControlDeckProps) {
   const [activeModuleId, setActiveModuleId] = useState<ControlModuleId>("release");
   const reduceMotion = useReducedMotion();
+  const backdropVideoRef = useRef<HTMLVideoElement>(null);
   const activeModule =
     CONTROL_MODULES.find((module) => module.id === activeModuleId) ?? CONTROL_MODULES[0];
   const project =
@@ -107,6 +108,21 @@ export function JourneyControlDeck({ active, onReturn }: JourneyControlDeckProps
     [],
   );
 
+  useEffect(() => {
+    const video = backdropVideoRef.current;
+    if (!video) return;
+
+    if (!active || reduceMotion) {
+      video.pause();
+      if (!active) video.currentTime = 0;
+      return;
+    }
+
+    void video.play().catch(() => {
+      // The poster remains visible when autoplay is restricted.
+    });
+  }, [active, reduceMotion]);
+
   return (
     <section
       aria-hidden={!active}
@@ -118,20 +134,36 @@ export function JourneyControlDeck({ active, onReturn }: JourneyControlDeckProps
       <div aria-hidden="true" className={styles.backdrop}>
         <Image
           alt=""
-          className={styles.backdropBase}
+          className={styles.backdropPoster}
           fill
           priority={false}
           sizes="100vw"
-          src="/media/control-room-base.jpg"
+          src="/media/control-room-loop-poster.webp"
         />
-        <Image
-          alt=""
-          className={styles.backdropLive}
-          fill
-          priority={false}
-          sizes="100vw"
-          src="/media/control-room-live.jpg"
-        />
+        <video
+          aria-hidden="true"
+          className={styles.backdropVideo}
+          loop
+          muted
+          playsInline
+          poster="/media/control-room-loop-poster.webp"
+          preload="metadata"
+          ref={backdropVideoRef}
+          tabIndex={-1}
+        >
+          <source
+            media="(max-width: 900px)"
+            src="/media/control-room-loop-720p.webm"
+            type="video/webm"
+          />
+          <source src="/media/control-room-loop.webm" type="video/webm" />
+          <source
+            media="(max-width: 900px)"
+            src="/media/control-room-loop-720p.mp4"
+            type="video/mp4"
+          />
+          <source src="/media/control-room-loop.mp4" type="video/mp4" />
+        </video>
         <span className={styles.backdropShade} />
         <span className={styles.scanLine} />
       </div>

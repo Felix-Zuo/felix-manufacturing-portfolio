@@ -21,8 +21,8 @@
 }
 
 .backdrop,
-.backdropBase,
-.backdropLive,
+.backdropPoster,
+.backdropVideo,
 .backdropShade,
 .scanLine {
   position: absolute;
@@ -37,8 +37,8 @@
   background: #050708;
 }
 
-.backdropBase,
-.backdropLive {
+.backdropPoster,
+.backdropVideo {
   display: block;
   max-width: none;
   object-fit: cover;
@@ -47,9 +47,8 @@
   transform: scale(1.015);
 }
 
-.backdropLive {
-  opacity: 0;
-  animation: roomSignalLoop 5s ease-in-out infinite;
+.backdropVideo {
+  opacity: 1;
 }
 
 .backdropShade {
@@ -562,17 +561,6 @@
   outline-offset: 2px;
 }
 
-@keyframes roomSignalLoop {
-  0%,
-  100% {
-    opacity: 0;
-  }
-
-  50% {
-    opacity: 1;
-  }
-}
-
 @keyframes scanRoom {
   0% {
     transform: translateY(0);
@@ -812,15 +800,14 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .backdropLive,
   .scanLine,
   .liveDot {
     animation: none;
   }
 
-  .backdropLive,
+  .backdropVideo,
   .scanLine {
-    opacity: 0;
+    display: none;
   }
 
   .moduleRail button,
