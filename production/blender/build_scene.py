@@ -100,8 +100,10 @@ def configure_scene(
     render.use_file_extension = True
 
     if mode in {"mobile", "blend-mobile"}:
-        render.resolution_x = 1080
-        render.resolution_y = 1920
+        # 720p vertical is visually lossless at the site's <=767px mobile
+        # breakpoint while keeping frame decode and thermal cost practical.
+        render.resolution_x = 720
+        render.resolution_y = 1280
         render.resolution_percentage = 100
     elif mode == "playblast-mobile":
         render.resolution_x = 360
@@ -162,10 +164,20 @@ def restore_render_samples(mode: str, samples: int | None) -> None:
 
 def set_screen_textures(assets: dict[str, object]) -> None:
     evidence = [
-        ROOT / "public" / "evidence" / "notice-cinematic.png",
-        ROOT / "public" / "evidence" / "takt-cinematic.png",
-        ROOT / "public" / "evidence" / "visibility-cinematic.png",
-        ROOT / "public" / "evidence" / "lab-cinematic.png",
+        {
+            "path": ROOT / "public" / "evidence" / "notice-cinematic.png",
+        },
+        {
+            "path": ROOT / "public" / "evidence" / "takt-live-workbench.mp4",
+            "frame_start": 481,
+            "frame_duration": 332,
+        },
+        {
+            "path": ROOT / "public" / "evidence" / "visibility-cinematic.png",
+        },
+        {
+            "path": ROOT / "public" / "evidence" / "lab-cinematic.png",
+        },
     ]
 
     screens = assets.get("screen_displays") or assets.get("screens", [])
@@ -175,10 +187,13 @@ def set_screen_textures(assets: dict[str, object]) -> None:
     for index, screen in enumerate(screens[: len(evidence)]):
         if not isinstance(screen, bpy.types.Object) or screen.type != "MESH":
             continue
-        image_path = evidence[index]
+        source = evidence[index]
+        image_path = source["path"]
         if not image_path.exists():
             continue
         image = bpy.data.images.load(str(image_path), check_existing=True)
+        if image_path.suffix.lower() == ".mp4":
+            image.source = "MOVIE"
         material = bpy.data.materials.new(f"MAT_ProjectScreen_{index + 1:02d}")
         material.use_nodes = True
         nodes = material.node_tree.nodes
@@ -188,6 +203,12 @@ def set_screen_textures(assets: dict[str, object]) -> None:
         emission = nodes.new("ShaderNodeEmission")
         texture = nodes.new("ShaderNodeTexImage")
         texture.image = image
+        texture.interpolation = "Linear"
+        if image.source == "MOVIE":
+            texture.image_user.use_auto_refresh = True
+            texture.image_user.use_cyclic = False
+            texture.image_user.frame_start = int(source["frame_start"])
+            texture.image_user.frame_duration = int(source["frame_duration"])
         emission.inputs["Strength"].default_value = 1.35
         links.new(texture.outputs["Color"], emission.inputs["Color"])
         links.new(emission.outputs["Emission"], output.inputs["Surface"])

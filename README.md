@@ -64,6 +64,36 @@ npm run lint
 npm run build
 ```
 
+## Media Production
+
+The public journey is rendered as a 38-second, 24 fps frame sequence and then
+encoded for deterministic scroll scrubbing. Production renders are resumable;
+existing frames are validated against `render-manifest.json` and skipped.
+
+```powershell
+# 1920 x 1080 desktop master
+.\production\render_batches.ps1 -Mode desktop -Samples 64 -BatchSize 48
+.\production\encode_media.ps1 -Mode desktop
+
+# 720 x 1280 mobile master
+.\production\render_batches.ps1 -Mode mobile -Samples 16 -BatchSize 48
+.\production\encode_media.ps1 -Mode mobile -SkipFallback
+```
+
+Do not remove the keep-awake guard in `production/render_batches.ps1`. Blender
+must not enter Modern Standby while it owns an active NVIDIA render context.
+Keep batches small enough that an interrupted run can resume without losing a
+long section. The 16-sample mobile master was compared against 32 samples at
+the same frame and measured SSIM `0.993587` at the site's mobile breakpoint.
+
+The ending control-room loop has a separate deterministic validation pipeline:
+
+```powershell
+.\production\render_control_room_loop.ps1 -Mode Proof
+.\production\render_control_room_loop.ps1 -Mode Fallback
+.\production\render_control_room_loop.ps1 -Mode Public
+```
+
 ## Evidence Sources
 
 Screenshots in `public/evidence` are captured in English from the live public GitHub Pages

@@ -16,6 +16,28 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+if (-not ("Codex.PowerRequest" -as [type])) {
+    Add-Type -TypeDefinition @"
+using System.Runtime.InteropServices;
+
+namespace Codex {
+    public static class PowerRequest {
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern uint SetThreadExecutionState(uint esFlags);
+    }
+}
+"@
+}
+
+# Long background renders must not cross a Modern Standby transition. The
+# NVIDIA driver can time out while Blender still owns an active render context.
+$ExecutionState = [Codex.PowerRequest]::SetThreadExecutionState([uint32]2147483651)
+if ($ExecutionState -eq 0) {
+    throw "Failed to keep the system awake for the render session"
+}
+
+try {
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $RenderRoot = Join-Path $RepoRoot "production\renders"
 $FrameDir = Join-Path $RenderRoot "$Mode-frames"
@@ -74,3 +96,7 @@ for ($BatchStart = $FrameStart; $BatchStart -le $ResolvedFrameEnd; $BatchStart +
 }
 
 Write-Host "Completed $Mode frame batches $FrameStart-$ResolvedFrameEnd"
+}
+finally {
+    [void][Codex.PowerRequest]::SetThreadExecutionState([uint32]2147483648)
+}

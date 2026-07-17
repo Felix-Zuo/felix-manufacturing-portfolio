@@ -57,6 +57,8 @@ export type RenderedJourneyProps = {
   ariaLabel?: string;
   chapters?: readonly RenderedJourneyChapter[];
   className?: string;
+  desktopFallbackMediaQuery?: string;
+  desktopFallbackSrc?: string;
   desktopSrc?: string;
   initialChapter?: number;
   mobileMediaQuery?: string;
@@ -72,12 +74,17 @@ type TimelineState = {
 };
 
 const DEFAULT_DESKTOP_SRC = "/media/felix-journey-desktop.mp4";
+const DEFAULT_DESKTOP_FALLBACK_SRC = "/media/felix-journey-desktop-720.mp4";
 const DEFAULT_MOBILE_SRC = "/media/felix-journey-mobile.mp4";
 const DEFAULT_POSTER_SRC = "/media/felix-journey-poster.webp";
 const DEFAULT_MOBILE_POSTER_SRC = "/media/felix-journey-mobile-poster.webp";
 const DEFAULT_MOBILE_MEDIA_QUERY = "(max-width: 767px)";
+const DEFAULT_DESKTOP_FALLBACK_MEDIA_QUERY =
+  "(min-width: 768px) and (max-width: 1439px)";
 const FOLLOW_RATE = 4.2;
 const MAX_TIMELINE_RATE = 0.045;
+const CHAPTER_NAV_FOLLOW_RATE = 6.5;
+const CHAPTER_NAV_MAX_TIMELINE_RATE = 0.28;
 const WHEEL_PROGRESS_STEP = 0.0052;
 const TOUCH_PROGRESS_PER_VIEWPORT = 0.12;
 const PROJECT_FOCUS_RADIUS = 0.024;
@@ -531,6 +538,8 @@ export function RenderedJourney({
   ariaLabel = "Felix Zuo rendered manufacturing journey",
   chapters,
   className = "",
+  desktopFallbackMediaQuery = DEFAULT_DESKTOP_FALLBACK_MEDIA_QUERY,
+  desktopFallbackSrc = DEFAULT_DESKTOP_FALLBACK_SRC,
   desktopSrc = DEFAULT_DESKTOP_SRC,
   initialChapter = 0,
   mobileMediaQuery = DEFAULT_MOBILE_MEDIA_QUERY,
@@ -591,6 +600,7 @@ export function RenderedJourney({
   const stopReleaseReadyRef = useRef(false);
   const inputIdleTimerRef = useRef<number | null>(null);
   const pausedRef = useRef(false);
+  const chapterNavigationRef = useRef(false);
   const [activeIndex, setActiveIndex] = useState(initialIndex);
   const [focusedProjectIndex, setFocusedProjectIndex] = useState<number | null>(
     initialFocusedProjectIndex,
@@ -714,6 +724,7 @@ export function RenderedJourney({
   const renderProgressImmediately = useCallback(
     (progress: number) => {
       const boundedProgress = clamp(progress);
+      chapterNavigationRef.current = false;
       const mediaProgress = mediaProgressAtStoryProgress(
         boundedProgress,
         chaptersRef.current,
@@ -755,6 +766,8 @@ export function RenderedJourney({
     (delta: number) => {
       if (pausedRef.current || !Number.isFinite(delta) || delta === 0) return;
 
+      chapterNavigationRef.current = false;
+
       const lockedStop = magneticStopIndexRef.current;
       if (lockedStop !== null) {
         if (!stopReleaseReadyRef.current) {
@@ -792,6 +805,7 @@ export function RenderedJourney({
     (progress: number) => {
       const boundedProgress = clamp(progress);
       commitMagneticStop(null);
+      chapterNavigationRef.current = true;
       timelineRef.current.target = boundedProgress;
 
       if (pausedRef.current || reducedMotion === true) {
@@ -986,8 +1000,15 @@ export function RenderedJourney({
       if (!pausedRef.current) {
         const timeline = timelineRef.current;
         const distance = timeline.target - timeline.current;
-        const follow = 1 - Math.exp(-FOLLOW_RATE * deltaSeconds);
-        const maximumStep = MAX_TIMELINE_RATE * deltaSeconds;
+        const navigatingToChapter = chapterNavigationRef.current;
+        const followRate = navigatingToChapter
+          ? CHAPTER_NAV_FOLLOW_RATE
+          : FOLLOW_RATE;
+        const maximumRate = navigatingToChapter
+          ? CHAPTER_NAV_MAX_TIMELINE_RATE
+          : MAX_TIMELINE_RATE;
+        const follow = 1 - Math.exp(-followRate * deltaSeconds);
+        const maximumStep = maximumRate * deltaSeconds;
         const followedStep = clamp(
           distance * follow,
           -maximumStep,
@@ -998,6 +1019,10 @@ export function RenderedJourney({
           Math.abs(distance) < 0.00005
             ? timeline.target
             : timeline.current + followedStep;
+
+        if (Math.abs(timeline.target - timeline.current) < 0.00005) {
+          chapterNavigationRef.current = false;
+        }
       }
 
       const progress = timelineRef.current.current;
@@ -1150,6 +1175,11 @@ export function RenderedJourney({
           tabIndex={-1}
         >
           <source media={mobileMediaQuery} src={mobileSrc} type="video/mp4" />
+          <source
+            media={desktopFallbackMediaQuery}
+            src={desktopFallbackSrc}
+            type="video/mp4"
+          />
           <source src={desktopSrc} type="video/mp4" />
         </video>
         <div className={styles.shade} />
