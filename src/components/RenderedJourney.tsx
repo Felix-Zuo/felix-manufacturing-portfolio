@@ -22,9 +22,14 @@ import {
 
 import { profile } from "@/data/profile";
 
+import {
+  createCinematicAssetManifest,
+  type CinematicAssetKey,
+  type CinematicMediaProfile,
+} from "./cinematicAssets";
 import { JourneyControlDeck } from "./JourneyControlDeck";
 import styles from "./RenderedJourney.module.css";
-import { VideoFrameSeekScheduler } from "./videoFrameSeekScheduler";
+import { useCinematicPreloader } from "./useCinematicPreloader";
 
 export type RenderedJourneyLink = {
   external?: boolean;
@@ -57,8 +62,6 @@ export type RenderedJourneyProps = {
   ariaLabel?: string;
   chapters?: readonly RenderedJourneyChapter[];
   className?: string;
-  desktopFallbackMediaQuery?: string;
-  desktopFallbackSrc?: string;
   desktopSrc?: string;
   initialChapter?: number;
   mobileMediaQuery?: string;
@@ -73,14 +76,11 @@ type TimelineState = {
   target: number;
 };
 
-const DEFAULT_DESKTOP_SRC = "/media/felix-journey-desktop.mp4";
-const DEFAULT_DESKTOP_FALLBACK_SRC = "/media/felix-journey-desktop-720.mp4";
-const DEFAULT_MOBILE_SRC = "/media/felix-journey-mobile.mp4";
+const DEFAULT_DESKTOP_SRC = "/media/felix-journey-stream-desktop.mp4";
+const DEFAULT_MOBILE_SRC = "/media/felix-journey-stream-mobile.mp4";
 const DEFAULT_POSTER_SRC = "/media/felix-journey-poster.webp";
 const DEFAULT_MOBILE_POSTER_SRC = "/media/felix-journey-mobile-poster.webp";
 const DEFAULT_MOBILE_MEDIA_QUERY = "(max-width: 767px)";
-const DEFAULT_DESKTOP_FALLBACK_MEDIA_QUERY =
-  "(min-width: 768px) and (max-width: 1439px)";
 const FOLLOW_RATE = 4.2;
 const MAX_TIMELINE_RATE = 0.045;
 const CHAPTER_NAV_FOLLOW_RATE = 6.5;
@@ -88,11 +88,12 @@ const CHAPTER_NAV_MAX_TIMELINE_RATE = 0.28;
 const WHEEL_PROGRESS_STEP = 0.0052;
 const TOUCH_PROGRESS_PER_VIEWPORT = 0.12;
 const PROJECT_FOCUS_RADIUS = 0.024;
-const INPUT_IDLE_MILLISECONDS = 260;
 const CONTROL_DECK_REVEAL_START = 0.978;
 const CONTROL_DECK_ACTIVE_PROGRESS = 0.988;
 const RENDERED_FPS = 24;
 const RENDERED_FRAME_COUNT = 912;
+const REVERSE_SEEK_INTERVAL = 84;
+const AMBIENT_SETTLE_RADIUS = 0.0007;
 const HASH_CHAPTER_INDEX: Readonly<Record<string, number>> = {
   about: 0,
   impact: 1,
@@ -367,6 +368,26 @@ function mediaProgressAtStoryProgress(
   return previous.media + (next.media - previous.media) * localProgress;
 }
 
+function storyProgressAtMediaProgress(
+  progress: number,
+  chapters: readonly RenderedJourneyChapter[],
+) {
+  const target = clamp(progress);
+  let minimum = 0;
+  let maximum = 1;
+
+  for (let iteration = 0; iteration < 18; iteration += 1) {
+    const candidate = (minimum + maximum) / 2;
+    if (mediaProgressAtStoryProgress(candidate, chapters) < target) {
+      minimum = candidate;
+    } else {
+      maximum = candidate;
+    }
+  }
+
+  return (minimum + maximum) / 2;
+}
+
 function nearestChapterIndex(
   progress: number,
   chapters: readonly RenderedJourneyChapter[],
@@ -499,6 +520,23 @@ function useReducedMotionPreference() {
   return preference;
 }
 
+function useCinematicMediaProfile(mobileMediaQuery: string) {
+  const [mediaProfile, setMediaProfile] =
+    useState<CinematicMediaProfile | null>(null);
+
+  useEffect(() => {
+    const query = window.matchMedia(mobileMediaQuery);
+    const updateProfile = () =>
+      setMediaProfile(query.matches ? "mobile" : "desktop");
+
+    updateProfile();
+    query.addEventListener("change", updateProfile);
+    return () => query.removeEventListener("change", updateProfile);
+  }, [mobileMediaQuery]);
+
+  return mediaProfile;
+}
+
 function ChapterLink({ link }: { link: RenderedJourneyLink }) {
   const content = (
     <>
@@ -538,8 +576,6 @@ export function RenderedJourney({
   ariaLabel = "Felix Zuo rendered manufacturing journey",
   chapters,
   className = "",
-  desktopFallbackMediaQuery = DEFAULT_DESKTOP_FALLBACK_MEDIA_QUERY,
-  desktopFallbackSrc = DEFAULT_DESKTOP_FALLBACK_SRC,
   desktopSrc = DEFAULT_DESKTOP_SRC,
   initialChapter = 0,
   mobileMediaQuery = DEFAULT_MOBILE_MEDIA_QUERY,
@@ -567,6 +603,27 @@ export function RenderedJourney({
   );
   const initialControlDeckActive =
     initialProgress >= CONTROL_DECK_ACTIVE_PROGRESS;
+  const reducedMotion = useReducedMotionPreference();
+  const isStatic = reducedMotion === true;
+  const mediaProfile = useCinematicMediaProfile(mobileMediaQuery);
+  const selectedMainSrc =
+    mediaProfile === "mobile" ? mobileSrc : desktopSrc;
+  const assetManifest = useMemo(
+    () =>
+      mediaProfile
+        ? createCinematicAssetManifest(mediaProfile, selectedMainSrc)
+        : [],
+    [mediaProfile, selectedMainSrc],
+  );
+  const preloader = useCinematicPreloader(
+    assetManifest,
+    reducedMotion === false && mediaProfile !== null,
+  );
+  const assetsReady =
+    isStatic ||
+    (mediaProfile !== null &&
+      preloader.ready &&
+      assetManifest.every((asset) => Boolean(preloader.urls[asset.key])));
   const rootStyle = useMemo(
     () =>
       ({
@@ -581,11 +638,13 @@ export function RenderedJourney({
   const instanceId = useId().replaceAll(":", "");
   const rootRef = useRef<HTMLElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const seekSchedulerRef = useRef<VideoFrameSeekScheduler | null>(null);
-  const seekSchedulerVideoRef = useRef<HTMLVideoElement | null>(null);
+  const ambientVideoRef = useRef<HTMLVideoElement>(null);
   const frameReadoutRef = useRef<HTMLSpanElement>(null);
   const timecodeReadoutRef = useRef<HTMLSpanElement>(null);
   const durationRef = useRef(0);
+  const ambientChapterIdRef = useRef<string | null>(null);
+  const lastReverseSeekRef = useRef(0);
+  const mainPlayPendingRef = useRef(false);
   const timelineRef = useRef<TimelineState>({
     current: initialProgress,
     target: initialProgress,
@@ -597,8 +656,6 @@ export function RenderedJourney({
   const focusedProjectIndexRef = useRef<number | null>(initialFocusedProjectIndex);
   const magneticStopIndexRef = useRef<number | null>(null);
   const controlDeckActiveRef = useRef(initialControlDeckActive);
-  const stopReleaseReadyRef = useRef(false);
-  const inputIdleTimerRef = useRef<number | null>(null);
   const pausedRef = useRef(false);
   const chapterNavigationRef = useRef(false);
   const [activeIndex, setActiveIndex] = useState(initialIndex);
@@ -612,8 +669,16 @@ export function RenderedJourney({
   const [isPaused, setIsPaused] = useState(false);
   const [isVideoReady, setIsVideoReady] = useState(false);
   const [videoFailed, setVideoFailed] = useState(false);
-  const reducedMotion = useReducedMotionPreference();
-  const isStatic = reducedMotion === true;
+  const [ambientChapterId, setAmbientChapterId] = useState<string | null>(null);
+  const [isAmbientReady, setIsAmbientReady] = useState(false);
+  const resolvedMainSrc =
+    preloader.urls.journey ?? selectedMainSrc;
+  const ambientAssetKey = ambientChapterId
+    ? (`hold-${ambientChapterId}` as CinematicAssetKey)
+    : null;
+  const resolvedAmbientSrc = ambientAssetKey
+    ? preloader.urls[ambientAssetKey]
+    : undefined;
 
   useEffect(() => {
     chaptersRef.current = chapterList;
@@ -642,8 +707,14 @@ export function RenderedJourney({
   const commitMagneticStop = useCallback((index: number | null) => {
     if (magneticStopIndexRef.current === index) return;
     magneticStopIndexRef.current = index;
-    stopReleaseReadyRef.current = false;
     setMagneticStopIndex(index);
+  }, []);
+
+  const commitAmbientChapter = useCallback((chapterId: string | null) => {
+    if (ambientChapterIdRef.current === chapterId) return;
+    ambientChapterIdRef.current = chapterId;
+    setIsAmbientReady(false);
+    setAmbientChapterId(chapterId);
   }, []);
 
   const commitControlDeckActive = useCallback((active: boolean) => {
@@ -651,37 +722,6 @@ export function RenderedJourney({
     controlDeckActiveRef.current = active;
     setControlDeckActive(active);
   }, []);
-
-  const scheduleInputIdle = useCallback(() => {
-    if (inputIdleTimerRef.current !== null) {
-      window.clearTimeout(inputIdleTimerRef.current);
-    }
-
-    inputIdleTimerRef.current = window.setTimeout(() => {
-      inputIdleTimerRef.current = null;
-      if (magneticStopIndexRef.current !== null) {
-        stopReleaseReadyRef.current = true;
-      }
-    }, INPUT_IDLE_MILLISECONDS);
-  }, []);
-
-  useEffect(
-    () => () => {
-      if (inputIdleTimerRef.current !== null) {
-        window.clearTimeout(inputIdleTimerRef.current);
-      }
-    },
-    [],
-  );
-
-  useEffect(
-    () => () => {
-      seekSchedulerRef.current?.dispose();
-      seekSchedulerRef.current = null;
-      seekSchedulerVideoRef.current = null;
-    },
-    [],
-  );
 
   const seekToProgress = useCallback((progress: number) => {
     const video = videoRef.current;
@@ -694,20 +734,14 @@ export function RenderedJourney({
       progress,
       chaptersRef.current,
     );
+    const targetTime = Math.min(
+      mediaProgress * duration,
+      Math.max(duration - 1 / RENDERED_FPS, 0),
+    );
+    if (Math.abs(video.currentTime - targetTime) < 1 / RENDERED_FPS) return;
 
-    if (
-      seekSchedulerRef.current === null ||
-      seekSchedulerVideoRef.current !== video
-    ) {
-      seekSchedulerRef.current?.dispose();
-      seekSchedulerRef.current = new VideoFrameSeekScheduler(video, {
-        fps: RENDERED_FPS,
-        frameCount: RENDERED_FRAME_COUNT,
-      });
-      seekSchedulerVideoRef.current = video;
-    }
-
-    seekSchedulerRef.current.schedule(mediaProgress, duration);
+    video.pause();
+    video.currentTime = targetTime;
   }, []);
 
   const updateTimelineReadout = useCallback((progress: number) => {
@@ -725,6 +759,7 @@ export function RenderedJourney({
     (progress: number) => {
       const boundedProgress = clamp(progress);
       chapterNavigationRef.current = false;
+      commitAmbientChapter(null);
       const mediaProgress = mediaProgressAtStoryProgress(
         boundedProgress,
         chaptersRef.current,
@@ -755,6 +790,7 @@ export function RenderedJourney({
     },
     [
       commitActiveChapter,
+      commitAmbientChapter,
       commitControlDeckActive,
       commitFocusedProject,
       seekToProgress,
@@ -767,13 +803,10 @@ export function RenderedJourney({
       if (pausedRef.current || !Number.isFinite(delta) || delta === 0) return;
 
       chapterNavigationRef.current = false;
+      commitAmbientChapter(null);
 
       const lockedStop = magneticStopIndexRef.current;
       if (lockedStop !== null) {
-        if (!stopReleaseReadyRef.current) {
-          scheduleInputIdle();
-          return;
-        }
         commitMagneticStop(null);
       }
 
@@ -795,15 +828,14 @@ export function RenderedJourney({
       } else {
         timeline.target = nextTarget;
       }
-
-      scheduleInputIdle();
     },
-    [commitMagneticStop, scheduleInputIdle],
+    [commitAmbientChapter, commitMagneticStop],
   );
 
   const goToProgress = useCallback(
     (progress: number) => {
       const boundedProgress = clamp(progress);
+      commitAmbientChapter(null);
       commitMagneticStop(null);
       chapterNavigationRef.current = true;
       timelineRef.current.target = boundedProgress;
@@ -812,7 +844,12 @@ export function RenderedJourney({
         renderProgressImmediately(boundedProgress);
       }
     },
-    [commitMagneticStop, reducedMotion, renderProgressImmediately],
+    [
+      commitAmbientChapter,
+      commitMagneticStop,
+      reducedMotion,
+      renderProgressImmediately,
+    ],
   );
 
   const goToChapter = useCallback(
@@ -828,10 +865,9 @@ export function RenderedJourney({
       goToProgress(progress);
       if (chapter.stop) {
         commitMagneticStop(boundedIndex);
-        scheduleInputIdle();
       }
     },
-    [commitMagneticStop, goToProgress, scheduleInputIdle],
+    [commitMagneticStop, goToProgress],
   );
 
   const goToRelativeChapter = useCallback(
@@ -876,13 +912,12 @@ export function RenderedJourney({
       timelineRef.current.target = progress;
       renderProgressImmediately(progress);
       commitMagneticStop(chapter.stop ? chapterIndex : null);
-      if (chapter.stop) scheduleInputIdle();
     };
 
     followHash();
     window.addEventListener("hashchange", followHash);
     return () => window.removeEventListener("hashchange", followHash);
-  }, [commitMagneticStop, renderProgressImmediately, scheduleInputIdle]);
+  }, [commitMagneticStop, renderProgressImmediately]);
 
   const togglePaused = useCallback(() => {
     setIsPaused((wasPaused) => {
@@ -892,6 +927,9 @@ export function RenderedJourney({
       if (nextPaused) {
         timelineRef.current.target = timelineRef.current.current;
         videoRef.current?.pause();
+        ambientVideoRef.current?.pause();
+      } else if (ambientChapterIdRef.current) {
+        void ambientVideoRef.current?.play().catch(() => undefined);
       }
 
       return nextPaused;
@@ -899,7 +937,7 @@ export function RenderedJourney({
   }, []);
 
   useEffect(() => {
-    if (reducedMotion !== false) return;
+    if (reducedMotion !== false || !assetsReady || !resolvedMainSrc) return;
 
     const video = videoRef.current;
     if (!video) return;
@@ -907,12 +945,29 @@ export function RenderedJourney({
     setIsVideoReady(false);
     setVideoFailed(false);
     durationRef.current = 0;
-    seekSchedulerRef.current?.reset();
+    video.pause();
+    video.src = resolvedMainSrc;
     video.load();
-  }, [desktopSrc, mobileMediaQuery, mobileSrc, reducedMotion]);
+  }, [assetsReady, reducedMotion, resolvedMainSrc]);
 
   useEffect(() => {
-    if (reducedMotion !== false) return;
+    const video = ambientVideoRef.current;
+    if (!video) return;
+
+    setIsAmbientReady(false);
+    video.pause();
+    if (!resolvedAmbientSrc || reducedMotion !== false) {
+      video.removeAttribute("src");
+      video.load();
+      return;
+    }
+
+    video.src = resolvedAmbientSrc;
+    video.load();
+  }, [reducedMotion, resolvedAmbientSrc]);
+
+  useEffect(() => {
+    if (reducedMotion !== false || !assetsReady) return;
 
     const root = rootRef.current;
     if (!root) return;
@@ -964,11 +1019,12 @@ export function RenderedJourney({
     };
   }, [
     applyInputDelta,
+    assetsReady,
     reducedMotion,
   ]);
 
   useEffect(() => {
-    if (reducedMotion !== false) return;
+    if (reducedMotion !== false || !assetsReady) return;
 
     const html = document.documentElement;
     const body = document.body;
@@ -985,10 +1041,10 @@ export function RenderedJourney({
       body.style.overflow = previousBodyOverflow;
       html.style.overscrollBehavior = previousOverscroll;
     };
-  }, [reducedMotion]);
+  }, [assetsReady, reducedMotion]);
 
   useEffect(() => {
-    if (reducedMotion !== false) return;
+    if (reducedMotion !== false || !assetsReady) return;
 
     let frame = 0;
     let previousTime = performance.now();
@@ -997,28 +1053,76 @@ export function RenderedJourney({
       const deltaSeconds = Math.min(Math.max((time - previousTime) / 1000, 0), 0.05);
       previousTime = time;
 
-      if (!pausedRef.current) {
+      if (!pausedRef.current && isVideoReady) {
         const timeline = timelineRef.current;
         const distance = timeline.target - timeline.current;
-        const navigatingToChapter = chapterNavigationRef.current;
-        const followRate = navigatingToChapter
-          ? CHAPTER_NAV_FOLLOW_RATE
-          : FOLLOW_RATE;
-        const maximumRate = navigatingToChapter
-          ? CHAPTER_NAV_MAX_TIMELINE_RATE
-          : MAX_TIMELINE_RATE;
-        const follow = 1 - Math.exp(-followRate * deltaSeconds);
-        const maximumStep = maximumRate * deltaSeconds;
-        const followedStep = clamp(
-          distance * follow,
-          -maximumStep,
-          maximumStep,
-        );
+        const video = videoRef.current;
+        const duration = durationRef.current;
 
-        timeline.current =
-          Math.abs(distance) < 0.00005
-            ? timeline.target
-            : timeline.current + followedStep;
+        if (video && duration > 0 && distance > 0.00005) {
+          const targetMediaProgress = mediaProgressAtStoryProgress(
+            timeline.target,
+            chaptersRef.current,
+          );
+          const targetTime = Math.min(
+            targetMediaProgress * duration,
+            Math.max(duration - 1 / RENDERED_FPS, 0),
+          );
+
+          if (video.currentTime >= targetTime - 1 / RENDERED_FPS) {
+            video.pause();
+            timeline.current = timeline.target;
+          } else {
+            const playbackCeiling = chapterNavigationRef.current ? 1.35 : 0.9;
+            video.playbackRate = clamp(
+              0.55 + distance * 9,
+              0.55,
+              playbackCeiling,
+            );
+            if (video.paused && !mainPlayPendingRef.current) {
+              mainPlayPendingRef.current = true;
+              void video
+                .play()
+                .catch(() => undefined)
+                .finally(() => {
+                  mainPlayPendingRef.current = false;
+                });
+            }
+            const actualStoryProgress = storyProgressAtMediaProgress(
+              video.currentTime / duration,
+              chaptersRef.current,
+            );
+            timeline.current = Math.min(
+              timeline.target,
+              Math.max(timeline.current, actualStoryProgress),
+            );
+          }
+        } else if (video && duration > 0 && distance < -0.00005) {
+          video.pause();
+          const navigatingToChapter = chapterNavigationRef.current;
+          const followRate = navigatingToChapter
+            ? CHAPTER_NAV_FOLLOW_RATE
+            : FOLLOW_RATE;
+          const maximumRate = navigatingToChapter
+            ? CHAPTER_NAV_MAX_TIMELINE_RATE
+            : MAX_TIMELINE_RATE;
+          const follow = 1 - Math.exp(-followRate * deltaSeconds);
+          const maximumStep = maximumRate * deltaSeconds;
+          const followedStep = clamp(
+            distance * follow,
+            -maximumStep,
+            maximumStep,
+          );
+          timeline.current += followedStep;
+
+          if (time - lastReverseSeekRef.current >= REVERSE_SEEK_INTERVAL) {
+            lastReverseSeekRef.current = time;
+            seekToProgress(timeline.current);
+          }
+        } else {
+          video?.pause();
+          timeline.current = timeline.target;
+        }
 
         if (Math.abs(timeline.target - timeline.current) < 0.00005) {
           chapterNavigationRef.current = false;
@@ -1038,7 +1142,6 @@ export function RenderedJourney({
         "--control-progress",
         controlDeckProgressAtStoryProgress(progress).toFixed(5),
       );
-      seekToProgress(progress);
       updateTimelineReadout(mediaProgress);
       commitActiveChapter(
         nearestChapterIndex(progress, chaptersRef.current),
@@ -1047,6 +1150,24 @@ export function RenderedJourney({
         focusedProjectIndexAtProgress(progress, chaptersRef.current),
       );
       commitControlDeckActive(progress >= CONTROL_DECK_ACTIVE_PROGRESS);
+
+      const nearestIndex = nearestChapterIndex(
+        timelineRef.current.target,
+        chaptersRef.current,
+      );
+      const nearestChapter = chaptersRef.current[nearestIndex];
+      const nearestProgress = storyProgressAtChapter(
+        nearestChapter,
+        nearestIndex,
+        chaptersRef.current.length,
+      );
+      const isAtAmbientStop =
+        progress < CONTROL_DECK_REVEAL_START &&
+        Math.abs(timelineRef.current.target - nearestProgress) <
+          AMBIENT_SETTLE_RADIUS &&
+        Math.abs(timelineRef.current.target - progress) <
+          AMBIENT_SETTLE_RADIUS;
+      commitAmbientChapter(isAtAmbientStop ? nearestChapter.id : null);
       frame = window.requestAnimationFrame(tick);
     };
 
@@ -1054,8 +1175,11 @@ export function RenderedJourney({
     return () => window.cancelAnimationFrame(frame);
   }, [
     commitActiveChapter,
+    commitAmbientChapter,
     commitControlDeckActive,
     commitFocusedProject,
+    assetsReady,
+    isVideoReady,
     reducedMotion,
     seekToProgress,
     updateTimelineReadout,
@@ -1105,11 +1229,13 @@ export function RenderedJourney({
   const renderedFrame = frameAtMediaProgress(activeChapter.mediaProgress);
   const mediaState = isStatic
     ? "Static frame"
-    : videoFailed
-      ? "Poster fallback"
-      : isVideoReady
-        ? "Rendered media"
-        : "Loading media";
+    : !assetsReady
+      ? `Loading media ${Math.round(preloader.progress * 100)} percent`
+      : videoFailed
+        ? "Poster fallback"
+        : isVideoReady
+          ? "Rendered media"
+          : "Loading media";
 
   return (
     <section
@@ -1118,6 +1244,7 @@ export function RenderedJourney({
       className={`${styles.root} ${isStatic ? styles.reducedMotion : ""} ${className}`.trim()}
       data-chapter-kind={activeKind}
       data-control-deck={controlDeckActive || undefined}
+      data-loading={!assetsReady || undefined}
       data-magnetic-stop={
         magneticStopIndex !== null
           ? chapterList[magneticStopIndex]?.id
@@ -1132,7 +1259,37 @@ export function RenderedJourney({
       style={rootStyle}
       tabIndex={0}
     >
-      <div aria-hidden="true" className={styles.media}>
+      {!assetsReady && !isStatic && (
+        <div
+          aria-label={`正在载入 Felix 的作品集，${Math.round(preloader.progress * 100)}%`}
+          aria-live="polite"
+          className={styles.loadingGate}
+          role="status"
+        >
+          <div className={styles.loadingIdentity}>
+            <span>FZ / Manufacturing operations</span>
+            <strong>正在载入 Felix 的作品集</strong>
+            <p>
+              {preloader.degraded
+                ? "正在准备兼容模式"
+                : "正在预载运镜、动态节点与控制室"}
+            </p>
+          </div>
+          <div className={styles.loadingProgress}>
+            <span
+              aria-hidden="true"
+              style={{ transform: `scaleX(${preloader.progress})` }}
+            />
+          </div>
+          <output>{Math.round(preloader.progress * 100)}%</output>
+        </div>
+      )}
+
+      <div
+        aria-hidden="true"
+        className={styles.media}
+        data-ambient={isAmbientReady || undefined}
+      >
         {/* The poster owns first paint; video loading starts only after motion preference is known. */}
         <picture
           className={`${styles.posterFrame} ${isVideoReady && !isStatic ? styles.posterHidden : ""}`}
@@ -1152,7 +1309,6 @@ export function RenderedJourney({
           className={`${styles.video} ${isVideoReady && !isStatic ? styles.videoReady : ""}`}
           muted
           onError={() => {
-            seekSchedulerRef.current?.reset();
             setVideoFailed(true);
             setIsVideoReady(false);
           }}
@@ -1165,30 +1321,41 @@ export function RenderedJourney({
             const video = event.currentTarget;
             durationRef.current = Number.isFinite(video.duration) ? video.duration : 0;
             video.pause();
-            seekSchedulerRef.current?.reset();
             seekToProgress(timelineRef.current.current);
           }}
           playsInline
           poster={posterSrc}
-          preload="metadata"
+          preload="auto"
           ref={videoRef}
           tabIndex={-1}
-        >
-          <source media={mobileMediaQuery} src={mobileSrc} type="video/mp4" />
-          <source
-            media={desktopFallbackMediaQuery}
-            src={desktopFallbackSrc}
-            type="video/mp4"
-          />
-          <source src={desktopSrc} type="video/mp4" />
-        </video>
+        />
+        <video
+          className={styles.ambientVideo}
+          loop
+          muted
+          onError={() => setIsAmbientReady(false)}
+          onLoadedData={(event) => {
+            event.currentTarget.currentTime = 0;
+            setIsAmbientReady(true);
+            if (!pausedRef.current) {
+              void event.currentTarget.play().catch(() => undefined);
+            }
+          }}
+          playsInline
+          preload="auto"
+          ref={ambientVideoRef}
+          tabIndex={-1}
+        />
         <div className={styles.shade} />
       </div>
 
       <div aria-hidden="true" className={styles.controlGate} />
       <JourneyControlDeck
         active={controlDeckActive}
+        backdropSrc={preloader.urls["control-room"]}
+        mediaUrls={preloader.urls}
         onReturn={returnFromControlDeck}
+        taktVideoSrc={preloader.urls["takt-live"]}
       />
 
       {!controlDeckActive && (

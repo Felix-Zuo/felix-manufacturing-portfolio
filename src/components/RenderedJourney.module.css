@@ -27,6 +27,7 @@
 .posterFrame,
 .poster,
 .video,
+.ambientVideo,
 .shade {
   position: absolute;
   inset: 0;
@@ -46,7 +47,8 @@
 
 .posterFrame,
 .poster,
-.video {
+.video,
+.ambientVideo {
   display: block;
   max-width: none;
   object-fit: cover;
@@ -77,8 +79,22 @@
   opacity: 1;
 }
 
-.shade {
+.ambientVideo {
   z-index: 2;
+  opacity: 0;
+  transition: opacity 260ms ease;
+}
+
+.media[data-ambient] .video {
+  opacity: 0;
+}
+
+.media[data-ambient] .ambientVideo {
+  opacity: 1;
+}
+
+.shade {
+  z-index: 3;
   background:
     linear-gradient(90deg, rgba(5, 7, 8, 0.9) 0%, rgba(5, 7, 8, 0.48) 42%, rgba(5, 7, 8, 0.08) 72%),
     linear-gradient(180deg, rgba(5, 7, 8, 0.5) 0%, transparent 28%, transparent 68%, rgba(5, 7, 8, 0.62) 100%);
@@ -86,6 +102,83 @@
     inset 0 0 110px 18px rgba(0, 0, 0, 0.52),
     inset 0 -90px 70px -72px rgba(0, 0, 0, 0.58);
   transition: background 800ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.loadingGate {
+  position: absolute;
+  z-index: 30;
+  inset: 0;
+  display: grid;
+  grid-template-rows: 1fr auto auto;
+  align-items: end;
+  gap: 1rem;
+  padding:
+    max(4.5rem, calc(3rem + env(safe-area-inset-top)))
+    max(5vw, env(safe-area-inset-right))
+    max(4rem, calc(2.5rem + env(safe-area-inset-bottom)))
+    max(5vw, env(safe-area-inset-left));
+  background:
+    linear-gradient(180deg, rgba(5, 7, 8, 0.2), rgba(5, 7, 8, 0.94)),
+    #050708;
+  color: #f3f5f5;
+}
+
+.loadingIdentity {
+  width: min(34rem, 100%);
+  align-self: end;
+}
+
+.loadingIdentity span,
+.loadingIdentity p,
+.loadingGate output {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.loadingIdentity span {
+  display: block;
+  margin-bottom: 1.25rem;
+  color: #e4af45;
+  font-size: 11px;
+}
+
+.loadingIdentity strong {
+  display: block;
+  font-size: clamp(2rem, 4.4vw, 4.6rem);
+  font-weight: 590;
+  line-height: 1.02;
+  letter-spacing: 0;
+}
+
+.loadingIdentity p {
+  margin: 0.9rem 0 0;
+  color: rgba(227, 232, 233, 0.6);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.loadingProgress {
+  position: relative;
+  width: 100%;
+  height: 2px;
+  overflow: hidden;
+  background: rgba(224, 230, 231, 0.16);
+}
+
+.loadingProgress span {
+  position: absolute;
+  inset: 0;
+  background: #e4af45;
+  box-shadow: 0 0 1.5rem rgba(228, 175, 69, 0.34);
+  transform-origin: left center;
+  transition: transform 100ms linear;
+}
+
+.loadingGate output {
+  justify-self: end;
+  color: rgba(238, 241, 241, 0.8);
+  font-size: 12px;
 }
 
 .root[data-panel-align="right"] .shade {
@@ -119,7 +212,8 @@
   z-index: 7;
   inset: 0;
   background: #030405;
-  opacity: clamp(0, calc(var(--control-progress) * 1.62), 1);
+  transform: scaleX(var(--control-progress));
+  transform-origin: center center;
   pointer-events: none;
 }
 

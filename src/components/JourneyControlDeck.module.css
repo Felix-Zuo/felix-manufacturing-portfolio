@@ -3,8 +3,9 @@
   z-index: 9;
   inset: 0;
   overflow: hidden;
+  background: #030405;
   color: #f2f4f5;
-  opacity: clamp(0, calc((var(--control-progress, 0) - 0.42) * 1.73), 1);
+  opacity: clamp(0, calc((var(--control-progress, 0) - 0.46) * 1.86), 1);
   visibility: hidden;
   pointer-events: none;
 }
@@ -23,8 +24,7 @@
 .backdrop,
 .backdropPoster,
 .backdropVideo,
-.backdropShade,
-.scanLine {
+.backdropShade {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -32,9 +32,9 @@
 }
 
 .backdrop {
-  z-index: -1;
+  z-index: -2;
   overflow: hidden;
-  background: #050708;
+  background: #030405;
 }
 
 .backdropPoster,
@@ -43,778 +43,472 @@
   max-width: none;
   object-fit: cover;
   object-position: center;
-  filter: saturate(0.78) contrast(1.04) brightness(0.72);
-  transform: scale(1.015);
 }
 
 .backdropVideo {
-  opacity: 1;
+  z-index: 1;
 }
 
 .backdropShade {
+  z-index: 2;
   background:
-    linear-gradient(180deg, rgba(3, 5, 6, 0.74), rgba(3, 5, 6, 0.2) 26%, rgba(3, 5, 6, 0.34) 70%, rgba(3, 5, 6, 0.88)),
-    linear-gradient(90deg, rgba(3, 5, 6, 0.5), transparent 28%, transparent 72%, rgba(3, 5, 6, 0.5));
-  box-shadow: inset 0 0 140px 22px rgba(0, 0, 0, 0.6);
+    linear-gradient(180deg, rgba(3, 5, 6, 0.38), transparent 24%, transparent 68%, rgba(3, 5, 6, 0.82)),
+    linear-gradient(90deg, rgba(3, 5, 6, 0.28), transparent 30%, transparent 70%, rgba(3, 5, 6, 0.28));
+  box-shadow: inset 0 0 7rem rgba(0, 0, 0, 0.35);
+  transition: background 450ms ease;
 }
 
-.scanLine {
-  top: -8%;
-  height: 8%;
-  background: linear-gradient(180deg, transparent, rgba(164, 212, 186, 0.055), transparent);
-  animation: scanRoom 5s linear infinite;
-  mix-blend-mode: screen;
+.deck[data-contact] .backdropShade {
+  background: rgba(3, 5, 6, 0.62);
 }
 
-.shell {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 0.65rem;
-  width: 100%;
-  height: 100%;
-  padding:
-    calc(4.75rem + env(safe-area-inset-top))
-    max(1.5rem, env(safe-area-inset-right))
-    max(1rem, env(safe-area-inset-bottom))
-    max(1.5rem, env(safe-area-inset-left));
-}
-
-.topBar,
-.deckBody,
-.deckFooter {
-  width: min(91rem, 100%);
-  margin: 0 auto;
-  border: 1px solid rgba(219, 225, 226, 0.16);
-  background: rgba(6, 9, 10, 0.72);
-  backdrop-filter: blur(14px) saturate(0.82);
-}
-
-.topBar {
-  display: flex;
-  min-height: 3.2rem;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.6rem 0.85rem;
-}
-
-.identity,
-.systemStatus,
-.signalHeading,
-.projectActions,
-.contactLinks,
-.returnButton {
-  display: flex;
-  align-items: center;
-}
-
-.identity {
-  gap: 0.7rem;
-}
-
-.identity svg {
-  color: #e1ae4d;
-}
-
-.identity p,
-.identity span,
-.systemStatus,
-.workspaceHeader p,
-.workspaceHeader span,
-.moduleRail > p,
-.projectTier,
-.signalHeading,
-.boundary > span,
-.maturity > span,
-.supportLinks > span,
-.projectScreen figcaption {
-  margin: 0;
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
-  letter-spacing: 0;
-  text-transform: uppercase;
-}
-
-.identity p {
-  color: #f5f7f7;
-  font-size: 0.82rem;
-  font-weight: 650;
-}
-
-.identity span {
-  display: block;
-  margin-top: 0.12rem;
-  color: rgba(223, 229, 230, 0.5);
-  font-size: 0.58rem;
-}
-
-.systemStatus {
-  gap: 0.8rem;
-  color: rgba(222, 228, 229, 0.62);
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-size: 0.6rem;
-  letter-spacing: 0;
-  text-transform: uppercase;
-}
-
-.systemStatus span:last-child {
-  padding-left: 0.8rem;
-  border-left: 1px solid rgba(223, 228, 229, 0.18);
-}
-
-.liveDot {
-  width: 0.42rem;
-  height: 0.42rem;
-  border-radius: 50%;
-  background: #68c091;
-  box-shadow: 0 0 0.8rem rgba(104, 192, 145, 0.72);
-  animation: statusPulse 2.5s ease-in-out infinite;
-}
-
-.deckBody {
-  display: grid;
-  grid-template-columns: 7.2rem minmax(0, 1fr) 17rem;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.moduleRail {
-  min-width: 0;
-  padding: 0.85rem 0.65rem;
-  border-right: 1px solid rgba(219, 225, 226, 0.14);
-  background: rgba(3, 6, 7, 0.66);
-}
-
-.moduleRail > p {
-  margin: 0 0 0.75rem 0.35rem;
-  color: rgba(222, 228, 229, 0.42);
-  font-size: 0.56rem;
-}
-
-.moduleRail button {
-  position: relative;
-  display: grid;
-  grid-template-columns: 1.2rem 1.5rem 1fr;
-  gap: 0.45rem;
-  width: 100%;
-  min-height: 3.25rem;
-  align-items: center;
-  margin: 0 0 0.35rem;
-  padding: 0.55rem 0.45rem;
-  border: 1px solid transparent;
-  border-radius: 2px;
-  background: transparent;
-  color: rgba(227, 232, 233, 0.54);
-  text-align: left;
-  cursor: pointer;
-  transition:
-    border-color 220ms ease,
-    background 220ms ease,
-    color 220ms ease,
-    transform 220ms ease;
-}
-
-.moduleRail button:hover {
-  border-color: rgba(225, 174, 77, 0.24);
-  background: rgba(225, 174, 77, 0.06);
-  color: #f2f4f5;
-  transform: translateX(2px);
-}
-
-.moduleRail button > span {
-  color: rgba(225, 174, 77, 0.68);
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-size: 0.52rem;
-}
-
-.moduleRail button strong {
-  overflow: hidden;
-  font-size: 0.68rem;
-  font-weight: 560;
-  letter-spacing: 0;
-  text-overflow: ellipsis;
-}
-
-.moduleRail button.moduleActive {
-  border-color: rgba(225, 174, 77, 0.42);
-  background: rgba(225, 174, 77, 0.1);
-  color: #fff;
-  box-shadow: inset 2px 0 #e1ae4d;
-}
-
-.workspace {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  min-width: 0;
-  min-height: 0;
-  padding: 0.9rem 1rem 1rem;
-  background: rgba(6, 9, 10, 0.58);
-}
-
-.workspaceHeader {
+.sceneHeader {
+  position: absolute;
+  z-index: 7;
+  top: calc(4.75rem + env(safe-area-inset-top));
+  right: max(1.5rem, env(safe-area-inset-right));
+  left: max(1.5rem, env(safe-area-inset-left));
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  padding: 0 0 0.75rem;
-  border-bottom: 1px solid rgba(219, 225, 226, 0.14);
-}
-
-.workspaceHeader p {
-  color: #e1ae4d;
-  font-size: 0.62rem;
-}
-
-.workspaceHeader span {
-  display: block;
-  margin-top: 0.22rem;
-  color: rgba(221, 227, 228, 0.42);
-  font-size: 0.54rem;
-}
-
-.workspaceHeader svg {
-  color: rgba(104, 192, 145, 0.82);
-}
-
-.projectView {
-  display: grid;
-  grid-template-columns: minmax(16rem, 0.8fr) minmax(22rem, 1.25fr);
-  gap: clamp(1rem, 2.4vw, 2.4rem);
-  min-width: 0;
-  min-height: 0;
-  align-items: center;
-  padding-top: 0.9rem;
-}
-
-.projectCopy {
-  min-width: 0;
-}
-
-.projectTier {
-  color: rgba(104, 192, 145, 0.78);
-  font-size: 0.58rem;
-}
-
-.projectCopy h2 {
-  max-width: 28rem;
-  margin: 0.55rem 0 0.7rem;
-  color: #f5f6f6;
-  font-size: clamp(1.55rem, 2.35vw, 2.75rem);
-  line-height: 1.04;
-  letter-spacing: 0;
-}
-
-.projectDescription {
-  max-width: 33rem;
-  margin: 0;
-  color: rgba(228, 233, 234, 0.7);
-  font-size: 0.8rem;
-  line-height: 1.65;
-}
-
-.projectFacts {
-  display: grid;
-  gap: 0.65rem;
-  margin: 1rem 0;
-}
-
-.projectFacts div {
-  display: grid;
-  grid-template-columns: 6.8rem 1fr;
-  gap: 0.75rem;
-  padding-top: 0.55rem;
-  border-top: 1px solid rgba(218, 224, 225, 0.12);
-}
-
-.projectFacts dt,
-.projectFacts dd,
-.primarySignal dt,
-.primarySignal dd {
-  margin: 0;
-}
-
-.projectFacts dt {
-  color: rgba(222, 228, 229, 0.42);
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-size: 0.56rem;
-  line-height: 1.5;
-  text-transform: uppercase;
-}
-
-.projectFacts dd {
-  color: rgba(232, 236, 237, 0.72);
-  font-size: 0.68rem;
-  line-height: 1.5;
-}
-
-.projectActions {
-  flex-wrap: wrap;
-  gap: 0.45rem;
-}
-
-.projectActions a,
-.contactLinks a,
-.supportLinks a,
-.returnButton {
-  color: rgba(239, 242, 242, 0.82);
-  text-decoration: none;
-  transition:
-    border-color 200ms ease,
-    background 200ms ease,
-    color 200ms ease,
-    transform 200ms ease;
-}
-
-.projectActions a {
-  display: inline-flex;
-  min-height: 2.2rem;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0 0.7rem;
-  border: 1px solid rgba(221, 227, 228, 0.2);
-  border-radius: 2px;
-  background: rgba(5, 8, 9, 0.5);
-  font-size: 0.64rem;
-}
-
-.projectActions a:hover,
-.contactLinks a:hover,
-.supportLinks a:hover,
-.returnButton:hover {
-  border-color: rgba(225, 174, 77, 0.58);
-  color: #fff;
-  transform: translateY(-1px);
-}
-
-.projectScreen {
-  position: relative;
-  min-width: 0;
-  width: 100%;
-  max-height: 26rem;
-  aspect-ratio: 16 / 10;
-  margin: 0;
-  overflow: hidden;
-  border: 1px solid rgba(225, 174, 77, 0.32);
-  border-radius: 3px;
-  background: #080b0d;
-  box-shadow:
-    0 1.4rem 4rem rgba(0, 0, 0, 0.42),
-    0 0 0 0.35rem rgba(5, 8, 9, 0.5);
-}
-
-.projectScreen img {
-  object-fit: cover;
-  object-position: top center;
-}
-
-.projectScreen::after {
-  position: absolute;
-  inset: 0;
-  content: "";
-  border: 1px solid rgba(255, 255, 255, 0.06);
   pointer-events: none;
 }
 
-.projectScreen figcaption {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  display: flex;
-  justify-content: space-between;
-  padding: 0.42rem 0.55rem;
-  background: rgba(3, 6, 7, 0.9);
-  color: rgba(225, 230, 231, 0.55);
-  font-size: 0.5rem;
-}
-
-.signalPanel {
-  min-width: 0;
-  padding: 1rem 0.9rem;
-  border-left: 1px solid rgba(219, 225, 226, 0.14);
-  background: rgba(3, 6, 7, 0.74);
-}
-
-.signalHeading {
-  gap: 0.5rem;
-  color: rgba(227, 232, 233, 0.62);
-  font-size: 0.58rem;
-}
-
-.signalHeading svg {
-  color: #68c091;
-}
-
-.primarySignal {
-  margin: 1.4rem 0 0.65rem;
-}
-
-.primarySignal dt {
-  color: rgba(221, 227, 228, 0.44);
+.sceneHeader > div span,
+.sceneHeader > div strong,
+.sceneHeader button,
+.hotspot strong,
+.lowerThird > div > p {
   font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-size: 0.56rem;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
-.primarySignal dd {
-  margin-top: 0.35rem;
-  color: #f3f5f5;
-  font-size: clamp(1.2rem, 1.75vw, 1.8rem);
-  font-weight: 620;
+.sceneHeader > div span {
+  display: block;
+  color: #f4f6f6;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.sceneHeader > div strong {
+  display: block;
+  margin-top: 0.28rem;
+  color: rgba(227, 232, 233, 0.58);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.sceneHeader button {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  gap: 0.5rem;
+  border: 0;
+  background: transparent;
+  padding: 0.35rem;
+  color: rgba(240, 243, 243, 0.78);
+  font-size: 11px;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.sceneHeader button:hover {
+  color: #f2c66e;
+}
+
+.sceneCanvas {
+  position: absolute;
+  z-index: 3;
+  top: 50%;
+  left: 50%;
+  width: max(100vw, 177.7778vh);
+  height: max(100vh, 56.25vw);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.screenMedia {
+  position: absolute;
+  overflow: hidden;
+  background: #030809;
+  opacity: 0;
+  filter: brightness(0.82) saturate(0.86) contrast(1.06);
+  transition: opacity 320ms ease;
+  pointer-events: none;
+}
+
+.screenMedia[data-visible] {
+  opacity: 0.94;
+}
+
+.screenMedia img,
+.screenMedia video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: screenDrift 8s ease-in-out infinite alternate;
+}
+
+.screenMedia > span {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(104, 192, 145, 0.22);
+  background:
+    linear-gradient(180deg, rgba(118, 219, 168, 0.05), transparent 20%),
+    repeating-linear-gradient(180deg, transparent 0 4px, rgba(0, 0, 0, 0.12) 5px);
+  box-shadow: inset 0 0 1.4rem rgba(0, 0, 0, 0.68);
+}
+
+.screenLeft {
+  top: 18.9%;
+  left: 5.2%;
+  width: 14.8%;
+  height: 34.8%;
+  clip-path: polygon(4% 0, 100% 12%, 100% 94%, 0 100%);
+}
+
+.screenRight {
+  top: 18.7%;
+  right: 4.6%;
+  width: 15.1%;
+  height: 34.5%;
+  clip-path: polygon(0 12%, 96% 0, 100% 100%, 0 94%);
+}
+
+.hotspot {
+  position: absolute;
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  border: 0;
+  background: transparent;
+  color: rgba(238, 241, 241, 0.74);
+  cursor: pointer;
+  pointer-events: auto;
+  transform: translate(-50%, -50%);
+}
+
+.hotspotRing {
+  position: relative;
+  display: inline-flex;
+  width: 2.7rem;
+  height: 2.7rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(232, 186, 91, 0.7);
+  border-radius: 50%;
+  background: rgba(5, 8, 9, 0.56);
+  color: #f2c66e;
+  box-shadow: 0 0 0 0 rgba(232, 186, 91, 0.32);
+  animation: hotspotPulse 2.4s ease-out infinite;
+  transition:
+    background 220ms ease,
+    transform 220ms ease;
+}
+
+.hotspot:hover .hotspotRing,
+.hotspot[data-selected] .hotspotRing {
+  background: rgba(232, 186, 91, 0.2);
+  transform: scale(1.1);
+}
+
+.hotspot strong {
+  padding: 0.25rem 0.4rem;
+  background: rgba(3, 5, 6, 0.74);
+  color: rgba(241, 244, 244, 0.82);
+  font-size: 10px;
+  font-weight: 560;
+  white-space: nowrap;
+}
+
+.hotspotRelease {
+  top: 36%;
+  left: 13%;
+}
+
+.hotspotFlow {
+  top: 36%;
+  left: 87%;
+}
+
+.hotspotInventory {
+  top: 60%;
+  left: 24%;
+}
+
+.hotspotSystem {
+  top: 60%;
+  left: 76%;
+}
+
+.hotspotContact {
+  top: 51%;
+  left: 50%;
+}
+
+.lowerThird {
+  position: absolute;
+  z-index: 6;
+  right: max(4.5vw, env(safe-area-inset-right));
+  bottom: max(3rem, calc(2rem + env(safe-area-inset-bottom)));
+  left: max(4.5vw, env(safe-area-inset-left));
+  min-height: 9.5rem;
+  pointer-events: none;
+}
+
+.lowerThird::before {
+  position: absolute;
+  z-index: -1;
+  right: -6vw;
+  bottom: -4rem;
+  left: -6vw;
+  height: 18rem;
+  content: "";
+  background: linear-gradient(180deg, transparent, rgba(3, 5, 6, 0.9) 65%);
+  pointer-events: none;
+}
+
+.projectSummary,
+.contactSummary,
+.roomSummary {
+  animation: lowerThirdIn 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.lowerThird > div > p {
+  margin: 0 0 0.55rem;
+  color: rgba(229, 234, 235, 0.58);
+  font-size: 11px;
+}
+
+.lowerThird > div > p span {
+  color: #e7b557;
+}
+
+.lowerThird h2 {
+  max-width: 56rem;
+  margin: 0;
+  color: #f5f6f6;
+  font-size: clamp(2rem, 4vw, 4.6rem);
+  font-weight: 590;
+  line-height: 1;
   letter-spacing: 0;
-  line-height: 1.12;
+  text-wrap: balance;
 }
 
-.signalPanel > p,
-.boundary p,
-.maturity p {
-  color: rgba(225, 230, 231, 0.58);
-  font-size: 0.66rem;
-  line-height: 1.55;
-}
-
-.signalPanel > p {
-  margin: 0 0 1.2rem;
-}
-
-.boundary,
-.maturity {
-  padding-top: 0.8rem;
-  border-top: 1px solid rgba(219, 225, 226, 0.13);
-}
-
-.maturity {
+.summaryRow {
+  display: grid;
+  grid-template-columns: minmax(0, 38rem) auto;
+  gap: 2rem;
+  align-items: end;
   margin-top: 0.8rem;
 }
 
-.boundary > span,
-.maturity > span {
-  color: rgba(225, 174, 77, 0.66);
-  font-size: 0.52rem;
+.summaryRow > p,
+.roomSummary > span {
+  margin: 0;
+  color: rgba(232, 236, 237, 0.72);
+  font-size: 16px;
+  line-height: 1.55;
 }
 
-.boundary p,
-.maturity p {
-  margin: 0.35rem 0 0;
+.summaryRow nav,
+.contactSummary > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  pointer-events: auto;
 }
 
-.deckFooter {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 1rem;
-  min-height: 3.1rem;
+.summaryRow a,
+.contactSummary a,
+.contactSummary button {
+  display: inline-flex;
+  min-height: 2.65rem;
   align-items: center;
-  padding: 0.5rem 0.65rem;
-}
-
-.returnButton {
   gap: 0.45rem;
-  min-height: 2rem;
-  padding: 0 0.55rem;
-  border: 1px solid rgba(220, 226, 227, 0.2);
-  border-radius: 2px;
-  background: rgba(4, 7, 8, 0.7);
-  font: inherit;
-  font-size: 0.62rem;
+  border: 0;
+  border-bottom: 1px solid rgba(227, 232, 233, 0.34);
+  background: transparent;
+  padding: 0.25rem 0;
+  color: rgba(241, 244, 244, 0.84);
+  font-size: 14px;
+  text-decoration: none;
   cursor: pointer;
 }
 
-.supportLinks {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  justify-content: center;
-  gap: 0.7rem;
-  overflow: hidden;
+.summaryRow a:hover,
+.contactSummary a:hover,
+.contactSummary button:hover {
+  border-bottom-color: #e7b557;
+  color: #f2c66e;
 }
 
-.supportLinks > span {
-  color: rgba(222, 228, 229, 0.38);
-  font-size: 0.5rem;
-  white-space: nowrap;
+.contactSummary h2 {
+  max-width: 42rem;
 }
 
-.supportLinks a,
-.contactLinks a {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.56rem;
-  white-space: nowrap;
+.contactSummary > div {
+  margin-top: 1.1rem;
 }
 
-.contactLinks {
-  justify-content: flex-end;
-  gap: 0.75rem;
+.roomSummary h2 {
+  font-size: clamp(3rem, 7vw, 7rem);
 }
 
-.contactLinks a:last-child {
-  padding-left: 0.75rem;
-  border-left: 1px solid rgba(219, 225, 226, 0.15);
+.roomSummary > span {
+  display: block;
+  margin-top: 0.8rem;
 }
 
-.moduleRail button:focus-visible,
-.projectActions a:focus-visible,
-.supportLinks a:focus-visible,
-.contactLinks a:focus-visible,
-.returnButton:focus-visible {
-  outline: 2px solid #e1ae4d;
-  outline-offset: 2px;
+.hotspot:focus-visible,
+.sceneHeader button:focus-visible,
+.summaryRow a:focus-visible,
+.contactSummary a:focus-visible,
+.contactSummary button:focus-visible {
+  outline: 2px solid #f2c66e;
+  outline-offset: 3px;
 }
 
-@keyframes scanRoom {
+@keyframes hotspotPulse {
   0% {
+    box-shadow: 0 0 0 0 rgba(232, 186, 91, 0.36);
+  }
+
+  72%,
+  100% {
+    box-shadow: 0 0 0 0.9rem rgba(232, 186, 91, 0);
+  }
+}
+
+@keyframes screenDrift {
+  from {
+    transform: scale(1.02) translateY(0);
+  }
+
+  to {
+    transform: scale(1.08) translateY(-1.5%);
+  }
+}
+
+@keyframes lowerThirdIn {
+  from {
+    opacity: 0;
+    transform: translateY(1.2rem);
+  }
+
+  to {
+    opacity: 1;
     transform: translateY(0);
   }
-
-  100% {
-    transform: translateY(1450%);
-  }
 }
 
-@keyframes statusPulse {
-  0%,
-  100% {
-    opacity: 0.65;
+@media (max-width: 760px) {
+  .backdropPoster,
+  .backdropVideo {
+    object-fit: contain;
+    object-position: center 18%;
   }
 
-  50% {
-    opacity: 1;
-  }
-}
-
-@media (max-width: 1120px) {
-  .deckBody {
-    grid-template-columns: 6.3rem minmax(0, 1fr);
+  .backdropShade {
+    background: linear-gradient(180deg, transparent 36%, rgba(3, 5, 6, 0.98) 66%);
+    box-shadow: none;
   }
 
-  .signalPanel {
-    display: none;
-  }
-}
-
-@media (max-width: 820px) {
-  .shell {
-    gap: 0.45rem;
-    padding-right: max(0.75rem, env(safe-area-inset-right));
-    padding-left: max(0.75rem, env(safe-area-inset-left));
+  .sceneHeader {
+    top: calc(4.65rem + env(safe-area-inset-top));
+    right: max(0.85rem, env(safe-area-inset-right));
+    left: max(0.85rem, env(safe-area-inset-left));
   }
 
-  .systemStatus span:last-child,
-  .supportLinks {
-    display: none;
+  .sceneHeader > div span {
+    font-size: 12px;
   }
 
-  .deckBody {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(0, 1fr);
+  .sceneHeader > div strong {
+    max-width: 12rem;
+    font-size: 8px;
   }
 
-  .moduleRail {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0.3rem;
-    padding: 0.45rem;
-    border-right: 0;
-    border-bottom: 1px solid rgba(219, 225, 226, 0.14);
-  }
-
-  .moduleRail > p {
+  .sceneHeader button span {
     display: none;
   }
 
-  .moduleRail button {
-    grid-template-columns: 1.1rem 1.25rem 1fr;
-    min-height: 2.65rem;
-    margin: 0;
+  .sceneCanvas {
+    top: 18%;
+    width: 100vw;
+    height: 56.25vw;
+    transform: translate(-50%, 0);
   }
 
-  .moduleRail button:hover {
-    transform: translateY(-1px);
+  .hotspotRing {
+    width: 2rem;
+    height: 2rem;
   }
 
-  .workspace {
-    padding: 0.7rem 0.75rem;
+  .hotspotRing svg {
+    width: 14px;
+    height: 14px;
   }
 
-  .projectView {
-    grid-template-columns: minmax(14rem, 0.82fr) minmax(18rem, 1.18fr);
-    gap: 1rem;
+  .hotspot strong {
+    font-size: 7px;
   }
 
-  .projectFacts div {
-    grid-template-columns: 5.8rem 1fr;
+  .lowerThird {
+    top: 47%;
+    right: max(1rem, env(safe-area-inset-right));
+    bottom: auto;
+    left: max(1rem, env(safe-area-inset-left));
+    min-height: 0;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
 
-  .deckFooter {
-    grid-template-columns: auto 1fr;
+  .lowerThird::before {
+    top: -4rem;
+    bottom: -2rem;
+    height: auto;
   }
 
-  .contactLinks {
-    justify-self: end;
-  }
-}
-
-@media (max-width: 600px) {
-  .shell {
-    padding-top: calc(4.25rem + env(safe-area-inset-top));
+  .lowerThird h2,
+  .roomSummary h2 {
+    font-size: clamp(2.1rem, 11vw, 3.5rem);
   }
 
-  .topBar {
-    min-height: 2.7rem;
-    padding: 0.45rem 0.6rem;
+  .summaryRow {
+    display: block;
+    margin-top: 0.75rem;
   }
 
-  .identity span,
-  .systemStatus span:not(.liveDot),
-  .contactLinks a:first-child {
-    display: none;
+  .summaryRow > p,
+  .roomSummary > span {
+    font-size: 14px;
   }
 
-  .moduleRail button {
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-    min-width: 0;
-    justify-content: center;
-    padding: 0.4rem 0.25rem;
+  .summaryRow nav,
+  .contactSummary > div {
+    margin-top: 0.85rem;
   }
 
-  .moduleRail button > span {
-    display: none;
-  }
-
-  .moduleRail button strong {
-    overflow: visible;
-    font-size: 0.52rem;
-    text-overflow: clip;
-    white-space: nowrap;
-  }
-
-  .workspaceHeader {
-    padding-bottom: 0.5rem;
-  }
-
-  .projectView {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(8.5rem, 1fr);
-    gap: 0.65rem;
-    align-items: start;
-    padding-top: 0.55rem;
-  }
-
-  .projectCopy h2 {
-    margin: 0.3rem 0 0.4rem;
-    font-size: 1.3rem;
-  }
-
-  .projectDescription {
-    display: -webkit-box;
-    overflow: hidden;
-    font-size: 0.68rem;
-    line-height: 1.5;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-  }
-
-  .projectFacts {
-    margin: 0.55rem 0;
-  }
-
-  .projectFacts div {
-    grid-template-columns: 5.3rem 1fr;
-    padding-top: 0.35rem;
-  }
-
-  .projectFacts div:last-child {
-    display: none;
-  }
-
-  .projectFacts dd {
-    display: -webkit-box;
-    overflow: hidden;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-  }
-
-  .projectActions a {
-    min-height: 1.9rem;
-    padding: 0 0.5rem;
-    font-size: 0.56rem;
-  }
-
-  .projectScreen {
-    align-self: stretch;
-    max-height: none;
-  }
-
-  .deckFooter {
-    gap: 0.45rem;
-    min-height: 2.6rem;
-    padding: 0.35rem;
-  }
-
-  .returnButton {
-    min-height: 1.9rem;
-    font-size: 0.56rem;
-  }
-
-  .contactLinks a:last-child {
-    max-width: 10.5rem;
-    overflow: hidden;
-    padding-left: 0;
-    border-left: 0;
-    text-overflow: ellipsis;
-  }
-}
-
-@media (max-height: 700px) {
-  .shell {
-    gap: 0.4rem;
-    padding-bottom: 0.55rem;
-  }
-
-  .topBar,
-  .deckFooter {
-    min-height: 2.6rem;
-  }
-
-  .projectCopy h2 {
-    margin-top: 0.35rem;
-    margin-bottom: 0.45rem;
-  }
-
-  .projectDescription {
-    display: -webkit-box;
-    overflow: hidden;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-  }
-
-  .projectFacts {
-    margin: 0.55rem 0;
-  }
-
-  .projectScreen {
-    max-height: 19rem;
+  .summaryRow a,
+  .contactSummary a,
+  .contactSummary button {
+    min-height: 2.35rem;
+    font-size: 12px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .scanLine,
-  .liveDot {
-    animation: none;
-  }
-
-  .backdropVideo,
-  .scanLine {
+  .backdropVideo {
     display: none;
   }
 
-  .moduleRail button,
-  .projectActions a,
-  .contactLinks a,
-  .supportLinks a,
-  .returnButton {
-    transition: none;
+  .hotspotRing,
+  .screenMedia img,
+  .screenMedia video,
+  .projectSummary,
+  .contactSummary,
+  .roomSummary {
+    animation: none;
   }
 }

@@ -1,20 +1,17 @@
 "use client";
 
 import {
-  Activity,
   ArrowLeft,
   ArrowUpRight,
   Boxes,
   ClipboardCheck,
-  Factory,
   Gauge,
   GitBranch,
   Mail,
   Network,
-  ShieldCheck,
+  RotateCcw,
   type LucideIcon,
 } from "lucide-react";
-import { motion, useReducedMotion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -22,113 +19,142 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { portfolioProjects } from "@/data/portfolioProjects";
 import { profile } from "@/data/profile";
 
+import type { CinematicAssetKey } from "./cinematicAssets";
 import styles from "./JourneyControlDeck.module.css";
 
-type ControlModuleId = "release" | "flow" | "inventory" | "system";
+type SceneModuleId = "release" | "flow" | "inventory" | "system";
+type SceneSelection = SceneModuleId | "contact" | null;
 
-type ControlModule = {
+type SceneModule = {
   caseHref?: string;
-  eyebrow: string;
+  hotspotClass: string;
   icon: LucideIcon;
-  id: ControlModuleId;
+  id: SceneModuleId;
+  image?: string;
+  imageKey?: CinematicAssetKey;
   label: string;
+  metric: string;
   projectId: string;
-  signalLabel: string;
-  signalValue: string;
-  supportingSignal: string;
+  screen: "left" | "right";
+  video?: boolean;
 };
 
-const CONTROL_MODULES: readonly ControlModule[] = [
+const SCENE_MODULES: readonly SceneModule[] = [
   {
     caseHref: "/case-studies/production-notice-workflow-standardization",
-    eyebrow: "Release control",
+    hotspotClass: "hotspotRelease",
     icon: ClipboardCheck,
     id: "release",
+    image: "/evidence/notice-cinematic.png",
+    imageKey: "scene-notice",
     label: "Release",
+    metric: "< 1 min preparation",
     projectId: "notice-workbench",
-    signalLabel: "Preparation",
-    signalValue: "< 1 min",
-    supportingSignal: "Human review remains the final gate",
+    screen: "left",
   },
   {
-    caseHref: "/case-studies/trial-production-takt-simulation-changeover-improvement",
-    eyebrow: "Trial production",
+    caseHref:
+      "/case-studies/trial-production-takt-simulation-changeover-improvement",
+    hotspotClass: "hotspotFlow",
     icon: Gauge,
     id: "flow",
-    label: "Flow",
+    label: "Takt",
+    metric: "3 d to 1 d adjustment",
     projectId: "takt-simulator",
-    signalLabel: "Adjustment cycle",
-    signalValue: "3 d to 1 d",
-    supportingSignal: "Bottlenecks tested before physical change",
+    screen: "right",
+    video: true,
   },
   {
     caseHref: "/case-studies/supply-production-delivery-operations-visibility",
-    eyebrow: "Material readiness",
+    hotspotClass: "hotspotInventory",
     icon: Boxes,
     id: "inventory",
-    label: "Inventory",
+    image: "/evidence/visibility-cinematic.png",
+    imageKey: "scene-visibility",
+    label: "Visibility",
+    metric: "Supply to delivery",
     projectId: "excel-dashboard",
-    signalLabel: "Operating span",
-    signalValue: "Supply to delivery",
-    supportingSignal: "Exceptions stay visible through closure",
+    screen: "left",
   },
   {
-    eyebrow: "Connected operations",
+    hotspotClass: "hotspotSystem",
     icon: Network,
     id: "system",
-    label: "System",
+    image: "/evidence/lab-cinematic.png",
+    imageKey: "scene-system",
+    label: "Systems",
+    metric: "7 connected projects",
     projectId: "ops-platform",
-    signalLabel: "Control model",
-    signalValue: "4 linked tools",
-    supportingSignal: "Public-safe contracts and synthetic data",
+    screen: "right",
   },
 ] as const;
 
-const SUPPORT_PROJECT_IDS = ["data-pocket-lab", "six-sigma-study", "hulunguard"] as const;
-
 type JourneyControlDeckProps = {
   active: boolean;
+  backdropSrc?: string;
+  mediaUrls?: Readonly<Partial<Record<CinematicAssetKey, string>>>;
   onReturn: () => void;
+  taktVideoSrc?: string;
 };
 
-export function JourneyControlDeck({ active, onReturn }: JourneyControlDeckProps) {
-  const [activeModuleId, setActiveModuleId] = useState<ControlModuleId>("release");
-  const reduceMotion = useReducedMotion();
+export function JourneyControlDeck({
+  active,
+  backdropSrc,
+  mediaUrls,
+  onReturn,
+  taktVideoSrc,
+}: JourneyControlDeckProps) {
+  const [selection, setSelection] = useState<SceneSelection>(null);
   const backdropVideoRef = useRef<HTMLVideoElement>(null);
-  const activeModule =
-    CONTROL_MODULES.find((module) => module.id === activeModuleId) ?? CONTROL_MODULES[0];
-  const project =
-    portfolioProjects.find((candidate) => candidate.id === activeModule.projectId) ??
-    portfolioProjects[0];
-  const supportProjects = useMemo(
-    () =>
-      SUPPORT_PROJECT_IDS.map((id) => portfolioProjects.find((project) => project.id === id)).filter(
-        (project): project is (typeof portfolioProjects)[number] => Boolean(project),
-      ),
-    [],
+  const taktVideoRef = useRef<HTMLVideoElement>(null);
+  const selectedModule = useMemo(
+    () => SCENE_MODULES.find((module) => module.id === selection) ?? null,
+    [selection],
   );
+  const selectedProject = selectedModule
+    ? portfolioProjects.find(
+        (candidate) => candidate.id === selectedModule.projectId,
+      ) ?? null
+    : null;
 
   useEffect(() => {
     const video = backdropVideoRef.current;
-    if (!video) return;
+    if (!video || !backdropSrc) return;
 
-    if (!active || reduceMotion) {
-      video.pause();
-      if (!active) video.currentTime = 0;
+    video.src = backdropSrc;
+    video.load();
+  }, [backdropSrc]);
+
+  useEffect(() => {
+    const backdrop = backdropVideoRef.current;
+    const takt = taktVideoRef.current;
+
+    if (!active) {
+      backdrop?.pause();
+      takt?.pause();
       return;
     }
 
-    void video.play().catch(() => {
-      // The poster remains visible when autoplay is restricted.
-    });
-  }, [active, reduceMotion]);
+    void backdrop?.play().catch(() => undefined);
+    if (selectedModule?.video) {
+      void takt?.play().catch(() => undefined);
+    } else {
+      takt?.pause();
+    }
+  }, [active, selectedModule]);
+
+  const selectModule = (moduleId: SceneModuleId) => {
+    setSelection((current) => (current === moduleId ? null : moduleId));
+  };
 
   return (
     <section
       aria-hidden={!active}
-      aria-label="Felix Zuo operations control deck"
+      aria-label="Felix Zuo interactive manufacturing control room"
       className={styles.deck}
       data-active={active || undefined}
+      data-contact={selection === "contact" || undefined}
+      data-selection={selection ?? undefined}
       data-testid="journey-control-deck"
     >
       <div aria-hidden="true" className={styles.backdrop}>
@@ -136,222 +162,215 @@ export function JourneyControlDeck({ active, onReturn }: JourneyControlDeckProps
           alt=""
           className={styles.backdropPoster}
           fill
-          priority={false}
+          loading="eager"
           sizes="100vw"
           src="/media/control-room-loop-poster.webp"
         />
         <video
-          aria-hidden="true"
           className={styles.backdropVideo}
           loop
           muted
           playsInline
           poster="/media/control-room-loop-poster.webp"
-          preload="metadata"
+          preload="auto"
           ref={backdropVideoRef}
           tabIndex={-1}
-        >
-          <source
-            media="(max-width: 900px)"
-            src="/media/control-room-loop-720p.webm"
-            type="video/webm"
-          />
-          <source src="/media/control-room-loop.webm" type="video/webm" />
-          <source
-            media="(max-width: 900px)"
-            src="/media/control-room-loop-720p.mp4"
-            type="video/mp4"
-          />
-          <source src="/media/control-room-loop.mp4" type="video/mp4" />
-        </video>
+        />
         <span className={styles.backdropShade} />
-        <span className={styles.scanLine} />
       </div>
 
-      <div className={styles.shell}>
-        <header className={styles.topBar}>
-          <div className={styles.identity}>
-            <Factory aria-hidden="true" size={18} strokeWidth={1.6} />
-            <div>
-              <p>Felix Zuo</p>
-              <span>Manufacturing Operations Control Deck</span>
-            </div>
-          </div>
+      <header className={styles.sceneHeader}>
+        <div>
+          <span>Felix Zuo</span>
+          <strong>Manufacturing systems / online</strong>
+        </div>
+        <button
+          aria-label="Return to the factory journey"
+          onClick={onReturn}
+          tabIndex={active ? 0 : -1}
+          title="Return to journey"
+          type="button"
+        >
+          <ArrowLeft aria-hidden="true" size={17} />
+          <span>Journey</span>
+        </button>
+      </header>
 
-          <div className={styles.systemStatus}>
-            <span aria-hidden="true" className={styles.liveDot} />
-            <span>Portfolio systems online</span>
-            <span>Public-safe evidence</span>
-          </div>
-        </header>
+      <div className={styles.sceneCanvas}>
+        <div
+          aria-hidden="true"
+          className={`${styles.screenMedia} ${styles.screenLeft}`}
+          data-visible={selectedModule?.screen === "left" || undefined}
+        >
+          {selectedModule?.screen === "left" && selectedModule.image && (
+            <Image
+              alt=""
+              fill
+              key={selectedModule.id}
+              sizes="18vw"
+              src={
+                (selectedModule.imageKey && mediaUrls?.[selectedModule.imageKey]) ||
+                selectedModule.image
+              }
+              unoptimized
+            />
+          )}
+          <span />
+        </div>
 
-        <div className={styles.deckBody}>
-          <nav aria-label="Operations modules" className={styles.moduleRail}>
-            <p>Channels</p>
-            {CONTROL_MODULES.map((module, index) => {
-              const Icon = module.icon;
-              const selected = module.id === activeModule.id;
+        <div
+          aria-hidden="true"
+          className={`${styles.screenMedia} ${styles.screenRight}`}
+          data-visible={selectedModule?.screen === "right" || undefined}
+        >
+          {selectedModule?.screen === "right" && selectedModule.video && (
+            <video
+              autoPlay
+              key={selectedModule.id}
+              loop
+              muted
+              playsInline
+              preload="auto"
+              ref={taktVideoRef}
+              src={taktVideoSrc ?? "/evidence/takt-live-workbench.mp4"}
+              tabIndex={-1}
+            />
+          )}
+          {selectedModule?.screen === "right" &&
+            !selectedModule.video &&
+            selectedModule.image && (
+              <Image
+                alt=""
+                fill
+                key={selectedModule.id}
+                sizes="18vw"
+                src={
+                  (selectedModule.imageKey && mediaUrls?.[selectedModule.imageKey]) ||
+                  selectedModule.image
+                }
+                unoptimized
+              />
+            )}
+          <span />
+        </div>
 
-              return (
-                <button
-                  aria-pressed={selected}
-                  className={selected ? styles.moduleActive : ""}
-                  data-testid={`control-module-${module.id}`}
-                  key={module.id}
-                  onClick={() => setActiveModuleId(module.id)}
-                  tabIndex={active ? 0 : -1}
-                  title={`Open ${module.label} module`}
-                  type="button"
-                >
-                  <span>{String(index + 1).padStart(2, "0")}</span>
-                  <Icon aria-hidden="true" size={19} strokeWidth={1.55} />
-                  <strong>{module.label}</strong>
-                </button>
-              );
-            })}
-          </nav>
+        {SCENE_MODULES.map((module) => {
+          const Icon = module.icon;
+          const selected = module.id === selection;
 
-          <main className={styles.workspace}>
-            <div className={styles.workspaceHeader}>
-              <div>
-                <p>{activeModule.eyebrow}</p>
-                <span>Selected operating channel</span>
-              </div>
-              <Activity aria-hidden="true" size={19} strokeWidth={1.5} />
-            </div>
-
-            <motion.div
-              animate={{ opacity: 1, x: 0 }}
-              className={styles.projectView}
-              initial={reduceMotion ? false : { opacity: 0, x: 18 }}
-              key={activeModule.id}
-              transition={{ duration: reduceMotion ? 0 : 0.46, ease: [0.22, 1, 0.36, 1] }}
+          return (
+            <button
+              aria-label={`Open ${module.label} project`}
+              aria-pressed={selected}
+              className={`${styles.hotspot} ${styles[module.hotspotClass]}`}
+              data-selected={selected || undefined}
+              key={module.id}
+              onClick={() => selectModule(module.id)}
+              tabIndex={active ? 0 : -1}
+              title={module.label}
+              type="button"
             >
-              <section className={styles.projectCopy}>
-                <p className={styles.projectTier}>{project.tier}</p>
-                <h2>{project.title}</h2>
-                <p className={styles.projectDescription}>{project.description}</p>
+              <span className={styles.hotspotRing}>
+                <Icon aria-hidden="true" size={18} strokeWidth={1.7} />
+              </span>
+              <strong>{module.label}</strong>
+            </button>
+          );
+        })}
 
-                <dl className={styles.projectFacts}>
-                  <div>
-                    <dt>Operational role</dt>
-                    <dd>{project.evidenceRole}</dd>
-                  </div>
-                  <div>
-                    <dt>Working stack</dt>
-                    <dd>{project.stack}</dd>
-                  </div>
-                </dl>
+        <button
+          aria-label="Open Felix Zuo contact details"
+          aria-pressed={selection === "contact"}
+          className={`${styles.hotspot} ${styles.hotspotContact}`}
+          data-selected={selection === "contact" || undefined}
+          onClick={() =>
+            setSelection((current) => (current === "contact" ? null : "contact"))
+          }
+          tabIndex={active ? 0 : -1}
+          title="Contact"
+          type="button"
+        >
+          <span className={styles.hotspotRing}>
+            <Mail aria-hidden="true" size={18} strokeWidth={1.7} />
+          </span>
+          <strong>Contact</strong>
+        </button>
+      </div>
 
-                <div className={styles.projectActions}>
-                  {activeModule.caseHref && (
-                    <Link href={activeModule.caseHref} tabIndex={active ? 0 : -1}>
-                      Open case
-                      <ArrowUpRight aria-hidden="true" size={15} />
-                    </Link>
-                  )}
-                  {project.liveUrl && (
-                    <a
-                      href={project.liveUrl}
-                      rel="noreferrer"
-                      tabIndex={active ? 0 : -1}
-                      target="_blank"
-                    >
-                      Live project
-                      <ArrowUpRight aria-hidden="true" size={15} />
-                    </a>
-                  )}
+      <div aria-live="polite" className={styles.lowerThird}>
+        {selectedProject && selectedModule ? (
+          <div className={styles.projectSummary} key={selectedModule.id}>
+            <p>
+              {selectedModule.label} / <span>{selectedModule.metric}</span>
+            </p>
+            <h2>{selectedProject.title}</h2>
+            <div className={styles.summaryRow}>
+              <p>{selectedProject.description}</p>
+              <nav aria-label={`${selectedProject.title} links`}>
+                {selectedModule.caseHref && (
+                  <Link href={selectedModule.caseHref} tabIndex={active ? 0 : -1}>
+                    Case study
+                    <ArrowUpRight aria-hidden="true" size={15} />
+                  </Link>
+                )}
+                {selectedProject.liveUrl && (
                   <a
-                    href={project.repoUrl}
+                    href={selectedProject.liveUrl}
                     rel="noreferrer"
                     tabIndex={active ? 0 : -1}
                     target="_blank"
                   >
-                    Source
-                    <GitBranch aria-hidden="true" size={15} />
+                    Live project
+                    <ArrowUpRight aria-hidden="true" size={15} />
                   </a>
-                </div>
-              </section>
-
-              <figure className={styles.projectScreen}>
-                {project.image && (
-                  <Image
-                    alt={project.imageAlt ?? `${project.title} project interface`}
-                    fill
-                    sizes="(max-width: 900px) 92vw, 48vw"
-                    src={project.image}
-                  />
                 )}
-                <figcaption>
-                  <span>LIVE / PUBLIC DEMO</span>
-                  <span>{activeModule.id.toUpperCase()} CHANNEL</span>
-                </figcaption>
-              </figure>
-            </motion.div>
-          </main>
-
-          <aside className={styles.signalPanel}>
-            <div className={styles.signalHeading}>
-              <ShieldCheck aria-hidden="true" size={18} strokeWidth={1.5} />
-              <span>Verified signal</span>
+                <a
+                  href={selectedProject.repoUrl}
+                  rel="noreferrer"
+                  tabIndex={active ? 0 : -1}
+                  target="_blank"
+                >
+                  Source
+                  <GitBranch aria-hidden="true" size={15} />
+                </a>
+              </nav>
             </div>
-            <dl className={styles.primarySignal}>
-              <dt>{activeModule.signalLabel}</dt>
-              <dd>{activeModule.signalValue}</dd>
-            </dl>
-            <p>{activeModule.supportingSignal}</p>
-
-            <div className={styles.boundary}>
-              <span>Evidence boundary</span>
-              <p>{project.dataBoundary}</p>
-            </div>
-
-            <div className={styles.maturity}>
-              <span>Delivery state</span>
-              <p>{project.maturity}</p>
-            </div>
-          </aside>
-        </div>
-
-        <footer className={styles.deckFooter}>
-          <button
-            className={styles.returnButton}
-            onClick={onReturn}
-            tabIndex={active ? 0 : -1}
-            title="Return to the final factory frame"
-            type="button"
-          >
-            <ArrowLeft aria-hidden="true" size={16} />
-            Return to journey
-          </button>
-
-          <nav aria-label="Supporting public projects" className={styles.supportLinks}>
-            <span>Supporting systems</span>
-            {supportProjects.map((supportProject) => (
+          </div>
+        ) : selection === "contact" ? (
+          <div className={styles.contactSummary}>
+            <p>Manufacturing project coordination</p>
+            <h2>Build the next improvement loop.</h2>
+            <div>
+              <a href={`mailto:${profile.email}`} tabIndex={active ? 0 : -1}>
+                <Mail aria-hidden="true" size={17} />
+                {profile.email}
+              </a>
               <a
-                href={supportProject.liveUrl ?? supportProject.repoUrl}
-                key={supportProject.id}
+                href={profile.github}
                 rel="noreferrer"
                 tabIndex={active ? 0 : -1}
                 target="_blank"
               >
-                {supportProject.title}
-                <ArrowUpRight aria-hidden="true" size={13} />
+                <GitBranch aria-hidden="true" size={17} />
+                GitHub
               </a>
-            ))}
-          </nav>
-
-          <div className={styles.contactLinks}>
-            <a href={profile.github} rel="noreferrer" tabIndex={active ? 0 : -1} target="_blank">
-              <GitBranch aria-hidden="true" size={16} />
-              GitHub
-            </a>
-            <a href={`mailto:${profile.email}`} tabIndex={active ? 0 : -1}>
-              <Mail aria-hidden="true" size={16} />
-              {profile.email}
-            </a>
+              <button
+                onClick={onReturn}
+                tabIndex={active ? 0 : -1}
+                type="button"
+              >
+                <RotateCcw aria-hidden="true" size={17} />
+                Replay journey
+              </button>
+            </div>
           </div>
-        </footer>
+        ) : (
+          <div className={styles.roomSummary}>
+            <p>Manufacturing operations / selected work</p>
+            <h2>Felix Zuo</h2>
+            <span>Workflow control, flow simulation, visibility, and connected systems.</span>
+          </div>
+        )}
       </div>
     </section>
   );
