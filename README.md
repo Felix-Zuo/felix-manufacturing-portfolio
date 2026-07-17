@@ -2,6 +2,8 @@
 
 Independent portfolio website for Felix Zuo.
 
+Live site: [felix-manufacturing-portfolio.vercel.app](https://felix-manufacturing-portfolio.vercel.app/)
+
 This is not a conventional developer portfolio. It presents Felix as a manufacturing project coordination and digital process improvement professional, with public sanitized evidence for trial production improvement, production notice standardization, and supply-production-delivery visibility.
 
 ## Positioning

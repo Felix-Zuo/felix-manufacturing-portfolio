@@ -270,7 +270,7 @@ export const DEFAULT_RENDERED_JOURNEY_CHAPTERS: readonly RenderedJourneyChapter[
       },
       {
         external: true,
-        href: "https://felix-zuo.github.io/HulunGuard/",
+        href: "https://github.com/Felix-Zuo/HulunGuard",
         label: "Open HulunGuard",
       },
     ],

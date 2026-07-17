@@ -113,7 +113,7 @@ export const portfolioProjects: PortfolioProject[] = [
     maturity: "Public project page, validation suite, release workflow, observability docs",
     dataBoundary: "Synthetic public examples; private traces and raw payloads stay local by default.",
     repoUrl: "https://github.com/Felix-Zuo/HulunGuard",
-    liveUrl: "https://felix-zuo.github.io/HulunGuard/",
+    liveUrl: "https://github.com/Felix-Zuo/HulunGuard",
     relatedCaseSlugs: [],
   },
 ];
