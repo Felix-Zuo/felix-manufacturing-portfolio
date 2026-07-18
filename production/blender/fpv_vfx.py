@@ -1296,12 +1296,18 @@ def augment_fpv_vfx(assets: dict[str, Any]) -> dict[str, Any]:
         housing_material,
         packet_material,
     )
-    mist_root, mist_objects = _build_grinding_mist(
-        assets,
-        collection,
-        clock,
-        mist_material,
-    )
+    if assets.get("grinding_coolant_splash"):
+        # The precision grinder now owns animated fluid sheets and spherical
+        # droplets. Avoid the older faceted proxy layer, which reads as white
+        # debris in the close process shot.
+        mist_root, mist_objects = None, []
+    else:
+        mist_root, mist_objects = _build_grinding_mist(
+            assets,
+            collection,
+            clock,
+            mist_material,
+        )
     practical_objects = _build_screen_practicals(
         screens,
         collection,

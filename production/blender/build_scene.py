@@ -23,8 +23,10 @@ import lookdev  # noqa: E402
 import modeling  # noqa: E402
 import mature_factory  # noqa: E402
 import industrial_robot  # noqa: E402
+import robot_cell_story  # noqa: E402
 import precision_grinder  # noqa: E402
 import fpv_stage  # noqa: E402
+import fab_industrial_assets  # noqa: E402
 import fpv_vfx  # noqa: E402
 import fpv_lighting  # noqa: E402
 import animation  # noqa: E402
@@ -387,8 +389,10 @@ def main() -> None:
     assets = modeling.build_models()
     mature_factory.augment_factory(assets)
     industrial_robot.replace_robot(assets)
+    robot_cell_story.augment_robot_cell(assets)
     precision_grinder.augment_grinder(assets)
     fpv_stage.augment_fpv_stage(assets)
+    assets["fab_industrial_assets"] = fab_industrial_assets.import_fab_industrial_assets(assets)
     camera = cinematography.build_cinematography(
         assets,
         fps=args.fps,

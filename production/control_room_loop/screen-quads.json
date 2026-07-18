@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "source": {
+    "path": "public/media/control-room-base.jpg",
+    "width": 1672,
+    "height": 941
+  },
+  "coordinate_system": "source_pixels_top_left_origin",
+  "point_order": [
+    "top_left",
+    "top_right",
+    "bottom_right",
+    "bottom_left"
+  ],
+  "screens": [
+    {
+      "id": "left",
+      "outer_quad": [
+        [91, 163],
+        [326, 248],
+        [326, 463],
+        [91, 461]
+      ],
+      "content_quad": [
+        [98, 171],
+        [319, 253],
+        [319, 455],
+        [98, 454]
+      ]
+    },
+    {
+      "id": "right",
+      "outer_quad": [
+        [1355, 270],
+        [1605, 196],
+        [1605, 462],
+        [1355, 455]
+      ],
+      "content_quad": [
+        [1362, 275],
+        [1598, 202],
+        [1598, 455],
+        [1362, 449]
+      ]
+    }
+  ]
+}

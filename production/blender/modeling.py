@@ -236,6 +236,22 @@ def _build_placeholder_materials() -> Dict[str, bpy.types.Material]:
             alpha=0.28,
             transmission=0.72,
         ),
+        "coolant": _placeholder_material(
+            "SUM_MAT_PLACEHOLDER_GrindingCoolant_Stream",
+            (0.64, 0.72, 0.66, 0.76),
+            metallic=0.0,
+            roughness=0.18,
+            alpha=0.76,
+            transmission=0.12,
+        ),
+        "coolant_mist": _placeholder_material(
+            "SUM_MAT_PLACEHOLDER_GrindingCoolant_Mist",
+            (0.72, 0.78, 0.74, 0.34),
+            metallic=0.0,
+            roughness=0.24,
+            alpha=0.34,
+            transmission=0.08,
+        ),
         "rail_steel": _placeholder_material(
             "SUM_MAT_PLACEHOLDER_Rail_Steel",
             (0.16, 0.19, 0.21, 1.0),

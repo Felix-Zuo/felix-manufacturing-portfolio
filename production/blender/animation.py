@@ -479,6 +479,61 @@ def _spark_channels(
     return channels
 
 
+def _coolant_splash_channels(
+    splash: bpy.types.Object,
+    clock: _ClockSamples,
+    duration: float,
+) -> list[tuple[str, int, Sequence[tuple[int, float, float]]]]:
+    """Keep wet-grinding fluid alive through the chapter hold.
+
+    Droplets follow a small deterministic orbital spray path while the thin
+    coolant sheets breathe at the contact patch. Sampling every other frame is
+    sufficient for fluid secondary motion and keeps the action data compact.
+    """
+
+    base_location = _stored_vector(splash, "coolant_location", splash.location)
+    base_scale = _stored_vector(splash, "coolant_scale", splash.scale)
+    phase_offset = float(splash.get("sum_splash_phase", 0.0))
+    window = _scaled_window(_GRINDING_WINDOW, duration)
+    ramp = max(0.22 * duration / _BASE_DURATION, 1.0e-4)
+    selected = list(range(0, len(clock.frames), 2))
+    if selected[-1] != len(clock.frames) - 1:
+        selected.append(len(clock.frames) - 1)
+    frames = [clock.frames[index] for index in selected]
+    is_sheet = "SplashSheet" in splash.name
+
+    locations = [[], [], []]
+    scales = [[], [], []]
+    for sample_index in selected:
+        seconds = clock.seconds[sample_index]
+        visual_time = clock.visual_seconds[sample_index]
+        envelope = _window_envelope(seconds, window.start_s, window.end_s, ramp)
+        visible = 0.002 + 0.998 * envelope
+        phase = math.tau * (phase_offset + visual_time * (0.82 if is_sheet else 1.72))
+
+        if is_sheet:
+            offsets = (0.0, 0.0, 0.0)
+            pulse = 0.90 + 0.10 * math.sin(phase)
+        else:
+            offsets = (
+                0.010 * math.sin(phase * 0.73),
+                0.026 * math.sin(phase),
+                0.030 * math.sin(phase * 1.07 + 0.65),
+            )
+            pulse = 0.66 + 0.34 * (0.5 + 0.5 * math.sin(phase + 0.9))
+
+        for axis in range(3):
+            locations[axis].append(base_location[axis] + offsets[axis])
+            scales[axis].append(base_scale[axis] * visible * pulse)
+
+    channels: list[tuple[str, int, Sequence[tuple[int, float, float]]]] = []
+    for axis in range(3):
+        channels.append(("location", axis, _sampled_keys(frames, locations[axis], close_loop=True)))
+        channels.append(("scale", axis, _sampled_keys(frames, scales[axis], close_loop=True)))
+    splash["sum_animation_contact_window"] = f"{window.start_s:.4f}-{window.end_s:.4f}s"
+    return channels
+
+
 def _iter_descendants(root: bpy.types.Object) -> list[bpy.types.Object]:
     descendants: list[bpy.types.Object] = []
     pending = list(root.children)
@@ -759,6 +814,7 @@ def animate_assets(assets: Any, fps: int = 24, duration: float = 38) -> dict[str
     )
     robot_joints = _resolve_robot_joints(assets)
     sparks = _resolve_sparks(assets)
+    coolant_splash = _asset_value(assets, "grinding_coolant_splash")
     agv = _asset_value(assets, "agv")
     grinder_doors = _asset_value(assets, "grinder_doors")
 
@@ -900,6 +956,22 @@ def animate_assets(assets: Any, fps: int = 24, duration: float = 38) -> dict[str
         animated_objects.append(sparks)
     else:
         missing_optional.append("lookdev_grinding_sparks")
+
+    if isinstance(coolant_splash, (list, tuple)):
+        for splash_index, splash in enumerate(coolant_splash, start=1):
+            if not isinstance(splash, bpy.types.Object):
+                continue
+            actions[f"grinding_coolant_{splash_index:02d}"] = _create_action(
+                splash,
+                f"{_ACTION_PREFIX}GrindingCoolant_{splash_index:02d}",
+                "grinding_coolant_secondary_motion",
+                _coolant_splash_channels(splash, grinding_clock, duration),
+                fps,
+                duration,
+            )
+            animated_objects.append(splash)
+    else:
+        missing_optional.append("grinding_coolant_splash")
 
     spark_light = bpy.data.objects.get("LD_Spark_Bounce")
     if isinstance(spark_light, bpy.types.Object):

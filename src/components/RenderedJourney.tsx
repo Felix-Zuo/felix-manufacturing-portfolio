@@ -76,10 +76,10 @@ type TimelineState = {
   target: number;
 };
 
-const DEFAULT_DESKTOP_SRC = "/media/felix-journey-stream-desktop.mp4";
-const DEFAULT_MOBILE_SRC = "/media/felix-journey-stream-mobile.mp4";
-const DEFAULT_POSTER_SRC = "/media/felix-journey-poster.webp";
-const DEFAULT_MOBILE_POSTER_SRC = "/media/felix-journey-mobile-poster.webp";
+const DEFAULT_DESKTOP_SRC = "/media/felix-journey-stream-desktop.mp4?v=10";
+const DEFAULT_MOBILE_SRC = "/media/felix-journey-stream-mobile.mp4?v=10";
+const DEFAULT_POSTER_SRC = "/media/felix-journey-poster.webp?v=10";
+const DEFAULT_MOBILE_POSTER_SRC = "/media/felix-journey-mobile-poster.webp?v=10";
 const DEFAULT_MOBILE_MEDIA_QUERY = "(max-width: 767px)";
 const FOLLOW_RATE = 4.2;
 const MAX_TIMELINE_RATE = 0.045;
@@ -881,6 +881,12 @@ export function RenderedJourney({
     [goToChapter],
   );
 
+  const openControlDeck = useCallback(() => {
+    commitMagneticStop(null);
+    timelineRef.current.target = 1;
+    renderProgressImmediately(1);
+  }, [commitMagneticStop, renderProgressImmediately]);
+
   const returnFromControlDeck = useCallback(() => {
     goToChapter(chaptersRef.current.length - 1);
     if (window.location.hash === "#control") {
@@ -1073,7 +1079,7 @@ export function RenderedJourney({
             video.pause();
             timeline.current = timeline.target;
           } else {
-            const playbackCeiling = chapterNavigationRef.current ? 1.35 : 0.9;
+            const playbackCeiling = chapterNavigationRef.current ? 1.8 : 0.9;
             video.playbackRate = clamp(
               0.55 + distance * 9,
               0.55,
@@ -1497,7 +1503,7 @@ export function RenderedJourney({
           className={styles.iconButton}
           disabled={isLastChapter && controlDeckActive}
           onClick={() =>
-            isLastChapter ? goToProgress(1) : goToRelativeChapter(1)
+            isLastChapter ? openControlDeck() : goToRelativeChapter(1)
           }
           title={isLastChapter ? "Open control deck" : "Next chapter"}
           type="button"

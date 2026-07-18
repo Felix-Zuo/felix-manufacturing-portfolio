@@ -28,25 +28,25 @@ export const CINEMATIC_CHAPTER_IDS = [
 ] as const;
 
 const DESKTOP_HOLD_BYTES: Readonly<Record<string, number>> = {
-  close: 262_836,
-  impact: 434_292,
-  notice: 433_734,
-  origin: 495_794,
-  process: 523_233,
-  system: 468_327,
-  takt: 393_514,
-  visibility: 438_049,
+  close: 468_347,
+  impact: 558_498,
+  notice: 479_472,
+  origin: 517_875,
+  process: 483_460,
+  system: 476_864,
+  takt: 402_923,
+  visibility: 454_642,
 };
 
 const MOBILE_HOLD_BYTES: Readonly<Record<string, number>> = {
-  close: 192_268,
-  impact: 224_181,
-  notice: 260_425,
-  origin: 341_591,
-  process: 369_179,
-  system: 280_534,
-  takt: 268_241,
-  visibility: 243_807,
+  close: 277_999,
+  impact: 299_335,
+  notice: 258_063,
+  origin: 348_730,
+  process: 560_688,
+  system: 287_729,
+  takt: 396_068,
+  visibility: 247_419,
 };
 
 export function createCinematicAssetManifest(
@@ -59,28 +59,28 @@ export function createCinematicAssetManifest(
 
   return [
     {
-      bytes: mobile ? 7_928_586 : 11_846_094,
+      bytes: mobile ? 13_189_855 : 20_294_056,
       key: "journey",
       type: "video",
       url:
         mainUrl ??
-        `/media/felix-journey-stream-${profileName}.mp4`,
+        `/media/felix-journey-stream-${profileName}.mp4?v=10`,
     },
     ...CINEMATIC_CHAPTER_IDS.map(
       (chapter): CinematicAssetSpec => ({
         bytes: holdBytes[chapter],
         key: `hold-${chapter}`,
         type: "video",
-        url: `/media/holds/${chapter}-${profileName}.mp4`,
+        url: `/media/holds/${chapter}-${profileName}.mp4?v=10`,
       }),
     ),
     {
-      bytes: mobile ? 165_912 : 274_973,
+      bytes: mobile ? 201_016 : 352_812,
       key: "control-room",
       type: "video",
       url: mobile
-        ? "/media/control-room-loop-720p.webm"
-        : "/media/control-room-loop.webm",
+        ? "/media/control-room-loop-720p.webm?v=10"
+        : "/media/control-room-loop.webm?v=10",
     },
     {
       bytes: 1_045_941,
