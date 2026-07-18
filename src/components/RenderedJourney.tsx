@@ -24,7 +24,6 @@ import { profile } from "@/data/profile";
 
 import {
   createCinematicAssetManifest,
-  type CinematicAssetKey,
   type CinematicMediaProfile,
 } from "./cinematicAssets";
 import { JourneyControlDeck } from "./JourneyControlDeck";
@@ -82,18 +81,20 @@ const DEFAULT_POSTER_SRC = "/media/felix-journey-poster.webp?v=10";
 const DEFAULT_MOBILE_POSTER_SRC = "/media/felix-journey-mobile-poster.webp?v=10";
 const DEFAULT_MOBILE_MEDIA_QUERY = "(max-width: 767px)";
 const FOLLOW_RATE = 4.2;
-const MAX_TIMELINE_RATE = 0.045;
+const MAX_TIMELINE_RATE = 0.065;
 const CHAPTER_NAV_FOLLOW_RATE = 6.5;
-const CHAPTER_NAV_MAX_TIMELINE_RATE = 0.28;
-const WHEEL_PROGRESS_STEP = 0.0052;
-const TOUCH_PROGRESS_PER_VIEWPORT = 0.12;
+const CHAPTER_NAV_MAX_TIMELINE_RATE = 0.14;
+const WHEEL_PROGRESS_STEP = 0.026;
+const TOUCH_PROGRESS_PER_VIEWPORT = 0.18;
 const PROJECT_FOCUS_RADIUS = 0.024;
 const CONTROL_DECK_REVEAL_START = 0.978;
 const CONTROL_DECK_ACTIVE_PROGRESS = 0.988;
 const RENDERED_FPS = 24;
 const RENDERED_FRAME_COUNT = 912;
 const REVERSE_SEEK_INTERVAL = 84;
-const AMBIENT_SETTLE_RADIUS = 0.0007;
+const TIMELINE_SETTLE_RADIUS = 0.00005;
+const STOP_RELEASE_GAP_MS = 180;
+const STOP_MINIMUM_HOLD_MS = 360;
 const HASH_CHAPTER_INDEX: Readonly<Record<string, number>> = {
   about: 0,
   impact: 1,
@@ -129,6 +130,7 @@ export const DEFAULT_RENDERED_JOURNEY_CHAPTERS: readonly RenderedJourneyChapter[
     ],
     mediaProgress: mediaProgressAtFrame(1),
     metrics: [{ label: "Operating focus", value: "Launch to delivery" }],
+    stop: true,
     storyProgress: 0,
     summary:
       "Manufacturing project chaos, turned into measurable improvement through trial production, workflow control, and operations visibility.",
@@ -142,6 +144,7 @@ export const DEFAULT_RENDERED_JOURNEY_CHAPTERS: readonly RenderedJourneyChapter[
     label: "Signal",
     mediaProgress: mediaProgressAtFrame(169),
     metrics: [{ label: "Notice preparation", value: "< 1 min" }],
+    stop: true,
     storyProgress: 0.16,
     summary:
       "Real workflow outcomes, represented with public-safe evidence and synthetic data.",
@@ -162,6 +165,7 @@ export const DEFAULT_RENDERED_JOURNEY_CHAPTERS: readonly RenderedJourneyChapter[
     ],
     mediaProgress: mediaProgressAtFrame(301),
     metrics: [{ label: "Decision signal", value: "Observe first" }],
+    stop: true,
     storyProgress: 0.3,
     summary:
       "Controlled observation isolates the critical operation and creates a slower decision moment before ramp-up.",
@@ -306,6 +310,7 @@ export const DEFAULT_RENDERED_JOURNEY_CHAPTERS: readonly RenderedJourneyChapter[
     ],
     mediaProgress: mediaProgressAtFrame(877),
     metrics: [{ label: "Working mode", value: "Execution + tooling" }],
+    stop: true,
     storyProgress: 0.95,
     summary:
       "The strongest fit is where manufacturing execution, launch readiness, and practical workflow tooling must work together.",
@@ -420,7 +425,7 @@ function focusedProjectIndexAtProgress(
   let focusedDistance = PROJECT_FOCUS_RADIUS;
 
   chapters.forEach((chapter, index) => {
-    if (!chapter.stop) return;
+    if ((chapter.kind ?? "interlude") !== "project") return;
 
     const distance = Math.abs(
       storyProgressAtChapter(chapter, index, chapters.length) - progress,
@@ -434,7 +439,7 @@ function focusedProjectIndexAtProgress(
   return focusedIndex;
 }
 
-function crossedProjectStopIndex(
+function crossedChapterStopIndex(
   fromProgress: number,
   toProgress: number,
   chapters: readonly RenderedJourneyChapter[],
@@ -638,13 +643,14 @@ export function RenderedJourney({
   const instanceId = useId().replaceAll(":", "");
   const rootRef = useRef<HTMLElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const ambientVideoRef = useRef<HTMLVideoElement>(null);
   const frameReadoutRef = useRef<HTMLSpanElement>(null);
   const timecodeReadoutRef = useRef<HTMLSpanElement>(null);
   const durationRef = useRef(0);
-  const ambientChapterIdRef = useRef<string | null>(null);
   const lastReverseSeekRef = useRef(0);
+  const lastInputAtRef = useRef(0);
+  const lastRenderedProgressRef = useRef(Number.NaN);
   const mainPlayPendingRef = useRef(false);
+  const stopSettledAtRef = useRef(0);
   const timelineRef = useRef<TimelineState>({
     current: initialProgress,
     target: initialProgress,
@@ -658,6 +664,7 @@ export function RenderedJourney({
   const controlDeckActiveRef = useRef(initialControlDeckActive);
   const pausedRef = useRef(false);
   const chapterNavigationRef = useRef(false);
+  const settledRef = useRef(true);
   const [activeIndex, setActiveIndex] = useState(initialIndex);
   const [focusedProjectIndex, setFocusedProjectIndex] = useState<number | null>(
     initialFocusedProjectIndex,
@@ -667,18 +674,11 @@ export function RenderedJourney({
     initialControlDeckActive,
   );
   const [isPaused, setIsPaused] = useState(false);
+  const [isSettled, setIsSettled] = useState(true);
   const [isVideoReady, setIsVideoReady] = useState(false);
   const [videoFailed, setVideoFailed] = useState(false);
-  const [ambientChapterId, setAmbientChapterId] = useState<string | null>(null);
-  const [isAmbientReady, setIsAmbientReady] = useState(false);
   const resolvedMainSrc =
     preloader.urls.journey ?? selectedMainSrc;
-  const ambientAssetKey = ambientChapterId
-    ? (`hold-${ambientChapterId}` as CinematicAssetKey)
-    : null;
-  const resolvedAmbientSrc = ambientAssetKey
-    ? preloader.urls[ambientAssetKey]
-    : undefined;
 
   useEffect(() => {
     chaptersRef.current = chapterList;
@@ -707,14 +707,14 @@ export function RenderedJourney({
   const commitMagneticStop = useCallback((index: number | null) => {
     if (magneticStopIndexRef.current === index) return;
     magneticStopIndexRef.current = index;
+    stopSettledAtRef.current = 0;
     setMagneticStopIndex(index);
   }, []);
 
-  const commitAmbientChapter = useCallback((chapterId: string | null) => {
-    if (ambientChapterIdRef.current === chapterId) return;
-    ambientChapterIdRef.current = chapterId;
-    setIsAmbientReady(false);
-    setAmbientChapterId(chapterId);
+  const commitSettled = useCallback((settled: boolean) => {
+    if (settledRef.current === settled) return;
+    settledRef.current = settled;
+    setIsSettled(settled);
   }, []);
 
   const commitControlDeckActive = useCallback((active: boolean) => {
@@ -723,7 +723,7 @@ export function RenderedJourney({
     setControlDeckActive(active);
   }, []);
 
-  const seekToProgress = useCallback((progress: number) => {
+  const seekToProgress = useCallback((progress: number, force = false) => {
     const video = videoRef.current;
     if (!video || video.readyState < HTMLMediaElement.HAVE_METADATA) return;
 
@@ -738,7 +738,7 @@ export function RenderedJourney({
       mediaProgress * duration,
       Math.max(duration - 1 / RENDERED_FPS, 0),
     );
-    if (Math.abs(video.currentTime - targetTime) < 1 / RENDERED_FPS) return;
+    if (!force && Math.abs(video.currentTime - targetTime) < 1 / RENDERED_FPS) return;
 
     video.pause();
     video.currentTime = targetTime;
@@ -759,12 +759,13 @@ export function RenderedJourney({
     (progress: number) => {
       const boundedProgress = clamp(progress);
       chapterNavigationRef.current = false;
-      commitAmbientChapter(null);
       const mediaProgress = mediaProgressAtStoryProgress(
         boundedProgress,
         chaptersRef.current,
       );
       timelineRef.current.current = boundedProgress;
+      timelineRef.current.target = boundedProgress;
+      lastRenderedProgressRef.current = boundedProgress;
       rootRef.current?.style.setProperty(
         "--journey-progress",
         boundedProgress.toFixed(5),
@@ -773,7 +774,7 @@ export function RenderedJourney({
         "--control-progress",
         controlDeckProgressAtStoryProgress(boundedProgress).toFixed(5),
       );
-      seekToProgress(boundedProgress);
+      seekToProgress(boundedProgress, true);
       updateTimelineReadout(mediaProgress);
       commitActiveChapter(
         nearestChapterIndex(boundedProgress, chaptersRef.current),
@@ -787,12 +788,13 @@ export function RenderedJourney({
       commitControlDeckActive(
         boundedProgress >= CONTROL_DECK_ACTIVE_PROGRESS,
       );
+      commitSettled(true);
     },
     [
       commitActiveChapter,
-      commitAmbientChapter,
       commitControlDeckActive,
       commitFocusedProject,
+      commitSettled,
       seekToProgress,
       updateTimelineReadout,
     ],
@@ -802,17 +804,29 @@ export function RenderedJourney({
     (delta: number) => {
       if (pausedRef.current || !Number.isFinite(delta) || delta === 0) return;
 
-      chapterNavigationRef.current = false;
-      commitAmbientChapter(null);
-
+      const now = performance.now();
+      const previousInputAt = lastInputAtRef.current;
+      lastInputAtRef.current = now;
+      const timeline = timelineRef.current;
       const lockedStop = magneticStopIndexRef.current;
+
       if (lockedStop !== null) {
+        const isAtStop =
+          Math.abs(timeline.target - timeline.current) <=
+          TIMELINE_SETTLE_RADIUS;
+        const hasQuietGap = now - previousInputAt >= STOP_RELEASE_GAP_MS;
+        const heldLongEnough =
+          stopSettledAtRef.current > 0 &&
+          now - stopSettledAtRef.current >= STOP_MINIMUM_HOLD_MS;
+
+        if (!isAtStop || !hasQuietGap || !heldLongEnough) return;
         commitMagneticStop(null);
       }
 
-      const timeline = timelineRef.current;
+      chapterNavigationRef.current = false;
+      commitSettled(false);
       const nextTarget = clamp(timeline.target + delta);
-      const crossedStop = crossedProjectStopIndex(
+      const crossedStop = crossedChapterStopIndex(
         timeline.target,
         nextTarget,
         chaptersRef.current,
@@ -829,14 +843,14 @@ export function RenderedJourney({
         timeline.target = nextTarget;
       }
     },
-    [commitAmbientChapter, commitMagneticStop],
+    [commitMagneticStop, commitSettled],
   );
 
   const goToProgress = useCallback(
     (progress: number) => {
       const boundedProgress = clamp(progress);
-      commitAmbientChapter(null);
       commitMagneticStop(null);
+      commitSettled(false);
       chapterNavigationRef.current = true;
       timelineRef.current.target = boundedProgress;
 
@@ -845,8 +859,8 @@ export function RenderedJourney({
       }
     },
     [
-      commitAmbientChapter,
       commitMagneticStop,
+      commitSettled,
       reducedMotion,
       renderProgressImmediately,
     ],
@@ -933,14 +947,12 @@ export function RenderedJourney({
       if (nextPaused) {
         timelineRef.current.target = timelineRef.current.current;
         videoRef.current?.pause();
-        ambientVideoRef.current?.pause();
-      } else if (ambientChapterIdRef.current) {
-        void ambientVideoRef.current?.play().catch(() => undefined);
+        commitSettled(true);
       }
 
       return nextPaused;
     });
-  }, []);
+  }, [commitSettled]);
 
   useEffect(() => {
     if (reducedMotion !== false || !assetsReady || !resolvedMainSrc) return;
@@ -955,22 +967,6 @@ export function RenderedJourney({
     video.src = resolvedMainSrc;
     video.load();
   }, [assetsReady, reducedMotion, resolvedMainSrc]);
-
-  useEffect(() => {
-    const video = ambientVideoRef.current;
-    if (!video) return;
-
-    setIsAmbientReady(false);
-    video.pause();
-    if (!resolvedAmbientSrc || reducedMotion !== false) {
-      video.removeAttribute("src");
-      video.load();
-      return;
-    }
-
-    video.src = resolvedAmbientSrc;
-    video.load();
-  }, [reducedMotion, resolvedAmbientSrc]);
 
   useEffect(() => {
     if (reducedMotion !== false || !assetsReady) return;
@@ -1079,7 +1075,7 @@ export function RenderedJourney({
             video.pause();
             timeline.current = timeline.target;
           } else {
-            const playbackCeiling = chapterNavigationRef.current ? 1.8 : 0.9;
+            const playbackCeiling = chapterNavigationRef.current ? 1 : 0.9;
             video.playbackRate = clamp(
               0.55 + distance * 9,
               0.55,
@@ -1129,51 +1125,65 @@ export function RenderedJourney({
           video?.pause();
           timeline.current = timeline.target;
         }
-
-        if (Math.abs(timeline.target - timeline.current) < 0.00005) {
-          chapterNavigationRef.current = false;
-        }
       }
 
-      const progress = timelineRef.current.current;
-      const mediaProgress = mediaProgressAtStoryProgress(
-        progress,
-        chaptersRef.current,
-      );
-      rootRef.current?.style.setProperty(
-        "--journey-progress",
-        progress.toFixed(5),
-      );
-      rootRef.current?.style.setProperty(
-        "--control-progress",
-        controlDeckProgressAtStoryProgress(progress).toFixed(5),
-      );
-      updateTimelineReadout(mediaProgress);
-      commitActiveChapter(
-        nearestChapterIndex(progress, chaptersRef.current),
-      );
-      commitFocusedProject(
-        focusedProjectIndexAtProgress(progress, chaptersRef.current),
-      );
-      commitControlDeckActive(progress >= CONTROL_DECK_ACTIVE_PROGRESS);
+      const timeline = timelineRef.current;
+      const timelineSettled =
+        Math.abs(timeline.target - timeline.current) <=
+        TIMELINE_SETTLE_RADIUS;
+      const presentationSettled =
+        timelineSettled &&
+        (magneticStopIndexRef.current !== null ||
+          timeline.current <= TIMELINE_SETTLE_RADIUS ||
+          pausedRef.current);
+      const justSettled = presentationSettled && !settledRef.current;
 
-      const nearestIndex = nearestChapterIndex(
-        timelineRef.current.target,
-        chaptersRef.current,
-      );
-      const nearestChapter = chaptersRef.current[nearestIndex];
-      const nearestProgress = storyProgressAtChapter(
-        nearestChapter,
-        nearestIndex,
-        chaptersRef.current.length,
-      );
-      const isAtAmbientStop =
-        progress < CONTROL_DECK_REVEAL_START &&
-        Math.abs(timelineRef.current.target - nearestProgress) <
-          AMBIENT_SETTLE_RADIUS &&
-        Math.abs(timelineRef.current.target - progress) <
-          AMBIENT_SETTLE_RADIUS;
-      commitAmbientChapter(isAtAmbientStop ? nearestChapter.id : null);
+      if (timelineSettled) {
+        timeline.current = timeline.target;
+        chapterNavigationRef.current = false;
+
+        if (
+          magneticStopIndexRef.current !== null &&
+          stopSettledAtRef.current === 0
+        ) {
+          stopSettledAtRef.current = time;
+        }
+
+        if (justSettled) {
+          seekToProgress(timeline.target, true);
+        }
+      }
+      commitSettled(presentationSettled);
+
+      const progress = timeline.current;
+      const progressChanged =
+        !Number.isFinite(lastRenderedProgressRef.current) ||
+        Math.abs(progress - lastRenderedProgressRef.current) > 0.00001;
+
+      if (progressChanged) {
+        lastRenderedProgressRef.current = progress;
+        const mediaProgress = mediaProgressAtStoryProgress(
+          progress,
+          chaptersRef.current,
+        );
+        rootRef.current?.style.setProperty(
+          "--journey-progress",
+          progress.toFixed(5),
+        );
+        rootRef.current?.style.setProperty(
+          "--control-progress",
+          controlDeckProgressAtStoryProgress(progress).toFixed(5),
+        );
+        updateTimelineReadout(mediaProgress);
+        commitActiveChapter(
+          nearestChapterIndex(progress, chaptersRef.current),
+        );
+        commitFocusedProject(
+          focusedProjectIndexAtProgress(progress, chaptersRef.current),
+        );
+        commitControlDeckActive(progress >= CONTROL_DECK_ACTIVE_PROGRESS);
+      }
+
       frame = window.requestAnimationFrame(tick);
     };
 
@@ -1181,9 +1191,9 @@ export function RenderedJourney({
     return () => window.cancelAnimationFrame(frame);
   }, [
     commitActiveChapter,
-    commitAmbientChapter,
     commitControlDeckActive,
     commitFocusedProject,
+    commitSettled,
     assetsReady,
     isVideoReady,
     reducedMotion,
@@ -1260,6 +1270,7 @@ export function RenderedJourney({
       data-paused={isPaused || undefined}
       data-project-focused={isProjectFocused || undefined}
       data-reduced-motion={isStatic || undefined}
+      data-settled={isSettled || undefined}
       onKeyDown={handleKeyDown}
       ref={rootRef}
       style={rootStyle}
@@ -1294,7 +1305,6 @@ export function RenderedJourney({
       <div
         aria-hidden="true"
         className={styles.media}
-        data-ambient={isAmbientReady || undefined}
       >
         {/* The poster owns first paint; video loading starts only after motion preference is known. */}
         <picture
@@ -1333,23 +1343,6 @@ export function RenderedJourney({
           poster={posterSrc}
           preload="auto"
           ref={videoRef}
-          tabIndex={-1}
-        />
-        <video
-          className={styles.ambientVideo}
-          loop
-          muted
-          onError={() => setIsAmbientReady(false)}
-          onLoadedData={(event) => {
-            event.currentTarget.currentTime = 0;
-            setIsAmbientReady(true);
-            if (!pausedRef.current) {
-              void event.currentTarget.play().catch(() => undefined);
-            }
-          }}
-          playsInline
-          preload="auto"
-          ref={ambientVideoRef}
           tabIndex={-1}
         />
         <div className={styles.shade} />

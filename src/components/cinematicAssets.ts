@@ -6,8 +6,7 @@ export type CinematicAssetKey =
   | "scene-notice"
   | "scene-system"
   | "scene-visibility"
-  | "takt-live"
-  | `hold-${string}`;
+  | "takt-live";
 
 export type CinematicAssetSpec = {
   bytes?: number;
@@ -16,45 +15,11 @@ export type CinematicAssetSpec = {
   url: string;
 };
 
-export const CINEMATIC_CHAPTER_IDS = [
-  "origin",
-  "impact",
-  "process",
-  "notice",
-  "takt",
-  "visibility",
-  "system",
-  "close",
-] as const;
-
-const DESKTOP_HOLD_BYTES: Readonly<Record<string, number>> = {
-  close: 468_347,
-  impact: 558_498,
-  notice: 479_472,
-  origin: 517_875,
-  process: 483_460,
-  system: 476_864,
-  takt: 402_923,
-  visibility: 454_642,
-};
-
-const MOBILE_HOLD_BYTES: Readonly<Record<string, number>> = {
-  close: 277_999,
-  impact: 299_335,
-  notice: 258_063,
-  origin: 348_730,
-  process: 560_688,
-  system: 287_729,
-  takt: 396_068,
-  visibility: 247_419,
-};
-
 export function createCinematicAssetManifest(
   profile: CinematicMediaProfile,
   mainUrl?: string,
 ): readonly CinematicAssetSpec[] {
   const mobile = profile === "mobile";
-  const holdBytes = mobile ? MOBILE_HOLD_BYTES : DESKTOP_HOLD_BYTES;
   const profileName = mobile ? "mobile" : "desktop";
 
   return [
@@ -66,14 +31,6 @@ export function createCinematicAssetManifest(
         mainUrl ??
         `/media/felix-journey-stream-${profileName}.mp4?v=10`,
     },
-    ...CINEMATIC_CHAPTER_IDS.map(
-      (chapter): CinematicAssetSpec => ({
-        bytes: holdBytes[chapter],
-        key: `hold-${chapter}`,
-        type: "video",
-        url: `/media/holds/${chapter}-${profileName}.mp4?v=10`,
-      }),
-    ),
     {
       bytes: mobile ? 201_016 : 352_812,
       key: "control-room",
