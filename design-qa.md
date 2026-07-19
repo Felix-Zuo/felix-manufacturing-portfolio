@@ -9,6 +9,8 @@
 - Mobile evidence: `D:\0A OpenClaw\projects\展示项目\SUM\.codex\cinematic-redesign\v4-mobile-top.png` and `D:\0A OpenClaw\projects\展示项目\SUM\.codex\cinematic-redesign\v4-mobile-notice-final.png`
 - Viewports: 1440 x 1024 desktop; 390 x 844 mobile
 - States: entry frame, grinding bullet-time frame, case-study project frame, reduced-motion chapter navigation
+- Current streamed-cinematic comparison: `production/renders/browser-qa/v12-interaction-audit/21-production-local-comparison.png`
+- Current mobile evidence: `production/renders/browser-qa/v12-interaction-audit/15-mobile-notice.png` and `production/renders/browser-qa/v12-interaction-audit/16-mobile-control-deck.png`
 
 ## Comparison Evidence
 
@@ -29,7 +31,7 @@
 - Colors and visual tokens: graphite, steel blue, restrained amber, and emerald status accents match the established portfolio system. Bloom and chromatic aberration are intentionally subtle.
 - Image quality and asset fidelity: all project screens use the real 1920 x 1200 public evidence images. No placeholder product imagery, custom SVG illustration, or generated machine interior is used.
 - Copy and content: all eight chapters preserve the manufacturing narrative, measurable outcomes, three primary cases, connected systems, and contact path.
-- Icons: Lucide controls are consistently sized and labelled. Pause/resume and chapter controls expose unique accessible names.
+- Icons: Lucide controls are consistently sized and labelled. Chapter, menu, hotspot, and return controls expose unique accessible names.
 - Accessibility and behavior: focus-visible styling remains global; reduced motion compresses the experience to one viewport and changes chapter controls into direct scene selection; mobile removes the arm where it would occlude content.
 
 ## Comparison History
@@ -48,12 +50,13 @@
 
 ## Interaction Verification
 
-- Pause camera -> Resume camera -> Pause camera state passed.
-- Next chapter advanced from Notice to Takt.
-- Case-study links expose the expected routes.
-- 390 x 844 canvas stayed within the viewport with no horizontal overflow.
-- Clean browser session produced no runtime errors. Reduced-motion emulation produced only the expected Motion development warning.
-- `npm run lint` and `npm run build` passed.
+- The main 20 MB journey video now uses native browser streaming; only the smaller control-room and evidence media use the Blob preloader.
+- Five rapid wheel inputs reached the next chapter and settled in about 1.5 seconds instead of accumulating roughly five seconds of playback debt.
+- Chapter copy remains present during movement and crossfades continuously at chapter midpoints; there is no magnetic input lock or blur-on-scroll state.
+- The contact-to-control-room transition follows the final rendered frames, fades through black, and transfers interaction in about 1.2 seconds. The reverse transition also follows the same timeline.
+- The control room opens with Release selected, keeps selected hotspots visible, and exposes the mapped project screen, links, contact, replay, and keyboard return behavior.
+- 390 x 844 mobile checks passed for entry, project, menu, and control-room states with no horizontal overflow.
+- Browser checks reported no runtime errors. `npm run lint`, `npx tsc --noEmit`, and `npm run build` passed.
 
 ## Follow-up Polish
 

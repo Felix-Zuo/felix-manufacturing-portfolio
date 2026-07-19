@@ -1,7 +1,6 @@
 export type CinematicMediaProfile = "desktop" | "mobile";
 
 export type CinematicAssetKey =
-  | "journey"
   | "control-room"
   | "scene-notice"
   | "scene-system"
@@ -17,20 +16,10 @@ export type CinematicAssetSpec = {
 
 export function createCinematicAssetManifest(
   profile: CinematicMediaProfile,
-  mainUrl?: string,
 ): readonly CinematicAssetSpec[] {
   const mobile = profile === "mobile";
-  const profileName = mobile ? "mobile" : "desktop";
 
   return [
-    {
-      bytes: mobile ? 13_189_855 : 20_294_056,
-      key: "journey",
-      type: "video",
-      url:
-        mainUrl ??
-        `/media/felix-journey-stream-${profileName}.mp4?v=10`,
-    },
     {
       bytes: mobile ? 201_016 : 352_812,
       key: "control-room",

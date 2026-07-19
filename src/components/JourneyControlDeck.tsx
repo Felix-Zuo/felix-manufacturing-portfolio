@@ -132,6 +132,7 @@ type JourneyControlDeckProps = {
   mediaUrls?: Readonly<Partial<Record<CinematicAssetKey, string>>>;
   onReturn: () => void;
   taktVideoSrc?: string;
+  visible: boolean;
 };
 
 function directionalTarget(
@@ -168,8 +169,9 @@ export function JourneyControlDeck({
   mediaUrls,
   onReturn,
   taktVideoSrc,
+  visible,
 }: JourneyControlDeckProps) {
-  const [selection, setSelection] = useState<SceneSelection>(null);
+  const [selection, setSelection] = useState<SceneSelection>("release");
   const [reducedMotion, setReducedMotion] = useState(false);
   const backdropVideoRef = useRef<HTMLVideoElement>(null);
   const taktVideoRef = useRef<HTMLVideoElement>(null);
@@ -198,7 +200,7 @@ export function JourneyControlDeck({
     const enteringDeck = active && !wasActiveRef.current;
     wasActiveRef.current = active;
 
-    if (enteringDeck && window.matchMedia("(max-width: 760px)").matches) {
+    if (enteringDeck) {
       setSelection("release");
     }
   }, [active]);
@@ -215,7 +217,7 @@ export function JourneyControlDeck({
     const backdrop = backdropVideoRef.current;
     const takt = taktVideoRef.current;
 
-    if (!active || reducedMotion) {
+    if (!visible || reducedMotion) {
       backdrop?.pause();
     } else {
       void backdrop?.play().catch(() => undefined);
@@ -226,7 +228,7 @@ export function JourneyControlDeck({
     } else {
       void takt?.play().catch(() => undefined);
     }
-  }, [active, reducedMotion, selectedModule]);
+  }, [active, reducedMotion, selectedModule, visible]);
 
   useEffect(() => {
     if (!active) return;
@@ -235,19 +237,15 @@ export function JourneyControlDeck({
       if (event.key !== "Escape") return;
 
       event.preventDefault();
-      if (selection) {
-        setSelection(null);
-      } else {
-        onReturn();
-      }
+      onReturn();
     };
 
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
-  }, [active, onReturn, selection]);
+  }, [active, onReturn]);
 
   const selectTarget = (targetId: SceneTargetId) => {
-    setSelection((current) => (current === targetId ? null : targetId));
+    setSelection(targetId);
   };
 
   const handleHotspotKeyDown = (
@@ -300,6 +298,7 @@ export function JourneyControlDeck({
       aria-label="Felix Zuo interactive manufacturing control room"
       className={styles.deck}
       data-active={active || undefined}
+      data-visible={visible || undefined}
       data-reduced-motion={reducedMotion || undefined}
       data-selection={selection ?? undefined}
       data-testid="journey-control-deck"
