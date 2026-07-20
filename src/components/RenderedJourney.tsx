@@ -16,6 +16,7 @@ import {
   useState,
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
 } from "react";
 
 import { profile } from "@/data/profile";
@@ -70,7 +71,14 @@ export type RenderedJourneyProps = {
 
 type TimelineState = {
   current: number;
-  target: number;
+};
+
+type ForwardNavigationState = {
+  phase: "playing" | "covering" | "seeking";
+  skipHandled: boolean;
+  targetIndex: number;
+  targetProgress: number;
+  targetTime: number;
 };
 
 const DEFAULT_DESKTOP_SRC = "/media/felix-journey-stream-desktop.mp4?v=10";
@@ -78,21 +86,18 @@ const DEFAULT_MOBILE_SRC = "/media/felix-journey-stream-mobile.mp4?v=10";
 const DEFAULT_POSTER_SRC = "/media/felix-journey-poster.webp?v=10";
 const DEFAULT_MOBILE_POSTER_SRC = "/media/felix-journey-mobile-poster.webp?v=10";
 const DEFAULT_MOBILE_MEDIA_QUERY = "(max-width: 767px)";
-const FOLLOW_RATE = 10;
-const MAX_TIMELINE_RATE = 0.22;
-const CHAPTER_NAV_FOLLOW_RATE = 8;
-const CHAPTER_NAV_MAX_TIMELINE_RATE = 0.32;
-const WHEEL_PROGRESS_STEP = 0.034;
-const TOUCH_PROGRESS_PER_VIEWPORT = 0.18;
 const CONTROL_DECK_REVEAL_START = 0.95;
 const CONTROL_DECK_ACTIVE_PROGRESS = 0.9975;
 const RENDERED_FPS = 24;
 const RENDERED_FRAME_COUNT = 912;
 const INITIAL_MEDIA_OFFSET_SECONDS = 0.1;
-const MAX_FORWARD_LEAD_SECONDS = 1.8;
-const FORWARD_GLIDE_SECONDS = 1.15;
-const REVERSE_SEEK_INTERVAL = 42;
 const TIMELINE_SETTLE_RADIUS = 0.00005;
+const FRAME_TOLERANCE_SECONDS = 1 / RENDERED_FPS;
+const CHAPTER_PLAYBACK_RATE = 1;
+const COVER_FADE_MS = 220;
+const COVER_SEEK_TIMEOUT_MS = 650;
+const ROBOT_CLIP_SKIP_START_SECONDS = 4.38;
+const ROBOT_CLIP_SKIP_END_SECONDS = 8.88;
 const HASH_CHAPTER_INDEX: Readonly<Record<string, number>> = {
   about: 0,
   impact: 1,
@@ -109,7 +114,7 @@ const HASH_CHAPTER_INDEX: Readonly<Record<string, number>> = {
 
 function mediaProgressAtFrame(frame: number) {
   const boundedFrame = clamp(Math.round(frame), 1, RENDERED_FRAME_COUNT);
-  return (boundedFrame - 1) / (RENDERED_FRAME_COUNT - 1);
+  return (boundedFrame - 1) / RENDERED_FRAME_COUNT;
 }
 
 export const DEFAULT_RENDERED_JOURNEY_CHAPTERS: readonly RenderedJourneyChapter[] = [
@@ -140,7 +145,7 @@ export const DEFAULT_RENDERED_JOURNEY_CHAPTERS: readonly RenderedJourneyChapter[
     id: "impact",
     kind: "interlude",
     label: "Signal",
-    mediaProgress: mediaProgressAtFrame(169),
+    mediaProgress: mediaProgressAtFrame(217),
     metrics: [{ label: "Notice preparation", value: "< 1 min" }],
     stop: true,
     storyProgress: 0.16,
@@ -455,7 +460,11 @@ function nearestChapterIndex(
 }
 
 function frameAtMediaProgress(progress: number) {
-  return Math.round(clamp(progress) * (RENDERED_FRAME_COUNT - 1)) + 1;
+  return clamp(
+    Math.round(clamp(progress) * RENDERED_FRAME_COUNT) + 1,
+    1,
+    RENDERED_FRAME_COUNT,
+  );
 }
 
 function formatFrameLabel(frame: number) {
@@ -474,26 +483,6 @@ function formatTimecode(frame: number) {
   return [hours, minutes, seconds, frames]
     .map((unit) => String(unit).padStart(2, "0"))
     .join(":");
-}
-
-function normalizeWheelDelta(event: WheelEvent) {
-  if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) return event.deltaY * 16;
-  if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE) return event.deltaY * window.innerHeight;
-  return event.deltaY;
-}
-
-function wheelProgressDelta(event: WheelEvent) {
-  const delta = normalizeWheelDelta(event);
-  const direction = Math.sign(delta);
-  const magnitude = Math.abs(delta);
-  if (direction === 0 || magnitude === 0) return 0;
-
-  const normalizedMagnitude =
-    magnitude < 12
-      ? magnitude / 12
-      : Math.min(1.35, Math.sqrt(magnitude / 100));
-
-  return direction * normalizedMagnitude * WHEEL_PROGRESS_STEP;
 }
 
 function useReducedMotionPreference() {
@@ -659,21 +648,22 @@ export function RenderedJourney({
   const frameReadoutRef = useRef<HTMLSpanElement>(null);
   const timecodeReadoutRef = useRef<HTMLSpanElement>(null);
   const durationRef = useRef(0);
-  const lastReverseSeekRef = useRef(0);
   const lastRenderedProgressRef = useRef(Number.NaN);
-  const mainPlayPendingRef = useRef(false);
+  const navigationRef = useRef<ForwardNavigationState | null>(null);
+  const navigationTimerRefs = useRef(new Set<number>());
+  const mountedRef = useRef(true);
+  const isTransitioningRef = useRef(false);
   const timelineRef = useRef<TimelineState>({
     current: initialProgress,
-    target: initialProgress,
   });
-  const touchYRef = useRef<number | null>(null);
   const chaptersRef = useRef(chapterList);
   const onChapterChangeRef = useRef(onChapterChange);
   const activeIndexRef = useRef(initialIndex);
   const controlDeckActiveRef = useRef(initialControlDeckActive);
   const controlDeckVisibleRef = useRef(initialControlDeckVisible);
-  const chapterNavigationRef = useRef(false);
   const [activeIndex, setActiveIndex] = useState(initialIndex);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [transitionCoverVisible, setTransitionCoverVisible] = useState(false);
   const [controlDeckActive, setControlDeckActive] = useState(
     initialControlDeckActive,
   );
@@ -681,6 +671,19 @@ export function RenderedJourney({
     initialControlDeckVisible,
   );
   const resolvedMainSrc = mediaProfile ? selectedMainSrc : undefined;
+
+  useEffect(() => {
+    mountedRef.current = true;
+    const navigationTimers = navigationTimerRefs.current;
+    const video = videoRef.current;
+
+    return () => {
+      mountedRef.current = false;
+      navigationTimers.forEach((timer) => window.clearTimeout(timer));
+      navigationTimers.clear();
+      video?.pause();
+    };
+  }, []);
 
   useEffect(() => {
     chaptersRef.current = chapterList;
@@ -712,7 +715,7 @@ export function RenderedJourney({
     setControlDeckVisible(visible);
   }, []);
 
-  const updatePresentation = useCallback((progress: number) => {
+  const updatePresentation = useCallback((progress: number, commitChapter = true) => {
     const root = rootRef.current;
     if (!root) return;
 
@@ -746,7 +749,7 @@ export function RenderedJourney({
       "--journey-ui-opacity",
       transition.journeyOpacity.toFixed(5),
     );
-    commitActiveChapter(presentation.index);
+    if (commitChapter) commitActiveChapter(presentation.index);
     commitControlDeckVisible(transition.transition > 0.01);
     commitControlDeckActive(progress >= CONTROL_DECK_ACTIVE_PROGRESS);
   }, [commitActiveChapter, commitControlDeckActive, commitControlDeckVisible]);
@@ -789,13 +792,11 @@ export function RenderedJourney({
   const renderProgressImmediately = useCallback(
     (progress: number) => {
       const boundedProgress = clamp(progress);
-      chapterNavigationRef.current = false;
       const mediaProgress = mediaProgressAtStoryProgress(
         boundedProgress,
         chaptersRef.current,
       );
       timelineRef.current.current = boundedProgress;
-      timelineRef.current.target = boundedProgress;
       lastRenderedProgressRef.current = boundedProgress;
       updatePresentation(boundedProgress);
       seekToProgress(boundedProgress, true);
@@ -808,74 +809,182 @@ export function RenderedJourney({
     ],
   );
 
-  const applyInputDelta = useCallback(
-    (delta: number) => {
-      if (!Number.isFinite(delta) || delta === 0) return;
-
-      const timeline = timelineRef.current;
-      chapterNavigationRef.current = false;
-      timeline.target = clamp(timeline.target + delta);
+  const scheduleNavigationTimer = useCallback(
+    (callback: () => void, delay: number) => {
+      const timer = window.setTimeout(() => {
+        navigationTimerRefs.current.delete(timer);
+        callback();
+      }, delay);
+      navigationTimerRefs.current.add(timer);
+      return timer;
     },
     [],
   );
 
-  const goToProgress = useCallback(
+  const unlockNavigation = useCallback(() => {
+    navigationRef.current = null;
+    isTransitioningRef.current = false;
+    if (!mountedRef.current) return;
+    setIsTransitioning(false);
+  }, []);
+
+  const coveredJumpToProgress = useCallback(
     (progress: number) => {
       const boundedProgress = clamp(progress);
-      chapterNavigationRef.current = true;
-      timelineRef.current.target = boundedProgress;
 
-      if (reducedMotion === true) {
+      if (reducedMotion === true || !isVideoReady) {
         renderProgressImmediately(boundedProgress);
+        return;
       }
+      if (isTransitioningRef.current) return;
+
+      isTransitioningRef.current = true;
+      setIsTransitioning(true);
+      setTransitionCoverVisible(true);
+      videoRef.current?.pause();
+
+      scheduleNavigationTimer(() => {
+        if (!mountedRef.current) return;
+        renderProgressImmediately(boundedProgress);
+
+        scheduleNavigationTimer(() => {
+          if (!mountedRef.current) return;
+          setTransitionCoverVisible(false);
+          scheduleNavigationTimer(unlockNavigation, COVER_FADE_MS);
+        }, 50);
+      }, COVER_FADE_MS);
     },
-    [reducedMotion, renderProgressImmediately],
+    [
+      isVideoReady,
+      reducedMotion,
+      renderProgressImmediately,
+      scheduleNavigationTimer,
+      unlockNavigation,
+    ],
+  );
+
+  const playForwardToProgress = useCallback(
+    (progress: number, targetIndex: number) => {
+      const boundedProgress = clamp(progress);
+      const video = videoRef.current;
+      const duration = durationRef.current || video?.duration || 0;
+
+      if (
+        reducedMotion === true ||
+        !isVideoReady ||
+        !video ||
+        !Number.isFinite(duration) ||
+        duration <= 0
+      ) {
+        renderProgressImmediately(boundedProgress);
+        return;
+      }
+      if (isTransitioningRef.current) return;
+
+      const targetMediaProgress = mediaProgressAtStoryProgress(
+        boundedProgress,
+        chaptersRef.current,
+      );
+      const targetTime = Math.min(
+        targetMediaProgress * duration,
+        Math.max(duration - FRAME_TOLERANCE_SECONDS, 0),
+      );
+
+      if (targetTime <= video.currentTime + FRAME_TOLERANCE_SECONDS) {
+        coveredJumpToProgress(boundedProgress);
+        return;
+      }
+
+      navigationRef.current = {
+        phase: "playing",
+        skipHandled: false,
+        targetIndex,
+        targetProgress: boundedProgress,
+        targetTime,
+      };
+      isTransitioningRef.current = true;
+      setIsTransitioning(true);
+      setTransitionCoverVisible(false);
+      video.playbackRate = CHAPTER_PLAYBACK_RATE;
+      void video
+        .play()
+        .catch(() => {
+          renderProgressImmediately(boundedProgress);
+          unlockNavigation();
+        });
+    },
+    [
+      coveredJumpToProgress,
+      isVideoReady,
+      reducedMotion,
+      renderProgressImmediately,
+      unlockNavigation,
+    ],
   );
 
   const goToChapter = useCallback(
     (index: number) => {
+      if (isTransitioningRef.current) return;
+
       const chapterCount = chaptersRef.current.length;
       const boundedIndex = clamp(Math.round(index), 0, chapterCount - 1);
+      const currentIndex = activeIndexRef.current;
+      if (boundedIndex === currentIndex && !controlDeckActiveRef.current) return;
+
       const chapter = chaptersRef.current[boundedIndex];
       const progress = storyProgressAtChapter(
         chapter,
         boundedIndex,
         chapterCount,
       );
-      goToProgress(progress);
+
+      if (boundedIndex === currentIndex + 1 && !controlDeckActiveRef.current) {
+        playForwardToProgress(progress, boundedIndex);
+        return;
+      }
+
+      coveredJumpToProgress(progress);
     },
-    [goToProgress],
+    [coveredJumpToProgress, playForwardToProgress],
   );
 
   const goToRelativeChapter = useCallback(
     (direction: -1 | 1) => {
-      const currentTargetIndex = nearestChapterIndex(
-        timelineRef.current.target,
-        chaptersRef.current,
-      );
-      goToChapter(currentTargetIndex + direction);
+      if (isTransitioningRef.current) return;
+      goToChapter(activeIndexRef.current + direction);
     },
     [goToChapter],
   );
 
   const openControlDeck = useCallback(() => {
+    if (isTransitioningRef.current || controlDeckActiveRef.current) return;
     window.history.replaceState(null, "", "#control");
-    goToProgress(1);
-  }, [goToProgress]);
+    playForwardToProgress(1, chaptersRef.current.length - 1);
+  }, [playForwardToProgress]);
 
   const returnFromControlDeck = useCallback(() => {
-    goToChapter(chaptersRef.current.length - 1);
+    const chapterIndex = chaptersRef.current.length - 1;
+    const chapter = chaptersRef.current[chapterIndex];
+    const progress = storyProgressAtChapter(
+      chapter,
+      chapterIndex,
+      chaptersRef.current.length,
+    );
+    coveredJumpToProgress(progress);
     if (window.location.hash === "#control") {
       window.history.replaceState(null, "", "#contact");
     }
-  }, [goToChapter]);
+  }, [coveredJumpToProgress]);
 
   useEffect(() => {
-    const followHash = () => {
+    const followHash = (animate: boolean) => {
       const hash = window.location.hash.slice(1);
       if (hash === "control") {
-        timelineRef.current.target = 1;
-        renderProgressImmediately(1);
+        if (animate) {
+          coveredJumpToProgress(1);
+        } else {
+          renderProgressImmediately(1);
+        }
         return;
       }
 
@@ -890,14 +999,18 @@ export function RenderedJourney({
         chapterIndex,
         chaptersRef.current.length,
       );
-      timelineRef.current.target = progress;
-      renderProgressImmediately(progress);
+      if (animate) {
+        coveredJumpToProgress(progress);
+      } else {
+        renderProgressImmediately(progress);
+      }
     };
 
-    followHash();
-    window.addEventListener("hashchange", followHash);
-    return () => window.removeEventListener("hashchange", followHash);
-  }, [renderProgressImmediately]);
+    const handleHashChange = () => followHash(true);
+    followHash(false);
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, [coveredJumpToProgress, renderProgressImmediately]);
 
   useEffect(() => {
     if (reducedMotion !== false || !resolvedMainSrc) return;
@@ -920,54 +1033,16 @@ export function RenderedJourney({
     if (!root) return;
 
     const onWheel = (event: WheelEvent) => {
-      if (event.ctrlKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
+      if (event.ctrlKey) return;
       event.preventDefault();
-
-      applyInputDelta(wheelProgressDelta(event));
-    };
-
-    const onTouchStart = (event: TouchEvent) => {
-      if (event.touches.length !== 1) return;
-      touchYRef.current = event.touches[0].clientY;
-    };
-
-    const onTouchMove = (event: TouchEvent) => {
-      if (event.touches.length !== 1 || touchYRef.current === null) return;
-
-      const nextY = event.touches[0].clientY;
-      const deltaY = touchYRef.current - nextY;
-      touchYRef.current = nextY;
-      if (Math.abs(deltaY) < 0.5) return;
-
-      event.preventDefault();
-      const viewportHeight = Math.max(window.innerHeight, 480);
-      applyInputDelta(
-        (deltaY / viewportHeight) * TOUCH_PROGRESS_PER_VIEWPORT,
-      );
-    };
-
-    const onTouchEnd = () => {
-      touchYRef.current = null;
     };
 
     root.addEventListener("wheel", onWheel, { passive: false });
-    root.addEventListener("touchstart", onTouchStart, { passive: true });
-    root.addEventListener("touchmove", onTouchMove, { passive: false });
-    root.addEventListener("touchend", onTouchEnd, { passive: true });
-    root.addEventListener("touchcancel", onTouchEnd, { passive: true });
 
     return () => {
       root.removeEventListener("wheel", onWheel);
-      root.removeEventListener("touchstart", onTouchStart);
-      root.removeEventListener("touchmove", onTouchMove);
-      root.removeEventListener("touchend", onTouchEnd);
-      root.removeEventListener("touchcancel", onTouchEnd);
     };
-  }, [
-    applyInputDelta,
-    assetsReady,
-    reducedMotion,
-  ]);
+  }, [assetsReady, reducedMotion]);
 
   useEffect(() => {
     if (reducedMotion !== false || !assetsReady) return;
@@ -990,146 +1065,166 @@ export function RenderedJourney({
   }, [assetsReady, reducedMotion]);
 
   useEffect(() => {
-    if (reducedMotion !== false || !assetsReady) return;
+    if (
+      reducedMotion !== false ||
+      !assetsReady ||
+      !isVideoReady ||
+      !isTransitioning
+    ) {
+      return;
+    }
+
+    const video = videoRef.current;
+    const duration = durationRef.current || video?.duration || 0;
+    if (!video || !Number.isFinite(duration) || duration <= 0) return;
 
     let frame = 0;
-    let previousTime = performance.now();
+    let coverTimer = 0;
+    let seekFallbackTimer = 0;
+    let seekListener: (() => void) | null = null;
+    let skipResumed = false;
 
-    const tick = (time: number) => {
-      const deltaSeconds = Math.min(Math.max((time - previousTime) / 1000, 0), 0.05);
-      previousTime = time;
+    const completeNavigation = () => {
+      const navigation = navigationRef.current;
+      if (!navigation) return;
 
-      if (isVideoReady) {
-        const timeline = timelineRef.current;
-        const distance = timeline.target - timeline.current;
-        const video = videoRef.current;
-        const duration = durationRef.current;
-
-        if (video && duration > 0 && distance > 0.00005) {
-          const targetMediaProgress = mediaProgressAtStoryProgress(
-            timeline.target,
-            chaptersRef.current,
-          );
-          const targetTime = Math.min(
-            targetMediaProgress * duration,
-            Math.max(duration - 1 / RENDERED_FPS, 0),
-          );
-
-          const remainingSeconds = targetTime - video.currentTime;
-
-          if (remainingSeconds > MAX_FORWARD_LEAD_SECONDS && !video.seeking) {
-            const glideStart = Math.max(
-              targetTime - FORWARD_GLIDE_SECONDS,
-              0,
-            );
-            video.pause();
-            video.currentTime = glideStart;
-            timeline.current = Math.min(
-              timeline.target,
-              storyProgressAtMediaProgress(
-                glideStart / duration,
-                chaptersRef.current,
-              ),
-            );
-          } else if (video.currentTime >= targetTime - 1 / RENDERED_FPS) {
-            video.pause();
-            video.playbackRate = 1;
-            timeline.current = timeline.target;
-          } else {
-            const playbackCeiling = chapterNavigationRef.current ? 1.65 : 1.42;
-            const desiredPlaybackRate = clamp(
-              0.96 + remainingSeconds * 0.48,
-              0.96,
-              playbackCeiling,
-            );
-            const playbackFollow = 1 - Math.exp(-9 * deltaSeconds);
-            video.playbackRate +=
-              (desiredPlaybackRate - video.playbackRate) * playbackFollow;
-            if (video.paused && !mainPlayPendingRef.current) {
-              mainPlayPendingRef.current = true;
-              void video
-                .play()
-                .catch(() => undefined)
-                .finally(() => {
-                  mainPlayPendingRef.current = false;
-                });
-            }
-            const actualStoryProgress = storyProgressAtMediaProgress(
-              video.currentTime / duration,
-              chaptersRef.current,
-            );
-            timeline.current = Math.min(
-              timeline.target,
-              Math.max(timeline.current, actualStoryProgress),
-            );
-          }
-        } else if (video && duration > 0 && distance < -0.00005) {
-          video.pause();
-          const navigatingToChapter = chapterNavigationRef.current;
-          const followRate = navigatingToChapter
-            ? CHAPTER_NAV_FOLLOW_RATE
-            : FOLLOW_RATE;
-          const maximumRate = navigatingToChapter
-            ? timeline.current > CONTROL_DECK_REVEAL_START &&
-              timeline.target <= CONTROL_DECK_REVEAL_START
-              ? 0.065
-              : CHAPTER_NAV_MAX_TIMELINE_RATE
-            : MAX_TIMELINE_RATE;
-          const follow = 1 - Math.exp(-followRate * deltaSeconds);
-          const maximumStep = maximumRate * deltaSeconds;
-          const followedStep = clamp(
-            distance * follow,
-            -maximumStep,
-            maximumStep,
-          );
-          timeline.current += followedStep;
-
-          if (time - lastReverseSeekRef.current >= REVERSE_SEEK_INTERVAL) {
-            lastReverseSeekRef.current = time;
-            seekToProgress(timeline.current);
-          }
-        } else {
-          if (video && !video.paused) video.pause();
-          if (video && video.playbackRate !== 1) video.playbackRate = 1;
-          timeline.current = timeline.target;
-        }
+      video.pause();
+      video.playbackRate = CHAPTER_PLAYBACK_RATE;
+      if (
+        Math.abs(video.currentTime - navigation.targetTime) >
+        FRAME_TOLERANCE_SECONDS
+      ) {
+        video.currentTime = navigation.targetTime;
       }
 
-      const timeline = timelineRef.current;
-      const timelineSettled =
-        Math.abs(timeline.target - timeline.current) <=
-        TIMELINE_SETTLE_RADIUS;
+      const targetMediaProgress = mediaProgressAtStoryProgress(
+        navigation.targetProgress,
+        chaptersRef.current,
+      );
+      timelineRef.current.current = navigation.targetProgress;
+      lastRenderedProgressRef.current = navigation.targetProgress;
+      updatePresentation(navigation.targetProgress, true);
+      updateTimelineReadout(targetMediaProgress);
+      setTransitionCoverVisible(false);
+      unlockNavigation();
+    };
 
-      if (timelineSettled) {
-        timeline.current = timeline.target;
-        chapterNavigationRef.current = false;
+    const resumeAfterRobotSkip = () => {
+      if (skipResumed || !mountedRef.current || !navigationRef.current) return;
+      skipResumed = true;
+      if (seekListener) video.removeEventListener("seeked", seekListener);
+      if (seekFallbackTimer) window.clearTimeout(seekFallbackTimer);
+
+      const navigation = navigationRef.current;
+      const mediaProgress = clamp(video.currentTime / duration);
+      const progress = Math.min(
+        navigation.targetProgress,
+        storyProgressAtMediaProgress(mediaProgress, chaptersRef.current),
+      );
+      timelineRef.current.current = progress;
+      lastRenderedProgressRef.current = progress;
+      updatePresentation(progress, false);
+      updateTimelineReadout(mediaProgress);
+      setTransitionCoverVisible(false);
+      navigation.phase = "playing";
+
+      if (
+        video.currentTime >=
+        navigation.targetTime - FRAME_TOLERANCE_SECONDS
+      ) {
+        completeNavigation();
+        return;
       }
 
-      const progress = timeline.current;
-      const progressChanged =
-        !Number.isFinite(lastRenderedProgressRef.current) ||
-        Math.abs(progress - lastRenderedProgressRef.current) > 0.00001;
+      void video
+        .play()
+        .catch(completeNavigation);
+    };
 
-      if (progressChanged) {
-        lastRenderedProgressRef.current = progress;
-        const mediaProgress = mediaProgressAtStoryProgress(
-          progress,
-          chaptersRef.current,
+    const beginRobotSkip = () => {
+      const navigation = navigationRef.current;
+      if (!navigation || navigation.skipHandled) return;
+
+      navigation.skipHandled = true;
+      navigation.phase = "covering";
+      video.pause();
+      setTransitionCoverVisible(true);
+
+      coverTimer = window.setTimeout(() => {
+        const currentNavigation = navigationRef.current;
+        if (!currentNavigation || !mountedRef.current) return;
+
+        currentNavigation.phase = "seeking";
+        seekListener = resumeAfterRobotSkip;
+        video.addEventListener("seeked", seekListener, { once: true });
+        video.currentTime = Math.min(
+          ROBOT_CLIP_SKIP_END_SECONDS,
+          currentNavigation.targetTime,
         );
-        updatePresentation(progress);
-        updateTimelineReadout(mediaProgress);
+        seekFallbackTimer = window.setTimeout(
+          resumeAfterRobotSkip,
+          COVER_SEEK_TIMEOUT_MS,
+        );
+      }, COVER_FADE_MS);
+    };
+
+    const tick = () => {
+      const navigation = navigationRef.current;
+      if (!navigation) return;
+
+      if (navigation.phase === "playing") {
+        const mediaProgress = clamp(video.currentTime / duration);
+        const progress = Math.min(
+          navigation.targetProgress,
+          storyProgressAtMediaProgress(mediaProgress, chaptersRef.current),
+        );
+        timelineRef.current.current = progress;
+
+        if (
+          !Number.isFinite(lastRenderedProgressRef.current) ||
+          Math.abs(progress - lastRenderedProgressRef.current) > 0.00001
+        ) {
+          lastRenderedProgressRef.current = progress;
+          updatePresentation(progress, false);
+          updateTimelineReadout(mediaProgress);
+        }
+
+        const skipRobotHandoff =
+          activeIndexRef.current === 0 &&
+          navigation.targetIndex === 1 &&
+          navigation.targetTime > ROBOT_CLIP_SKIP_END_SECONDS;
+
+        if (
+          skipRobotHandoff &&
+          !navigation.skipHandled &&
+          video.currentTime >= ROBOT_CLIP_SKIP_START_SECONDS
+        ) {
+          beginRobotSkip();
+        } else if (
+          video.currentTime >=
+          navigation.targetTime - FRAME_TOLERANCE_SECONDS
+        ) {
+          completeNavigation();
+          return;
+        }
       }
 
       frame = window.requestAnimationFrame(tick);
     };
 
     frame = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(frame);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      if (coverTimer) window.clearTimeout(coverTimer);
+      if (seekFallbackTimer) window.clearTimeout(seekFallbackTimer);
+      if (seekListener) video.removeEventListener("seeked", seekListener);
+    };
   }, [
     assetsReady,
     isVideoReady,
+    isTransitioning,
     reducedMotion,
-    seekToProgress,
+    unlockNavigation,
     updatePresentation,
     updateTimelineReadout,
   ]);
@@ -1142,7 +1237,11 @@ export function RenderedJourney({
 
     if (event.key === "ArrowDown" || event.key === "ArrowRight" || event.key === "PageDown") {
       event.preventDefault();
-      goToRelativeChapter(1);
+      if (activeIndexRef.current === chaptersRef.current.length - 1) {
+        openControlDeck();
+      } else {
+        goToRelativeChapter(1);
+      }
       return;
     }
 
@@ -1154,10 +1253,42 @@ export function RenderedJourney({
 
     if (event.key === "Home" || event.key === "End") {
       event.preventDefault();
-      goToProgress(event.key === "Home" ? 0 : 1);
+      goToChapter(event.key === "Home" ? 0 : chaptersRef.current.length - 1);
       return;
     }
 
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      if (activeIndexRef.current === chaptersRef.current.length - 1) {
+        openControlDeck();
+      } else {
+        goToRelativeChapter(1);
+      }
+    }
+  };
+
+  const handleSceneClick = (event: ReactMouseEvent<HTMLElement>) => {
+    if (
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      isTransitioningRef.current ||
+      controlDeckActiveRef.current ||
+      !assetsReady
+    ) {
+      return;
+    }
+
+    const target = event.target as HTMLElement;
+    if (target.closest("a, button, input, select, textarea, [role='button']")) {
+      return;
+    }
+    if (window.getSelection()?.toString()) return;
+
+    if (activeIndexRef.current === chaptersRef.current.length - 1) {
+      openControlDeck();
+    } else {
+      goToRelativeChapter(1);
+    }
   };
 
   const safeActiveIndex = clamp(activeIndex, 0, chapterList.length - 1);
@@ -1189,6 +1320,10 @@ export function RenderedJourney({
       data-loading={!assetsReady || undefined}
       data-panel-align={activeChapter.align ?? "left"}
       data-reduced-motion={isStatic || undefined}
+      data-transition-cover={transitionCoverVisible || undefined}
+      data-transitioning={isTransitioning || undefined}
+      aria-busy={isTransitioning || !assetsReady}
+      onClick={handleSceneClick}
       onKeyDown={handleKeyDown}
       ref={rootRef}
       style={rootStyle}
@@ -1196,18 +1331,18 @@ export function RenderedJourney({
     >
       {!assetsReady && !isStatic && (
         <div
-          aria-label={`正在载入 Felix 的作品集，${Math.round(loadingProgress * 100)}%`}
+          aria-label={`Loading Felix Zuo's portfolio, ${Math.round(loadingProgress * 100)}%`}
           aria-live="polite"
           className={styles.loadingGate}
           role="status"
         >
           <div className={styles.loadingIdentity}>
             <span>FZ / Manufacturing operations</span>
-            <strong>正在载入 Felix 的作品集</strong>
+            <strong>Loading Felix Zuo&apos;s portfolio</strong>
             <p>
               {preloader.degraded
-                ? "正在准备兼容模式"
-                : "正在预载运镜、动态节点与控制室"}
+                ? "Preparing compatibility mode"
+                : "Preloading the film, chapter holds, and control room"}
             </p>
           </div>
           <div className={styles.loadingProgress}>
@@ -1266,6 +1401,7 @@ export function RenderedJourney({
         <div className={styles.shade} />
       </div>
 
+      <div aria-hidden="true" className={styles.chapterCut} />
       <div aria-hidden="true" className={styles.controlGate} />
       <JourneyControlDeck
         active={controlDeckActive}
@@ -1358,7 +1494,7 @@ export function RenderedJourney({
         <button
           aria-label="Previous chapter"
           className={styles.iconButton}
-          disabled={isFirstChapter}
+          disabled={isFirstChapter || isTransitioning}
           onClick={() => goToRelativeChapter(-1)}
           title="Previous chapter"
           type="button"
@@ -1385,6 +1521,7 @@ export function RenderedJourney({
                   aria-current={index === safeActiveIndex ? "step" : undefined}
                   aria-label={`Go to chapter ${index + 1}: ${chapter.label}, ${formatFrameLabel(frameAtMediaProgress(chapter.mediaProgress))}`}
                   className={index === safeActiveIndex ? styles.activeStop : ""}
+                  disabled={isTransitioning}
                   onClick={() => goToChapter(index)}
                   title={chapter.label}
                   type="button"
@@ -1397,7 +1534,7 @@ export function RenderedJourney({
         <button
           aria-label={isLastChapter ? "Open control deck" : "Next chapter"}
           className={styles.iconButton}
-          disabled={isLastChapter && controlDeckActive}
+          disabled={isTransitioning || (isLastChapter && controlDeckActive)}
           onClick={() =>
             isLastChapter ? openControlDeck() : goToRelativeChapter(1)
           }

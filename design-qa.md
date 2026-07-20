@@ -51,11 +51,13 @@
 ## Interaction Verification
 
 - The main 20 MB journey video now uses native browser streaming; only the smaller control-room and evidence media use the Blob preloader.
-- Five rapid wheel inputs reached the next chapter and settled in about 1.5 seconds instead of accumulating roughly five seconds of playback debt.
-- Chapter copy remains present during movement and crossfades continuously at chapter midpoints; there is no magnetic input lock or blur-on-scroll state.
-- The contact-to-control-room transition follows the final rendered frames, fades through black, and transfers interaction in about 1.2 seconds. The reverse transition also follows the same timeline.
+- Wheel and swipe scrubbing no longer drive the film. A click or tap on the scene plays exactly one adjacent chapter; duplicate input is locked until the next approved hold frame.
+- Adjacent forward travel uses native `1.0x` playback instead of accelerated timeline chasing. Idle chapters run no persistent animation-frame loop; a three-second idle measurement recorded zero layouts, zero style recalculations, and under one millisecond of main-thread task time.
+- The visibly intersecting mechanical-handoff interval is removed from the public interaction path without re-rendering the master: the opening plays through the clean AGV/bearing move, fades briefly through black before the collision window, and lands at the clean F217 chapter anchor.
+- Chapter copy clears as motion starts and re-enters only after the camera has stopped. Backward and non-adjacent navigation use a covered seek rather than simulated reverse playback.
+- The contact-to-control-room transition follows the final rendered frames at native speed, fades through black, and transfers interaction at the end frame. The reverse transition uses the same covered-seek language.
 - The control room opens with Release selected, keeps selected hotspots visible, and exposes the mapped project screen, links, contact, replay, and keyboard return behavior.
-- 390 x 844 mobile checks passed for entry, project, menu, and control-room states with no horizontal overflow.
+- 390 x 844 mobile checks passed for entry, project, menu, and control-room states with no horizontal overflow. Project copy fits without an internal scroll region, and previous/next controls expose 44 x 44 pixel touch targets.
 - Browser checks reported no runtime errors. `npm run lint`, `npx tsc --noEmit`, and `npm run build` passed.
 
 ## Follow-up Polish

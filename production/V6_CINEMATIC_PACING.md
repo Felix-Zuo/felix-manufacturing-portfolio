@@ -9,7 +9,7 @@ HTML narration over the existing desktop and mobile media.
 | Story | Source frame | Source time | Browser role |
 | --- | ---: | ---: | --- |
 | Entry / AGV establishing view | F001 | 0.0 s | Minimal identity caption |
-| Measured impact | F169 | 7.0 s | Interlude |
+| Measured impact | F217 | 9.0 s | Interlude after covered robot-cell skip |
 | Process observation | F301 | 12.5 s | Interlude |
 | Production notice | F433 | 18.0 s | Magnetic project stop |
 | Takt simulation | F553 | 23.0 s | Magnetic project stop |
@@ -24,13 +24,16 @@ provides visible deceleration into and acceleration out of each anchor.
 
 ## Input Contract
 
-- A standard 100-pixel wheel notch advances about 0.085 seconds at the opening.
-- Wheel magnitude is normalized and clamped across mouse and trackpad hardware.
-- The timeline follows its target with exponential damping and a hard velocity cap.
-- Crossing a project anchor clamps the target to that anchor.
-- Trackpad momentum cannot release a stop. Input must become idle for 260 ms, then
-  a new wheel gesture releases the chapter.
-- Touch movement uses the same story clock with viewport-relative sensitivity.
+- Wheel and swipe gestures do not advance the film.
+- One scene click, tap, right-arrow action, or next control plays one adjacent
+  chapter and stops at its authored hold frame.
+- Repeat input is locked during playback, so one gesture cannot queue or skip
+  multiple chapters.
+- Adjacent chapters use native 1.0x media playback. Backward and non-adjacent
+  navigation use a short covered seek rather than simulated reverse playback.
+- The public interaction path covers the rejected mechanical-handoff interval
+  from 4.38 to 8.88 seconds and lands at F217. The approved source master remains
+  unchanged.
 
 ## Narration Contract
 
@@ -62,10 +65,13 @@ provides visible deceleration into and acceleration out of each anchor.
 ## Verified Browser States
 
 - Desktop project times: 18.0 s, 23.0 s, 28.0 s, and 33.0 s.
-- One-notch opening advance: about 0.085 s.
-- Magnetic stop release: the next post-idle wheel gesture advances the film.
+- Opening chapter transition: clean motion to 4.38 s, covered seek over the
+  rejected robot-cell interval, then a stable F217 hold.
+- Rapid repeated click/tap input does not queue or skip chapters.
+- Wheel input leaves the active chapter, media time, and document scroll position
+  unchanged.
 - Desktop and 390 x 844 mobile layouts: zero document horizontal overflow.
-- Mobile source: dedicated 360 x 640 MP4.
+- Mobile source: dedicated 720 x 1280 MP4.
 - Reduced motion: video hidden, poster retained, zero runtime errors.
 
 Design behavior follows the same principles exposed by GSAP ScrollTrigger's
