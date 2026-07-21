@@ -2,8 +2,10 @@
 
 Date: 2026-07-22
 
-Status: Goal 1 completed locally and ready for release verification. Goals 2-6
-remain pending until the user explicitly says to continue.
+Status: Goal 1 completed and released on 2026-07-22. The implementation commit is
+`ee8b9b7`, and the production alias is
+`https://felix-manufacturing-portfolio.vercel.app/`. Goals 2-6 remain pending
+until the user explicitly says to continue.
 
 This roadmap is the durable scope contract for the next portfolio release. Work is
 delivered one goal at a time. Goal 1 is the only implementation scope for the

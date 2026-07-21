@@ -72,3 +72,15 @@ motion must support the story rather than add visual noise.
   was also inspected at its seam and in a side-by-side reference comparison.
 - Visual comparison sheets are stored under
   `production/renders/browser-qa/v16-goal1-after/` for local review.
+
+## Release Evidence
+
+- Implementation commit: `ee8b9b7` on `codex/v8-streamed-cinematic`.
+- Production alias: `https://felix-manufacturing-portfolio.vercel.app/`.
+- Vercel production build completed with Next.js 16.2.10 and generated all seven
+  static/SSG routes.
+- Production checks returned HTTP 200 for the home page, the impact desktop hold,
+  the process mobile hold, and the process-to-impact reverse transition. Versioned
+  media responses use `public, max-age=31536000, immutable`.
+- A fresh production-browser run completed the Impact-to-Process transition and
+  reported no errors or warnings.
