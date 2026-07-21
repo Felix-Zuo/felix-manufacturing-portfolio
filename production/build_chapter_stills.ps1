@@ -38,11 +38,7 @@ foreach ($Chapter in $Chapters) {
         @{ Name = "desktop"; Quality = $DesktopQuality },
         @{ Name = "mobile"; Quality = $MobileQuality }
     )) {
-        $SourceProfile = if ($Chapter.Id -eq "process" -and $Profile.Name -eq "mobile") {
-            "desktop"
-        } else {
-            $Profile.Name
-        }
+        $SourceProfile = $Profile.Name
         $InputPath = Join-Path $RepoRoot (
             "production\renders\{0}-frames\frame-{1:D4}.png" -f $SourceProfile, $Chapter.Frame
         )
@@ -60,11 +56,6 @@ foreach ($Chapter in $Chapters) {
             "-loglevel", "warning",
             "-i", $InputPath
         )
-        if ($Chapter.Id -eq "process" -and $Profile.Name -eq "mobile") {
-            $Arguments += @(
-                "-vf", "crop=608:1080:720:0,scale=720:1280:flags=lanczos"
-            )
-        }
         $Arguments += @(
             "-frames:v", "1",
             "-c:v", "libwebp",

@@ -33,6 +33,7 @@
 .sceneImage,
 .sceneImageAsset,
 .ambientVideo,
+.transitionVideo,
 .sceneShade {
   position: absolute;
   inset: 0;
@@ -56,7 +57,8 @@
 }
 
 .sceneImageAsset,
-.ambientVideo {
+.ambientVideo,
+.transitionVideo {
   display: block;
   max-width: none;
   object-fit: cover;
@@ -86,6 +88,13 @@
   pointer-events: none;
 }
 
+.transitionVideo {
+  z-index: 3;
+  pointer-events: none;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
 .sceneShade {
   z-index: 4;
   background:
@@ -93,6 +102,32 @@
     linear-gradient(90deg, rgba(1, 3, 4, 0.34), transparent 24%, transparent 76%, rgba(1, 3, 4, 0.34));
   box-shadow: inset 0 0 8rem rgba(0, 0, 0, 0.2);
   pointer-events: none;
+}
+
+.sceneMeta,
+.chapterPanel,
+.transport {
+  transition: opacity 180ms ease;
+}
+
+.root[data-motion-playing] {
+  cursor: progress;
+}
+
+.root[data-motion-playing] .sceneMeta,
+.root[data-motion-playing] .chapterPanel,
+.root[data-motion-playing] .transport {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.root[data-motion-playing] .chapterPanel {
+  animation: none;
+}
+
+.root[data-motion-playing] .sceneActive,
+.root[data-motion-arrival] .sceneActive {
+  animation: none;
 }
 
 .startGate {
@@ -639,7 +674,10 @@
 
 .chapterRail li {
   position: relative;
+  display: grid;
   min-width: 0;
+  min-height: 3rem;
+  place-items: center;
 }
 
 .chapterRail li::before {
@@ -656,16 +694,9 @@
   display: none;
 }
 
-.chapterRail button {
+.chapterRail li > span {
   position: relative;
   z-index: 1;
-  display: grid;
-  width: 100%;
-  min-height: 3rem;
-  place-items: center;
-}
-
-.chapterRail button span {
   display: grid;
   width: 1.55rem;
   height: 1.55rem;
@@ -682,15 +713,11 @@
     transform 180ms ease;
 }
 
-.chapterRail button:hover span,
-.chapterRail button[aria-current="step"] span {
+.chapterRail li[aria-current="step"] > span {
   border-color: var(--amber);
-  color: #f1c66d;
-}
-
-.chapterRail button[aria-current="step"] span {
   background: rgba(232, 180, 77, 0.16);
   box-shadow: 0 0 0 0.28rem rgba(232, 180, 77, 0.07);
+  color: #f1c66d;
   transform: scale(1.06);
 }
 
@@ -728,6 +755,58 @@
 .transportNext:not(:disabled):hover {
   color: #f2c66c;
   background: rgba(232, 180, 77, 0.14) !important;
+}
+
+.motionHud {
+  position: absolute;
+  z-index: 9;
+  right: max(1.2rem, 2.6vw);
+  bottom: max(1.35rem, env(safe-area-inset-bottom));
+  left: max(5.25rem, 6vw);
+  display: grid;
+  grid-template-columns: auto minmax(8rem, 20rem);
+  align-items: end;
+  justify-content: space-between;
+  gap: 2rem;
+  pointer-events: none;
+  animation: motionHudEnter 240ms ease-out both;
+}
+
+.motionHud > span {
+  display: grid;
+  gap: 0.24rem;
+}
+
+.motionHud small {
+  color: rgba(232, 238, 238, 0.56);
+  font-family: "Geist Mono", ui-monospace, monospace;
+  font-size: 8px;
+  text-transform: uppercase;
+}
+
+.motionHud strong {
+  color: #f4f6f6;
+  font-size: 0.82rem;
+  font-weight: 570;
+}
+
+.motionProgress {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 1px;
+  overflow: hidden;
+  background: rgba(229, 235, 235, 0.22);
+}
+
+.motionProgress::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: var(--amber);
+  transform: scaleX(var(--journey-progress, 0));
+  transform-origin: left center;
+  transition: transform 80ms linear;
 }
 
 .doorTransition {
@@ -820,8 +899,7 @@
 .startButton:focus-visible,
 .chapterActions a:focus-visible,
 .chapterActions button:focus-visible,
-.transport button:focus-visible,
-.chapterRail button:focus-visible {
+.transport button:focus-visible {
   outline: 2px solid #f2c66c;
   outline-offset: 3px;
 }
@@ -910,6 +988,18 @@
 
   to {
     opacity: 1;
+  }
+}
+
+@keyframes motionHudEnter {
+  from {
+    opacity: 0;
+    transform: translateY(0.35rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -1235,6 +1325,18 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+
+  .motionHud {
+    right: max(1rem, env(safe-area-inset-right));
+    bottom: max(1.1rem, calc(0.75rem + env(safe-area-inset-bottom)));
+    left: max(4.5rem, calc(3.8rem + env(safe-area-inset-left)));
+    grid-template-columns: minmax(7rem, auto) minmax(6rem, 42vw);
+    gap: 1rem;
+  }
+
+  .motionHud strong {
+    font-size: 0.76rem;
+  }
 }
 
 @media (max-height: 720px) and (min-width: 768px) {
@@ -1283,7 +1385,7 @@
   }
 
   .playButton,
-  .chapterRail button span,
+  .chapterRail li > span,
   .startProgress span {
     transition: none;
   }

@@ -17,20 +17,24 @@ if (-not (Test-Path -LiteralPath $Ffmpeg)) {
     throw "ffmpeg was not found at $Ffmpeg"
 }
 
-$InputPath = Join-Path $RepoRoot "public\media\holds\process-desktop.mp4"
+$InputPath = Join-Path $RepoRoot "production\renders\hold-loops\mobile\process\frame-%04d.png"
 $OutputPath = Join-Path $RepoRoot "public\media\holds\process-mobile.mp4"
 
-if (-not (Test-Path -LiteralPath $InputPath)) {
-    throw "Desktop process loop was not found at $InputPath"
+$FirstFrame = $InputPath -replace "%04d", "0001"
+if (-not (Test-Path -LiteralPath $FirstFrame)) {
+    throw "Mobile process loop frames were not found at $FirstFrame"
 }
 
 & $Ffmpeg `
     -y `
     -hide_banner `
     -loglevel warning `
+    -framerate 24 `
+    -start_number 1 `
     -i $InputPath `
+    -filter_complex "[0:v]split=2[base][firstSource];[firstSource]trim=end_frame=1,setpts=PTS-STARTPTS,tpad=stop_mode=clone`:stop_duration=1.5[first];[base][first]xfade=transition=fade`:duration=0.25`:offset=1.25,trim=end_frame=36,setpts=PTS-STARTPTS,fps=24,scale=720:1280`:flags=lanczos,format=yuv420p[loop]" `
+    -map "[loop]" `
     -an `
-    -vf "crop=506:900:600:0,scale=720:1280:flags=lanczos,format=yuv420p" `
     -c:v libx264 `
     -preset slow `
     -crf $Crf `
