@@ -5,12 +5,14 @@
   overflow: hidden;
   background: #020304;
   color: #f2f4f5;
-  opacity: var(--control-room-opacity, 0);
+  opacity: 0;
   visibility: hidden;
   pointer-events: none;
+  transition: opacity 260ms ease-out;
 }
 
 .deck[data-visible] {
+  opacity: 1;
   visibility: visible;
 }
 
@@ -680,6 +682,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .deck {
+    transition: none;
+  }
+
   .backdropVideo {
     display: none;
   }

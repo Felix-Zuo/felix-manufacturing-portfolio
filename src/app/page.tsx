@@ -1,5 +1,5 @@
-import { RenderedJourney } from "@/components/RenderedJourney";
+import { CinematicPortfolio } from "@/components/CinematicPortfolio";
 
 export default function Home() {
-  return <RenderedJourney />;
+  return <CinematicPortfolio />;
 }
