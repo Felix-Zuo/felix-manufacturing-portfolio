@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUpRight,
+  MousePointer2,
   Play,
 } from "lucide-react";
 import Image from "next/image";
@@ -16,6 +17,7 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
 } from "react";
 
 import { profile } from "@/data/profile";
@@ -59,6 +61,7 @@ type Chapter = {
   steps?: readonly string[];
   summary: string;
   title: string;
+  visualId?: string;
 };
 
 type JourneyMotion = {
@@ -238,6 +241,7 @@ const CHAPTERS: readonly Chapter[] = [
     summary:
       "The strongest fit is where manufacturing execution, launch readiness, and practical workflow tooling must work together.",
     title: "Build the next improvement loop.",
+    visualId: "close",
   },
 ] as const;
 
@@ -264,15 +268,28 @@ const START_GATE_MS = 820;
 const DOOR_REVEAL_MS = 980;
 const DOOR_COMPLETE_MS = 1420;
 const MOBILE_QUERY = "(max-width: 767px)";
+const MEDIA_VERSION = 17;
 
-function chapterImage(chapter: Chapter, profile: MediaProfile) {
-  return `/media/chapters/${chapter.id}-${profile}.webp?v=15`;
+function chapterMediaId(chapter: Chapter) {
+  return chapter.visualId ?? chapter.id;
 }
 
-function transitionVideo(index: number, profile: MediaProfile) {
-  const from = CHAPTERS[index];
-  const to = CHAPTERS[index + 1];
-  return `/media/transitions/${from.id}-to-${to.id}-${profile}.mp4?v=15`;
+function chapterImage(chapter: Chapter, profile: MediaProfile) {
+  return `/media/chapters/${chapterMediaId(chapter)}-${profile}.webp?v=${MEDIA_VERSION}`;
+}
+
+function chapterHold(chapter: Chapter, profile: MediaProfile) {
+  return `/media/holds/${chapterMediaId(chapter)}-${profile}.mp4?v=${MEDIA_VERSION}`;
+}
+
+function transitionVideoBetween(
+  fromIndex: number,
+  toIndex: number,
+  profile: MediaProfile,
+) {
+  const from = CHAPTERS[fromIndex];
+  const to = CHAPTERS[toIndex];
+  return `/media/transitions/${from.id}-to-${to.id}-${profile}.mp4?v=${MEDIA_VERSION}`;
 }
 
 function startImage(profile: MediaProfile) {
@@ -327,14 +344,11 @@ function useMediaPreloader(profile: MediaProfile | null) {
         ...CHAPTERS.map((chapter) => chapterImage(chapter, profile)),
       ];
       const videos = [
-        ...CHAPTERS.slice(0, -1).map((_, index) =>
-          transitionVideo(index, profile),
-        ),
-        ...CHAPTERS.flatMap((chapter) =>
-          chapter.ambient
-            ? [profile === "mobile" ? chapter.ambient.mobile : chapter.ambient.desktop]
-            : [],
-        ),
+        ...CHAPTERS.slice(0, -1).flatMap((_, index) => [
+          transitionVideoBetween(index, index + 1, profile),
+          transitionVideoBetween(index + 1, index, profile),
+        ]),
+        ...CHAPTERS.map((chapter) => chapterHold(chapter, profile)),
         controlRoomVideo(profile),
         "/evidence/takt-live-workbench.mp4",
       ];
@@ -484,6 +498,7 @@ function DoorImage() {
         alt=""
         className={styles.doorImage}
         fill
+        loading="eager"
         sizes="100vw"
         src={chapterImage(chapter, "desktop")}
         unoptimized
@@ -498,6 +513,7 @@ export function CinematicPortfolio() {
   const preloader = useMediaPreloader(mediaProfile);
   const rootRef = useRef<HTMLElement>(null);
   const transitionVideoRef = useRef<HTMLVideoElement>(null);
+  const pointerFrameRef = useRef<number | null>(null);
   const timersRef = useRef(new Set<number>());
   const [activeIndex, setActiveIndex] = useState(0);
   const [outgoingIndex, setOutgoingIndex] = useState<number | null>(null);
@@ -506,6 +522,7 @@ export function CinematicPortfolio() {
   const [transitioning, setTransitioning] = useState(false);
   const [journeyMotion, setJourneyMotion] = useState<JourneyMotion | null>(null);
   const [motionArrival, setMotionArrival] = useState(false);
+  const [jumpPhase, setJumpPhase] = useState<"cover" | "reveal" | null>(null);
   const [started, setStarted] = useState(false);
   const [startGateVisible, setStartGateVisible] = useState(true);
   const [startGateLeaving, setStartGateLeaving] = useState(false);
@@ -519,10 +536,8 @@ export function CinematicPortfolio() {
   const isFirst = activeIndex === 0;
   const isLast = activeIndex === CHAPTERS.length - 1;
   const nextChapter = CHAPTERS[Math.min(activeIndex + 1, CHAPTERS.length - 1)];
-  const currentAmbient = activeChapter.ambient && mediaProfile && !journeyMotion
-    ? mediaProfile === "mobile"
-      ? activeChapter.ambient.mobile
-      : activeChapter.ambient.desktop
+  const currentAmbient = mediaProfile && !journeyMotion
+    ? chapterHold(activeChapter, mediaProfile)
     : null;
 
   const schedule = useCallback((callback: () => void, delay: number) => {
@@ -539,6 +554,9 @@ export function CinematicPortfolio() {
     return () => {
       timers.forEach((timer) => window.clearTimeout(timer));
       timers.clear();
+      if (pointerFrameRef.current !== null) {
+        window.cancelAnimationFrame(pointerFrameRef.current);
+      }
     };
   }, []);
 
@@ -563,7 +581,7 @@ export function CinematicPortfolio() {
     schedule(() => rootRef.current?.focus(), reducedMotion ? 0 : START_GATE_MS + 20);
   }, [preloader.ready, reducedMotion, schedule, started]);
 
-  const navigateTo = useCallback(
+  const jumpTo = useCallback(
     (index: number) => {
       const bounded = Math.min(
         Math.max(Math.round(index), 0),
@@ -579,17 +597,23 @@ export function CinematicPortfolio() {
         return;
       }
 
-      setDirection(bounded > activeIndex ? "forward" : "backward");
-      setOutgoingIndex(activeIndex);
-      setActiveIndex(bounded);
-      setTransitionNonce((value) => value + 1);
+      const nextDirection = bounded > activeIndex ? "forward" : "backward";
+      setDirection(nextDirection);
       setTransitioning(true);
-      window.history.replaceState(null, "", `#${CHAPTERS[bounded].id}`);
-
+      setJumpPhase("cover");
       schedule(() => {
         setOutgoingIndex(null);
+        setJourneyMotion(null);
+        setActiveIndex(bounded);
+        setTransitionNonce((value) => value + 1);
+        setJumpPhase("reveal");
+        window.history.replaceState(null, "", `#${CHAPTERS[bounded].id}`);
+      }, reducedMotion ? 0 : 220);
+      schedule(() => {
+        setJumpPhase(null);
+        setOutgoingIndex(null);
         setTransitioning(false);
-      }, reducedMotion ? 0 : TRANSITION_MS);
+      }, reducedMotion ? 0 : 640);
     },
     [
       activeIndex,
@@ -619,43 +643,61 @@ export function CinematicPortfolio() {
     schedule(() => setMotionArrival(false), TRANSITION_MS + 120);
   }, [journeyMotion, schedule]);
 
-  const playNextSegment = useCallback(() => {
+  const playSegment = useCallback((targetIndex: number) => {
     if (
       !mediaProfile ||
       !started ||
       transitioning ||
       doorOpening ||
       controlDeckActive ||
-      activeIndex >= CHAPTERS.length - 1
+      Math.abs(targetIndex - activeIndex) !== 1
     ) {
       return;
     }
 
     if (reducedMotion) {
-      navigateTo(activeIndex + 1);
+      jumpTo(targetIndex);
       return;
     }
 
-    setDirection("forward");
+    setDirection(targetIndex > activeIndex ? "forward" : "backward");
     setOutgoingIndex(null);
     setMotionArrival(false);
     setTransitioning(true);
     rootRef.current?.style.setProperty("--journey-progress", "0");
     setJourneyMotion({
       fromIndex: activeIndex,
-      src: transitionVideo(activeIndex, mediaProfile),
-      toIndex: activeIndex + 1,
+      src: transitionVideoBetween(activeIndex, targetIndex, mediaProfile),
+      toIndex: targetIndex,
     });
   }, [
     activeIndex,
     controlDeckActive,
     doorOpening,
     mediaProfile,
-    navigateTo,
+    jumpTo,
     reducedMotion,
     started,
     transitioning,
   ]);
+
+  const requestNavigation = useCallback((index: number) => {
+    const bounded = Math.min(Math.max(Math.round(index), 0), CHAPTERS.length - 1);
+    if (bounded === activeIndex) return;
+    if (Math.abs(bounded - activeIndex) === 1) {
+      playSegment(bounded);
+      return;
+    }
+    jumpTo(bounded);
+  }, [activeIndex, jumpTo, playSegment]);
+
+  const playNextSegment = useCallback(() => {
+    if (activeIndex < CHAPTERS.length - 1) playSegment(activeIndex + 1);
+  }, [activeIndex, playSegment]);
+
+  const playPreviousSegment = useCallback(() => {
+    if (activeIndex > 0) playSegment(activeIndex - 1);
+  }, [activeIndex, playSegment]);
 
   useEffect(() => {
     if (!journeyMotion) return;
@@ -774,10 +816,10 @@ export function CinematicPortfolio() {
       event.key === "PageUp"
     ) {
       event.preventDefault();
-      navigateTo(activeIndex - 1);
+      playPreviousSegment();
     } else if (event.key === "Home" || event.key === "End") {
       event.preventDefault();
-      navigateTo(event.key === "Home" ? 0 : CHAPTERS.length - 1);
+      requestNavigation(event.key === "Home" ? 0 : CHAPTERS.length - 1);
     }
   };
 
@@ -787,6 +829,36 @@ export function CinematicPortfolio() {
     if (target.closest("a, button, input, textarea, select, [role='button']")) return;
     if (window.getSelection()?.toString()) return;
     goForward();
+  };
+
+  const handlePointerMove = (event: ReactPointerEvent<HTMLElement>) => {
+    if (event.pointerType === "touch") return;
+    const root = rootRef.current;
+    if (!root) return;
+    const x = event.clientX;
+    const y = event.clientY;
+    const target = event.target as HTMLElement;
+    const interactive = Boolean(target.closest("a, button, [role='button']"));
+    if (pointerFrameRef.current !== null) {
+      window.cancelAnimationFrame(pointerFrameRef.current);
+    }
+    pointerFrameRef.current = window.requestAnimationFrame(() => {
+      const width = Math.max(root.clientWidth, 1);
+      const height = Math.max(root.clientHeight, 1);
+      root.style.setProperty("--pointer-x", `${x}px`);
+      root.style.setProperty("--pointer-y", `${y}px`);
+      root.style.setProperty("--panel-tilt-x", `${((0.5 - y / height) * 1.1).toFixed(3)}deg`);
+      root.style.setProperty("--panel-tilt-y", `${((x / width - 0.5) * 1.35).toFixed(3)}deg`);
+      root.toggleAttribute("data-pointer-interactive", interactive);
+      pointerFrameRef.current = null;
+    });
+  };
+
+  const handlePointerLeave = () => {
+    const root = rootRef.current;
+    root?.style.setProperty("--panel-tilt-x", "0deg");
+    root?.style.setProperty("--panel-tilt-y", "0deg");
+    root?.removeAttribute("data-pointer-interactive");
   };
 
   return (
@@ -804,6 +876,8 @@ export function CinematicPortfolio() {
       data-transitioning={transitioning || undefined}
       onClick={handleSceneClick}
       onKeyDown={handleKeyDown}
+      onPointerLeave={handlePointerLeave}
+      onPointerMove={handlePointerMove}
       ref={rootRef}
       tabIndex={0}
     >
@@ -863,6 +937,10 @@ export function CinematicPortfolio() {
         )}
         <span className={styles.sceneShade} />
       </div>
+
+      {jumpPhase && (
+        <span aria-hidden="true" className={styles.jumpVeil} data-phase={jumpPhase} />
+      )}
 
       {startGateVisible && (
         <div
@@ -934,6 +1012,7 @@ export function CinematicPortfolio() {
             data-kind={activeChapter.kind}
             key={activeChapter.id}
           >
+            <div className={styles.panelLayer}>
             <p className={styles.eyebrow}>
               <span>
                 {String(activeIndex + 1).padStart(2, "0")} / {String(CHAPTERS.length).padStart(2, "0")}
@@ -994,14 +1073,23 @@ export function CinematicPortfolio() {
                 <ExperienceLink key={`${link.href}-${link.label}`} link={link} />
               ))}
             </div>
+            </div>
           </article>
+
+          <div aria-hidden="true" className={styles.sceneAdvanceHint}>
+            <MousePointer2 size={16} strokeWidth={1.8} />
+            <span>
+              <small>{mediaProfile === "mobile" ? "Tap the scene" : "Click the scene"}</small>
+              <strong>{isLast ? "Open control room" : `Play to ${nextChapter.label}`}</strong>
+            </span>
+          </div>
 
           <footer className={styles.transport}>
             <button
               aria-label="Previous chapter"
               className={styles.transportBack}
               disabled={isFirst || transitioning}
-              onClick={() => navigateTo(activeIndex - 1)}
+              onClick={playPreviousSegment}
               title="Previous chapter"
               type="button"
             >
@@ -1016,12 +1104,17 @@ export function CinematicPortfolio() {
             <nav aria-label="Portfolio route" className={styles.chapterRail}>
               <ol>
                 {CHAPTERS.map((chapter, index) => (
-                  <li
-                    aria-current={index === activeIndex ? "step" : undefined}
-                    key={chapter.id}
-                    title={chapter.label}
-                  >
-                    <span>{String(index + 1).padStart(2, "0")}</span>
+                  <li key={chapter.id}>
+                    <button
+                      aria-current={index === activeIndex ? "step" : undefined}
+                      aria-label={`Go to chapter ${index + 1}: ${chapter.label}`}
+                      disabled={transitioning || index === activeIndex}
+                      onClick={() => requestNavigation(index)}
+                      title={chapter.label}
+                      type="button"
+                    >
+                      {String(index + 1).padStart(2, "0")}
+                    </button>
                   </li>
                 ))}
               </ol>
@@ -1052,6 +1145,12 @@ export function CinematicPortfolio() {
           </span>
           <i aria-hidden="true" className={styles.motionProgress} />
         </div>
+      )}
+
+      {!controlDeckActive && started && (
+        <span aria-hidden="true" className={styles.pointerFollower}>
+          <MousePointer2 size={18} strokeWidth={1.7} />
+        </span>
       )}
 
       {doorOpening && (

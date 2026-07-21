@@ -1,8 +1,8 @@
 param(
     [ValidateSet("desktop", "mobile")]
     [string]$Mode = "desktop",
-    [ValidateSet("process", "takt")]
-    [string[]]$Chapters = @("process", "takt"),
+    [ValidateSet("impact", "process", "takt")]
+    [string[]]$Chapters = @("impact", "process"),
     [ValidateRange(1, 128)]
     [int]$Samples = 24,
     [string]$Blender,
@@ -51,8 +51,9 @@ try {
     $Crf = if ($Mode -eq "desktop") { 20 } else { 21 }
 
     $Specs = @{
-        process = @{ Start = 301; Frames = 36 }
-        takt = @{ Start = 553; Frames = 48 }
+        impact = @{ Start = 77; End = 180; Camera = 160; Frames = 72 }
+        process = @{ Start = 301; End = 348; Camera = 301; Frames = 48 }
+        takt = @{ Start = 553; End = 600; Camera = 553; Frames = 48 }
     }
 
     foreach ($Chapter in $Chapters) {
@@ -70,6 +71,8 @@ try {
             "--mode", $Mode,
             "--chapter", $Chapter,
             "--start-frame", $Spec.Start,
+            "--end-frame", $Spec.End,
+            "--camera-frame", $Spec.Camera,
             "--frame-count", $Spec.Frames,
             "--samples", $Samples,
             "--output", $Output
@@ -83,10 +86,6 @@ try {
             throw "$Mode $Chapter Blender render failed with exit code $LASTEXITCODE"
         }
 
-        $DurationSeconds = $Spec.Frames / 24
-        $BlendSeconds = [Math]::Min(0.25, $DurationSeconds / 3)
-        $BlendOffset = $DurationSeconds - $BlendSeconds
-        $Filter = "[0:v]split=2[base][firstSource];[firstSource]trim=end_frame=1,setpts=PTS-STARTPTS,tpad=stop_mode=clone`:stop_duration=$DurationSeconds[first];[base][first]xfade=transition=fade`:duration=$BlendSeconds`:offset=$BlendOffset,trim=end_frame=$($Spec.Frames),setpts=PTS-STARTPTS,fps=24,scale=$Scale`:flags=lanczos,format=yuv420p[loop]"
         $MediaOutput = Join-Path $MediaRoot "$Chapter-$Mode.mp4"
 
         & $Ffmpeg `
@@ -96,8 +95,8 @@ try {
             -framerate 24 `
             -start_number 1 `
             -i (Join-Path $Output "frame-%04d.png") `
-            -filter_complex $Filter `
-            -map "[loop]" `
+            -frames:v $Spec.Frames `
+            -vf "fps=24,scale=$Scale`:flags=lanczos,format=yuv420p" `
             -an `
             -c:v libx264 `
             -preset slow `

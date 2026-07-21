@@ -13,6 +13,10 @@
   --green: #61c69b;
   --line: rgba(221, 228, 229, 0.18);
   --muted: rgba(226, 232, 233, 0.68);
+  --panel-tilt-x: 0deg;
+  --panel-tilt-y: 0deg;
+  --pointer-x: -3rem;
+  --pointer-y: -3rem;
 }
 
 .root *,
@@ -84,7 +88,7 @@
 
 .ambientVideo {
   z-index: 3;
-  animation: ambientReveal 360ms 380ms ease-out both;
+  animation: ambientReveal 320ms 120ms ease-out both;
   pointer-events: none;
 }
 
@@ -123,6 +127,13 @@
 
 .root[data-motion-playing] .chapterPanel {
   animation: none;
+}
+
+.root[data-motion-playing] .sceneAdvanceHint,
+.root[data-transitioning] .sceneAdvanceHint,
+.root[data-motion-playing] .pointerFollower,
+.root[data-transitioning] .pointerFollower {
+  opacity: 0;
 }
 
 .root[data-motion-playing] .sceneActive,
@@ -330,6 +341,13 @@
   transform: translateY(-50%);
   animation: chapterEnter 460ms 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
   cursor: default;
+}
+
+.panelLayer {
+  transform: perspective(75rem) rotateX(var(--panel-tilt-x)) rotateY(var(--panel-tilt-y));
+  transform-origin: 50% 50%;
+  transition: transform 180ms cubic-bezier(0.2, 0.72, 0.2, 1);
+  will-change: transform;
 }
 
 .chapterPanel::before {
@@ -694,7 +712,7 @@
   display: none;
 }
 
-.chapterRail li > span {
+.chapterRail li > button {
   position: relative;
   z-index: 1;
   display: grid;
@@ -713,12 +731,101 @@
     transform 180ms ease;
 }
 
-.chapterRail li[aria-current="step"] > span {
+.chapterRail li > button:not(:disabled):hover {
+  border-color: rgba(242, 198, 108, 0.78);
+  color: #f2c66c;
+  transform: scale(1.08);
+}
+
+.chapterRail li > button[aria-current="step"] {
   border-color: var(--amber);
   background: rgba(232, 180, 77, 0.16);
   box-shadow: 0 0 0 0.28rem rgba(232, 180, 77, 0.07);
   color: #f1c66d;
+  opacity: 1;
   transform: scale(1.06);
+}
+
+.sceneAdvanceHint {
+  position: absolute;
+  z-index: 7;
+  right: max(2.8rem, 5vw);
+  bottom: max(6.2rem, calc(5.5rem + env(safe-area-inset-bottom)));
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: rgba(241, 244, 244, 0.78);
+  pointer-events: none;
+  transition: opacity 160ms ease;
+  animation: advanceHint 2600ms ease-in-out infinite;
+}
+
+.sceneAdvanceHint > svg {
+  color: var(--amber);
+  filter: drop-shadow(0 0 0.65rem rgba(232, 180, 77, 0.34));
+}
+
+.sceneAdvanceHint > span {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.sceneAdvanceHint small {
+  color: rgba(230, 235, 236, 0.52);
+  font-family: "Geist Mono", ui-monospace, monospace;
+  font-size: 8px;
+  text-transform: uppercase;
+}
+
+.sceneAdvanceHint strong {
+  font-size: 0.72rem;
+  font-weight: 540;
+}
+
+.pointerFollower {
+  position: fixed;
+  z-index: 40;
+  top: 0;
+  left: 0;
+  display: grid;
+  width: 1.8rem;
+  height: 1.8rem;
+  place-items: center;
+  color: rgba(242, 198, 108, 0.9);
+  filter: drop-shadow(0 0 0.65rem rgba(232, 180, 77, 0.32));
+  opacity: 0.88;
+  pointer-events: none;
+  transform: translate3d(var(--pointer-x), var(--pointer-y), 0) translate(-0.2rem, -0.15rem);
+  transition:
+    color 140ms ease,
+    opacity 140ms ease,
+    scale 140ms ease;
+  will-change: transform;
+}
+
+.root[data-pointer-interactive] .pointerFollower {
+  color: #f6d28c;
+  opacity: 1;
+  scale: 1.18;
+}
+
+.jumpVeil {
+  position: absolute;
+  z-index: 22;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.jumpVeil[data-phase="cover"] {
+  opacity: 1;
+}
+
+.jumpVeil[data-phase="reveal"] {
+  opacity: 0;
+  transition-duration: 400ms;
 }
 
 .transportNext {
@@ -1003,6 +1110,19 @@
   }
 }
 
+@keyframes advanceHint {
+  0%,
+  100% {
+    opacity: 0.66;
+    transform: translateX(0);
+  }
+
+  48% {
+    opacity: 1;
+    transform: translateX(0.28rem);
+  }
+}
+
 @keyframes startVisualSettle {
   from {
     opacity: 0.82;
@@ -1200,6 +1320,10 @@
     background: linear-gradient(180deg, transparent, rgba(2, 5, 6, 0.88) 18%, rgba(2, 5, 6, 0.97) 100%);
   }
 
+  .panelLayer {
+    transform: none;
+  }
+
   .eyebrow {
     margin-bottom: 0.55rem;
     font-size: 8px;
@@ -1337,6 +1461,16 @@
   .motionHud strong {
     font-size: 0.76rem;
   }
+
+  .sceneAdvanceHint {
+    right: max(1rem, env(safe-area-inset-right));
+    bottom: max(5.15rem, calc(4.7rem + env(safe-area-inset-bottom)));
+    gap: 0.45rem;
+  }
+
+  .sceneAdvanceHint strong {
+    display: none;
+  }
 }
 
 @media (max-height: 720px) and (min-width: 768px) {
@@ -1385,8 +1519,27 @@
   }
 
   .playButton,
-  .chapterRail li > span,
+  .chapterRail li > button,
   .startProgress span {
     transition: none;
+  }
+
+  .pointerFollower,
+  .sceneAdvanceHint {
+    display: none;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .root[data-started]:not([data-control-deck]),
+  .root[data-started]:not([data-control-deck]) a,
+  .root[data-started]:not([data-control-deck]) button {
+    cursor: none;
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .pointerFollower {
+    display: none;
   }
 }
