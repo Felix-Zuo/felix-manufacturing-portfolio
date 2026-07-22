@@ -5,7 +5,7 @@ param(
     [ValidateRange(0, 51)]
     [int]$MobileCrf = 22,
     [switch]$SkipStreams,
-    [switch]$SkipLoops
+    [switch]$BuildRejectedLegacyLoops
 )
 
 $ErrorActionPreference = "Stop"
@@ -97,7 +97,7 @@ function New-StreamMaster {
     Invoke-Ffmpeg -Arguments $Arguments
 }
 
-function New-ForwardLoop {
+function New-RejectedLegacyForwardLoop {
     param(
         [string]$InputPath,
         [string]$OutputPath,
@@ -144,7 +144,8 @@ if (-not $SkipStreams) {
     New-StreamMaster -InputPattern $MobileFrames -OutputPath $MobileStream -Scale "720:1280" -Crf $MobileCrf
 }
 
-if (-not $SkipLoops) {
+if ($BuildRejectedLegacyLoops) {
+    Write-Warning "Building rejected camera-derived loops for rollback comparison only. Do not publish these files."
     if (-not (Test-Path -LiteralPath $DesktopStream) -or -not (Test-Path -LiteralPath $MobileStream)) {
         throw "Stream masters are required before building chapter loops"
     }
@@ -163,8 +164,8 @@ if (-not $SkipLoops) {
     foreach ($Chapter in $Chapters) {
         $DesktopOutput = Join-Path $HoldDir "$($Chapter.Id)-desktop.mp4"
         $MobileOutput = Join-Path $HoldDir "$($Chapter.Id)-mobile.mp4"
-        New-ForwardLoop -InputPath $DesktopStream -OutputPath $DesktopOutput -StartFrame $Chapter.Frame -ForwardFrames $Chapter.Frames -Scale "1600:900" -Crf 21
-        New-ForwardLoop -InputPath $MobileStream -OutputPath $MobileOutput -StartFrame $Chapter.Frame -ForwardFrames $Chapter.Frames -Scale "720:1280" -Crf 22
+        New-RejectedLegacyForwardLoop -InputPath $DesktopStream -OutputPath $DesktopOutput -StartFrame $Chapter.Frame -ForwardFrames $Chapter.Frames -Scale "1600:900" -Crf 21
+        New-RejectedLegacyForwardLoop -InputPath $MobileStream -OutputPath $MobileOutput -StartFrame $Chapter.Frame -ForwardFrames $Chapter.Frames -Scale "720:1280" -Crf 22
     }
 }
 

@@ -16,38 +16,35 @@ $Ffmpeg = if ($Ffmpeg) {
 }
 $MediaRoot = Join-Path $RepoRoot "public\media"
 $HoldRoot = Join-Path $MediaRoot "holds"
+$HoldSourceRoot = Join-Path $MediaRoot "hold-sources"
 
 $Chapters = @(
-    @{ Id = "origin"; Start = 1; Frames = 60 },
-    @{ Id = "notice"; Start = 433; Frames = 36 },
-    @{ Id = "takt"; Start = 553; Frames = 48 },
-    @{ Id = "visibility"; Start = 673; Frames = 36 },
-    @{ Id = "system"; Start = 793; Frames = 36 },
-    @{ Id = "close"; Start = 877; Frames = 36 }
+    "origin",
+    "notice",
+    "takt",
+    "visibility",
+    "system",
+    "close"
 )
 
 foreach ($Profile in @(
     @{ Name = "desktop"; Scale = "1600:900"; Crf = $DesktopCrf },
     @{ Name = "mobile"; Scale = "720:1280"; Crf = $MobileCrf }
 )) {
-    $Master = Join-Path $MediaRoot "felix-journey-stream-$($Profile.Name).mp4"
-    if (-not (Test-Path -LiteralPath $Master)) {
-        throw "Missing journey stream $Master"
-    }
-
     foreach ($Chapter in $Chapters) {
-        $StartIndex = [Math]::Max($Chapter.Start - 1, 0)
-        $EndIndex = $StartIndex + $Chapter.Frames
-        $Output = Join-Path $HoldRoot "$($Chapter.Id)-$($Profile.Name).mp4"
-        $Filter = "[0:v]trim=start_frame=$StartIndex`:end_frame=$EndIndex,setpts=PTS-STARTPTS,split=2[f][r0];[r0]reverse,setpts=PTS-STARTPTS[r];[f][r]concat=n=2`:v=1`:a=0,fps=24,scale=$($Profile.Scale)`:flags=lanczos,format=yuv420p[loop]"
+        $Source = Join-Path $HoldSourceRoot "$Chapter-$($Profile.Name).mp4"
+        if (-not (Test-Path -LiteralPath $Source)) {
+            throw "Missing dedicated fixed-camera environmental loop $Source"
+        }
+        $Output = Join-Path $HoldRoot "$Chapter-$($Profile.Name).mp4"
+        $Filter = "fps=24,scale=$($Profile.Scale)`:flags=lanczos,format=yuv420p"
 
         & $Ffmpeg `
             -y `
             -hide_banner `
             -loglevel warning `
-            -i $Master `
-            -filter_complex $Filter `
-            -map "[loop]" `
+            -i $Source `
+            -vf $Filter `
             -an `
             -c:v libx264 `
             -preset slow `
@@ -60,7 +57,7 @@ foreach ($Profile in @(
             $Output
 
         if ($LASTEXITCODE -ne 0) {
-            throw "Seamless hold failed for $($Chapter.Id) $($Profile.Name)"
+            throw "Environmental hold encode failed for $Chapter $($Profile.Name)"
         }
     }
 }

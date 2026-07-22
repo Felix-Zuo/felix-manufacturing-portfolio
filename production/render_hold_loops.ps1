@@ -1,8 +1,9 @@
 param(
     [ValidateSet("desktop", "mobile")]
     [string]$Mode = "desktop",
-    [ValidateSet("impact", "process", "takt")]
-    [string[]]$Chapters = @("impact", "process"),
+    [Parameter(Mandatory = $true)]
+    [ValidateSet("takt")]
+    [string[]]$Chapters,
     [ValidateRange(1, 128)]
     [int]$Samples = 24,
     [string]$Blender,
@@ -51,8 +52,6 @@ try {
     $Crf = if ($Mode -eq "desktop") { 20 } else { 21 }
 
     $Specs = @{
-        impact = @{ Start = 77; End = 180; Camera = 160; Frames = 72 }
-        process = @{ Start = 301; End = 348; Camera = 301; Frames = 48 }
         takt = @{ Start = 553; End = 600; Camera = 553; Frames = 48 }
     }
 

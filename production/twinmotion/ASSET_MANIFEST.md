@@ -1,5 +1,15 @@
 # V5 Asset Manifest
 
+## Import Diagnostics
+
+- `twinmotion-scale-probe-v1.glb`: controlled five-encoding unit and animation
+  probe; Twinmotion 2026.1 preserved all 1 m cubes during motion.
+- `robot-pick-place-v10.glb` / `.fbx`: Blender roundtrip passes, but the
+  Twinmotion viewport does not preserve the complete full-size robot. These are
+  diagnostic handoffs only and are not approved production animation assets.
+- Production decision and evidence:
+  `production/twinmotion/TWINMOTION_IMPORT_DIAGNOSTIC.md`.
+
 ## Asset Policy
 
 Use licensed geometry only when it improves silhouette, topology, or material fidelity. Keep original license records and listing URLs. Do not publish source asset files in the public website repository. Only rendered media and project-owned geometry may ship publicly.
@@ -18,16 +28,23 @@ The approved reference is `production/v5/source-frames/s01-entry-clean.png`. The
 
 No reusable cloud asset pack is currently downloaded in the local Twinmotion Library. The current local project cache contains only the project's imported SUM geometry and materials.
 
+## Corrected Production Status - 2026-07-22
+
+The previous status labels were based on geometry inventory and scripted
+metadata rather than a neutral turntable, mechanism proof, clearance report, and
+Twinmotion lookdev render. User review rejected that evidence standard. The
+robot, grinder, hall, and material pass are therefore reopened below.
+
 ## Production Asset Plan
 
 | Role | Source | Status | Production rule |
 | --- | --- | --- | --- |
-| Hall architecture | Original modular Blender geometry | Build now | Portal frames, pitched roof, skylights, clerestory glazing, purlins, luminaires, pipes, cable trays, wall panels, and floor joints must follow one structural grid. |
-| Machine row | Original modular Blender geometry | Build now | Repeated enclosed precision-machine bays with credible service panels, windows, HMIs, status towers, and safety clearances. Use repetition for rhythm, not random prop density. |
-| AGV | Original Blender geometry | Build now | Low-profile body, protected wheels, lidar/safety sensors, light strips, and an unobstructed painted route. No raised rail or overhead obstruction. |
-| Robot cell | ROS-Industrial KR 210 plus original cell infrastructure | Production ready | Black welded-mesh guarding and safety-yellow posts retain a clear transfer opening. The former procedural arm is excluded from render/export. The KR 210 has real split-link geometry, URDF pivots, six animated axes, service cables, joint hardware, and a project-owned servo gripper. |
-| Bearing grinder | Original Blender process model with production-detail pass | Production ready | Mechanically reviewed horizontal work and wheel-spindle axes, a small CBN wheel entering the inner-ring raceway, B-axis pedestal, chuck/soft jaws, linear guides, bellows, spindle motor, coolant, dresser, process camera, and animated sliding doors. Do not replace it with a generic CNC asset. |
-| Screens | Original geometry plus real project captures | Integrate now | Recess the display into machine architecture. The screen must remain readable in a dedicated front-on shot and use the actual project UI. |
+| Hall architecture | Original modular Blender geometry | Proxy only | The structural rhythm is reusable as blockout. Replace foreground dressing and materials with licensed Twinmotion/Fab assets after scale and license review. |
+| Machine row | Original modular Blender geometry | Proxy only | Silhouette and service clearances need a real-machine reference pass. Primitive panels are not foreground assets. |
+| AGV | Original Blender geometry | Revise | Keep the low-profile route concept. Rebuild wheel, sensor, bumper, payload, and floor-contact detail before hero use. |
+| Robot cell | ROS-Industrial KR 210 plus original cell infrastructure | Rejected for final | The licensed link geometry is reusable, but the current hand-authored pose table, visibility-swapped workpiece, gripper path, and cell clearances fail the pick-place contract. Re-rig with target-driven motion and collision checks. |
+| Bearing grinder | Original Blender process model | Rejected for final | Current geometry remains a dimensional study only. The world-space spindle presentation, witness motion, wheel/raceway contact readability, coolant, sparks, internals, and PBR finish all require a new proof. |
+| Screens | Original geometry plus real project captures | Revise | Recessed placement is reusable. Screen emissive masks and DOM alignment must be verified from the final camera rather than inferred from a still. |
 
 ## Reject by Default
 

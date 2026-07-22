@@ -363,15 +363,32 @@ def _create_action(
     return action
 
 
+def _declared_spin_axis_index(obj: bpy.types.Object) -> int:
+    raw_axis = obj.get("rotation_axis_local")
+    try:
+        axis = tuple(float(value) for value in raw_axis)
+    except (TypeError, ValueError):
+        raise ValueError(f"{obj.name} is missing rotation_axis_local")
+    if len(axis) != 3:
+        raise ValueError(f"{obj.name} is missing rotation_axis_local")
+    axis_index = max(range(3), key=lambda index: abs(axis[index]))
+    if abs(abs(axis[axis_index]) - 1.0) > 1.0e-4 or any(
+        abs(value) > 1.0e-4 for index, value in enumerate(axis) if index != axis_index
+    ):
+        raise ValueError(f"{obj.name} rotation_axis_local must be a cardinal unit axis")
+    return axis_index
+
+
 def _spin_channel(
     obj: bpy.types.Object,
     clock: _ClockSamples,
     nominal_rpm: float,
     direction: float,
-) -> tuple[list[tuple[int, float, float]], float, int]:
+) -> tuple[list[tuple[int, float, float]], float, int, int]:
     _preserve_base_as_quaternion(obj)
     base_delta = _stored_vector(obj, "delta_rotation", obj.delta_rotation_euler)
     obj.delta_rotation_euler = base_delta
+    axis_index = _declared_spin_axis_index(obj)
     visual_duration = clock.visual_seconds[-1]
     turns = max(1, int(round(abs(nominal_rpm) * visual_duration / 60.0)))
     angular_speed = direction * math.tau * turns / visual_duration
@@ -379,7 +396,7 @@ def _spin_channel(
     keys = [
         (
             frame,
-            base_delta[2] + angular_speed * visual_time,
+            base_delta[axis_index] + angular_speed * visual_time,
             angular_speed * rate * seconds_per_frame,
         )
         for frame, visual_time, rate in zip(
@@ -389,8 +406,10 @@ def _spin_channel(
     effective_rpm = abs(angular_speed) * 60.0 / math.tau
     obj["sum_animation_nominal_rpm"] = float(nominal_rpm)
     obj["sum_animation_effective_rpm"] = float(effective_rpm)
-    obj["sum_animation_spin_axis_geometry_local"] = [0.0, 0.0, 1.0]
-    return keys, effective_rpm, turns
+    obj["sum_animation_spin_axis_geometry_local"] = list(
+        obj["rotation_axis_local"]
+    )
+    return keys, effective_rpm, turns, axis_index
 
 
 _ROBOT_POSES_DEGREES: tuple[tuple[float, tuple[float, ...]], ...] = (
@@ -827,14 +846,14 @@ def animate_assets(assets: Any, fps: int = 24, duration: float = 38) -> dict[str
     missing_optional: list[str] = []
     agv_route: dict[str, float | int | str] | None = None
 
-    bearing_keys, bearing_rpm, bearing_turns = _spin_channel(
+    bearing_keys, bearing_rpm, bearing_turns, bearing_axis = _spin_channel(
         bearing, bearing_clock, nominal_rpm=84.0, direction=1.0
     )
     actions["bearing_rotation"] = _create_action(
         bearing,
         f"{_ACTION_PREFIX}BearingInspection",
         "bearing_inspection_rotation",
-        (("delta_rotation_euler", 2, bearing_keys),),
+        (("delta_rotation_euler", bearing_axis, bearing_keys),),
         fps,
         duration,
     )
@@ -910,14 +929,14 @@ def animate_assets(assets: Any, fps: int = 24, duration: float = 38) -> dict[str
     else:
         missing_optional.append("grinder_doors")
 
-    wheel_keys, wheel_rpm, wheel_turns = _spin_channel(
+    wheel_keys, wheel_rpm, wheel_turns, wheel_axis = _spin_channel(
         wheel, grinding_clock, nominal_rpm=11500.0, direction=1.0
     )
     actions["grinding_wheel"] = _create_action(
         wheel,
         f"{_ACTION_PREFIX}GrindingWheel",
         "grinding_wheel_rotation",
-        (("delta_rotation_euler", 2, wheel_keys),),
+        (("delta_rotation_euler", wheel_axis, wheel_keys),),
         fps,
         duration,
     )
@@ -927,14 +946,14 @@ def animate_assets(assets: Any, fps: int = 24, duration: float = 38) -> dict[str
         "loop_turns": wheel_turns,
     }
 
-    workpiece_keys, workpiece_rpm, workpiece_turns = _spin_channel(
+    workpiece_keys, workpiece_rpm, workpiece_turns, workpiece_axis = _spin_channel(
         workpiece, grinding_clock, nominal_rpm=240.0, direction=-1.0
     )
     actions["grinding_workpiece"] = _create_action(
         workpiece,
         f"{_ACTION_PREFIX}GrindingWorkpiece",
         "grinding_workpiece_counter_rotation",
-        (("delta_rotation_euler", 2, workpiece_keys),),
+        (("delta_rotation_euler", workpiece_axis, workpiece_keys),),
         fps,
         duration,
     )

@@ -267,12 +267,22 @@ def _configure_process_rotation(
         return
     obj.animation_data_clear()
     obj.rotation_mode = "XYZ"
-    start_rotation = float(obj.delta_rotation_euler.z)
+    raw_axis = obj.get("rotation_axis_local")
+    try:
+        axis = tuple(float(value) for value in raw_axis)
+    except (TypeError, ValueError):
+        raise ValueError(f"{obj.name} is missing rotation_axis_local")
+    if len(axis) != 3:
+        raise ValueError(f"{obj.name} is missing rotation_axis_local")
+    axis_index = max(range(3), key=lambda index: abs(axis[index]))
+    start_rotation = float(obj.delta_rotation_euler[axis_index])
     end_frame = start_frame + frame_count - 1
-    obj.delta_rotation_euler.z = start_rotation
-    obj.keyframe_insert("delta_rotation_euler", index=2, frame=start_frame)
-    obj.delta_rotation_euler.z = start_rotation + math.tau * turns
-    obj.keyframe_insert("delta_rotation_euler", index=2, frame=end_frame)
+    obj.delta_rotation_euler[axis_index] = start_rotation
+    obj.keyframe_insert(
+        "delta_rotation_euler", index=axis_index, frame=start_frame
+    )
+    obj.delta_rotation_euler[axis_index] = start_rotation + math.tau * turns
+    obj.keyframe_insert("delta_rotation_euler", index=axis_index, frame=end_frame)
     if obj.animation_data and obj.animation_data.action:
         for curve in obj.animation_data.action.fcurves:
             for point in curve.keyframe_points:
@@ -360,28 +370,6 @@ def add_process_dynamics(
     return spark_count + hidden_artifacts + coolant_objects
 
 
-def prepare_impact_scene() -> None:
-    foreground_guard = bpy.data.objects.get("SUM_RobotCell_BlackGuardRails")
-    if foreground_guard is not None:
-        foreground_guard.hide_render = True
-
-
-def update_impact_story(source_frame: int) -> None:
-    held_names = (
-        "SUM_KUKA_Gripper_HeldBearingRing_WIP",
-        "SUM_KUKA_Gripper_HeldBearingRing_RacewayWitness",
-    )
-    held_visible = 118 <= source_frame < 176
-    for name in held_names:
-        obj = bpy.data.objects.get(name)
-        if obj is not None:
-            obj.hide_render = not held_visible
-
-    infeed_ring = bpy.data.objects.get("SUM_RobotCell_InfeedBearingRing_02")
-    if infeed_ring is not None:
-        infeed_ring.hide_render = held_visible
-
-
 def main() -> None:
     args = parse_args()
     if args.frame_count < 2:
@@ -393,12 +381,11 @@ def main() -> None:
     camera_frame = args.camera_frame if args.camera_frame is not None else args.start_frame
     freeze_camera(scene, camera_frame)
     dynamic_object_count = 0
-    if args.chapter == "process":
-        dynamic_object_count = add_process_dynamics(
-            scene, args.start_frame, args.frame_count
+    if args.chapter in {"impact", "process"}:
+        raise RuntimeError(
+            f"The legacy {args.chapter} hold is rejected and disabled. Render "
+            "the corresponding validated mechanical proof instead."
         )
-    elif args.chapter == "impact":
-        prepare_impact_scene()
 
     rendered = 0
     for output_index in range(1, args.frame_count + 1):
@@ -413,8 +400,6 @@ def main() -> None:
             eased = progress * progress * (3.0 - 2.0 * progress)
             source_frame = round(args.start_frame + (args.end_frame - args.start_frame) * eased)
         scene.frame_set(source_frame)
-        if args.chapter == "impact":
-            update_impact_story(source_frame)
         scene.render.filepath = str(output_path)
         bpy.ops.render.render(write_still=True)
         rendered += 1

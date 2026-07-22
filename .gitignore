@@ -43,6 +43,8 @@ production/logs/
 production/twinmotion/import/
 production/twinmotion/project/
 production/twinmotion/library/
+production/assets/local-library/
+production/assets/generated/coolant-sprite-*/
 
 # python
 __pycache__/

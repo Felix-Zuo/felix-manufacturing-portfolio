@@ -19,7 +19,7 @@ if (-not (Test-Path -LiteralPath $Ffmpeg)) {
     throw "ffmpeg was not found at $Ffmpeg"
 }
 
-$OutputFrameRate = 30
+$OutputFrameRate = 24
 $OutputDir = Join-Path $RepoRoot "public\media\transitions"
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 
@@ -87,9 +87,9 @@ foreach ($Segment in $Segments) {
             "-color_range", "tv",
             "-movflags", "+faststart",
             "-flags", "+cgop",
-            "-x264-params", "keyint=30:min-keyint=15:scenecut=0:open-gop=0:colorprim=bt709:transfer=bt709:colormatrix=bt709",
-            "-g", "30",
-            "-keyint_min", "15",
+            "-x264-params", "keyint=24:min-keyint=12:scenecut=0:open-gop=0:colorprim=bt709:transfer=bt709:colormatrix=bt709",
+            "-g", "24",
+            "-keyint_min", "12",
             "-sc_threshold", "0",
             $OutputPath
         )

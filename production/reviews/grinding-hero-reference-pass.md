@@ -1,6 +1,12 @@
 # Grinding Hero Reference Pass
 
-Status: **PASS**
+Status: **REJECTED BY USER REVIEW - 2026-07-22**
+
+The historical notes below describe what the scripted build intended to prove.
+They are retained for traceability, but object counts, metadata, and selected
+frames did not prove the mechanism or final visual quality. This asset cannot be
+reused as an approved hero shot until it passes
+`production/INDUSTRIAL_MOTION_CONTRACT.md`.
 
 ## Scope
 

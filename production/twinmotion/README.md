@@ -3,13 +3,20 @@
 ## Chosen Workflow
 
 1. Use the existing Blender scene as the dimensional and mechanical source.
-2. Export static factory geometry and animated robot/grinding assemblies as GLB.
-3. Assemble licensed environment modules and PBR assets in Twinmotion.
-4. Replace V4 lookdev with clean daylight, path-traced materials, and an exact camera sequence.
-5. Render a short 5-second lookdev proof before building the complete 30-second journey.
-6. Encode the approved master for scroll-controlled playback on the website.
+2. Use Twinmotion for static factory-space, material, daylight, and composition
+   references only.
+3. Reproduce the approved static look in Blender and keep the mechanically
+   validated robot, grinder, coolant, sparks, conveyor, and camera there.
+4. Render one short transition proof and one fixed-camera hold loop before the
+   complete journey.
+5. Encode the approved transition and hold masters as preloaded web video.
+6. Advance the website by click/tap between chapter nodes; do not run the
+   production factory as real-time browser 3D.
 
-Twinmotion is the final visual tool. Blender remains in the pipeline because Unreal/Twinmotion are not mechanical modeling applications and cannot replace precise raceway, spindle, robot pivot, or bearing geometry authoring.
+Blender is the final animation and rendering tool. Twinmotion remains a useful
+look-development reference, but its complex robot import failed the visual gate
+even though the same GLB and FBX files passed clean Blender roundtrips. See
+`TWINMOTION_IMPORT_DIAGNOSTIC.md` for the controlled scale-probe result.
 
 ## Local Export
 
@@ -37,6 +44,45 @@ Validate the complete GLB in a clean scene:
 ```
 
 Import `environment-static.glb` through Twinmotion Geometry import. Import `mechanical-animation.glb` through the Animation tab so its tracks are available in Sequence mode.
+
+## Mechanical Proof Handoff Gate
+
+Do not refresh an older Twinmotion animation card when comparing exporter
+formats. A refresh can preserve stale hierarchy visibility and cached import
+state. Import each candidate as a new Animation card, keep all older candidates
+hidden, and visually check the first, midpoint, contact, placement, and final
+states.
+
+The robot proof is exported with inherited world motion baked onto independent
+visible objects. Twinmotion receives a shallow static root rather than the deep
+robotics hierarchy used for mechanism authoring.
+
+```powershell
+& $blender `
+  --background 'production\scenes\robot-pick-place-proof.blend' `
+  --python 'production\blender\export_twinmotion_proof.py' -- `
+  --output 'production\twinmotion\import\robot-pick-place-v9.fbx' `
+  --report 'production\twinmotion\import\robot-pick-place-v9.json' `
+  --asset-id robot-pick-place-v9 `
+  --family robot `
+  --format fbx
+```
+
+Roundtrip the exact handoff file through a clean Blender scene before opening
+Twinmotion. This proves that mesh count, animation actions, sampled world motion,
+and the loop envelope survive interchange.
+
+```powershell
+& $blender `
+  --background `
+  --python 'production\blender\validate_twinmotion_roundtrip.py' -- `
+  --input 'production\twinmotion\import\robot-pick-place-v9.fbx' `
+  --report 'production\twinmotion\import\robot-pick-place-v9-roundtrip.json'
+```
+
+Passing the roundtrip gate is necessary but not sufficient. Twinmotion playback
+must still show the complete robot and workpiece movement in the viewport before
+material dressing or camera work begins.
 
 ## First Lookdev Gate
 

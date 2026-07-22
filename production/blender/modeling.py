@@ -2118,6 +2118,7 @@ def _build_grinding_cell(
     workpiece["workpiece_type"] = "bearing_outer_ring"
     workpiece["workpiece_outer_diameter_m"] = 0.290
     workpiece["workpiece_bore_diameter_m"] = 0.170
+    workpiece["rotation_axis_local"] = [0.0, 0.0, 1.0]
 
     _annular_prism(
         "SUM_GrindingCell_Workholding_BackupFlange",
@@ -2174,7 +2175,8 @@ def _build_grinding_cell(
     grinding_wheel["wheel_core_diameter_m"] = 0.024
     grinding_wheel["wheel_bond"] = "vitrified CBN"
     grinding_wheel["maximum_surface_speed_mps"] = 60.0
-    grinding_wheel["rotation_axis_local"] = [1.0, 0.0, 0.0]
+    # `_cylinder_between` aligns the mesh's local Z axis to the modeled shaft.
+    grinding_wheel["rotation_axis_local"] = [0.0, 0.0, 1.0]
     grinding_wheel["nominal_radial_contact_offset_m"] = wheel_contact_offset
     grinding_wheel["contact_relationship"] = (
         "profiled wheel radius 0.049 m tangent to internal raceway radius 0.096 m"
