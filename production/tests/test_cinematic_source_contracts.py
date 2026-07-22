@@ -155,6 +155,18 @@ class CinematicSourceContracts(unittest.TestCase):
         self.assertIn("<OperationalVisualization", source)
         self.assertIn("styles.visualizationRegister", source)
 
+    def test_start_gate_offers_journey_and_console_without_auto_start(self) -> None:
+        source = (ROOT / "src" / "components" / "CinematicPortfolio.tsx").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("journeyChoiceTitle", source)
+        self.assertIn("controlChoiceTitle", source)
+        self.assertIn("openControlFromGate", source)
+        self.assertIn("onClick={beginJourney}", source)
+        self.assertIn("onClick={openControlFromGate}", source)
+        self.assertNotIn("data-leaving={startGateLeaving || undefined}\n          onClick={beginJourney}", source)
+
 
 if __name__ == "__main__":
     unittest.main()

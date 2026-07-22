@@ -436,6 +436,12 @@ const UI_COPY = {
     language: "Language",
     loadingAria: "Portfolio is loading",
     loadingPortfolio: "Loading Felix's portfolio",
+    exploreOptions: "Choose how to explore Felix Zuo's portfolio",
+    journeyChoiceEyebrow: "Cinematic factory journey",
+    journeyChoiceTitle: "Tour production-line digital projects & code",
+    controlChoiceAria: "Open factory project console cases",
+    controlChoiceEyebrow: "Factory project atlas",
+    controlChoiceTitle: "View project console cases",
     nextChapter: (label: string) => `Next chapter: ${label}`,
     openControlRoom: "Open control room",
     operationsMeta: "FZ / Manufacturing operations",
@@ -468,6 +474,12 @@ const UI_COPY = {
     language: "语言",
     loadingAria: "作品集正在载入",
     loadingPortfolio: "正在载入 Felix 的作品集",
+    exploreOptions: "选择作品集浏览方式",
+    journeyChoiceEyebrow: "沉浸式产线参观",
+    journeyChoiceTitle: "参观产线落地的数字化项目实例与代码",
+    controlChoiceAria: "打开工厂项目控制台实例",
+    controlChoiceEyebrow: "工厂项目总览",
+    controlChoiceTitle: "查看控制台项目实例",
     nextChapter: (label: string) => `下一章：${label}`,
     openControlRoom: "进入项目控制台",
     operationsMeta: "FZ / 制造运营",
@@ -1107,6 +1119,26 @@ export function CinematicPortfolio() {
     window.history.replaceState(null, "", "#contact");
   }, []);
 
+  const openControlFromGate = useCallback(() => {
+    if (!preloader.ready || started) return;
+
+    setStarted(true);
+    setStartGateLeaving(true);
+    setActiveIndex(CHAPTERS.length - 1);
+    setOutgoingIndex(null);
+    setJourneyMotion(null);
+    setTransitioning(false);
+    setControlProjectId(null);
+    setControlDeckVisible(true);
+    window.history.replaceState(null, "", "#control");
+
+    schedule(() => {
+      setStartGateVisible(false);
+      setControlDeckActive(true);
+      rootRef.current?.focus();
+    }, reducedMotion ? 0 : START_GATE_MS);
+  }, [preloader.ready, reducedMotion, schedule, started]);
+
   const handleControlProjectChange = useCallback(
     (projectId: FactoryProjectId | null) => {
       setControlProjectId(projectId);
@@ -1176,10 +1208,6 @@ export function CinematicPortfolio() {
       return;
     }
     if (!started) {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        beginJourney();
-      }
       return;
     }
 
@@ -1317,9 +1345,9 @@ export function CinematicPortfolio() {
 
       {startGateVisible && (
         <div
+          aria-label={copy.exploreOptions}
           className={styles.startGate}
           data-leaving={startGateLeaving || undefined}
-          onClick={beginJourney}
         >
           <picture className={styles.startVisual}>
             <source media={MOBILE_QUERY} srcSet={startImage("mobile")} />
@@ -1346,31 +1374,58 @@ export function CinematicPortfolio() {
             <h1>{copy.startTitle}</h1>
             <span className={styles.startSummary}>{copy.startSummary}</span>
 
-            <button
-              aria-label={preloader.ready ? copy.startAria : copy.loadingAria}
-              className={styles.startButton}
-              data-pointer-role="primary"
-              disabled={!preloader.ready}
-              onClick={(event) => {
-                event.stopPropagation();
-                beginJourney();
-              }}
-              type="button"
-            >
-              <span className={styles.playButton}>
-                <Play aria-hidden="true" fill="currentColor" size={19} />
-              </span>
-              <span>
-                <small>
-                  {preloader.ready ? copy.startHint : copy.loadingPortfolio}
-                </small>
-                <strong>
-                  {preloader.ready
-                    ? copy.startValue
-                    : `${Math.round(preloader.progress * 100)}%`}
-                </strong>
-              </span>
-            </button>
+            {preloader.ready ? (
+              <div aria-label={copy.exploreOptions} className={styles.startChoices} role="group">
+                <button
+                  aria-label={copy.startAria}
+                  className={`${styles.startChoice} ${styles.startChoicePrimary}`}
+                  data-pointer-role="primary"
+                  onClick={beginJourney}
+                  type="button"
+                >
+                  <span className={styles.choiceIcon}>
+                    <Play aria-hidden="true" fill="currentColor" size={17} />
+                  </span>
+                  <span>
+                    <small>{copy.journeyChoiceEyebrow}</small>
+                    <strong>{copy.journeyChoiceTitle}</strong>
+                  </span>
+                  <ArrowRight aria-hidden="true" className={styles.choiceArrow} />
+                </button>
+
+                <button
+                  aria-label={copy.controlChoiceAria}
+                  className={`${styles.startChoice} ${styles.startChoiceSecondary}`}
+                  data-pointer-role="action"
+                  onClick={openControlFromGate}
+                  type="button"
+                >
+                  <span className={styles.choiceIcon}>
+                    <ArrowUpRight aria-hidden="true" size={17} />
+                  </span>
+                  <span>
+                    <small>{copy.controlChoiceEyebrow}</small>
+                    <strong>{copy.controlChoiceTitle}</strong>
+                  </span>
+                  <ArrowRight aria-hidden="true" className={styles.choiceArrow} />
+                </button>
+              </div>
+            ) : (
+              <button
+                aria-label={copy.loadingAria}
+                className={styles.startButton}
+                disabled
+                type="button"
+              >
+                <span className={styles.playButton}>
+                  <Play aria-hidden="true" fill="currentColor" size={19} />
+                </span>
+                <span>
+                  <small>{copy.loadingPortfolio}</small>
+                  <strong>{Math.round(preloader.progress * 100)}%</strong>
+                </span>
+              </button>
+            )}
 
             <div className={styles.startProgress} aria-hidden="true">
               <span style={{ transform: `scaleX(${preloader.progress})` }} />
