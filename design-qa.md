@@ -1,67 +1,63 @@
-# Design QA
+# Goal 2 Design QA
 
-## Comparison Target
+Date: 2026-07-22
 
-- Source visual truth: `C:\Users\左雅轩\.codex\generated_images\019f2880-3dda-79f1-abbe-c0ec53b8f387\exec-061af77c-fd06-4620-abfb-f2f6aa3d9340.png`
-- Implementation: `http://127.0.0.1:3000/`
-- Desktop implementation evidence: `D:\0A OpenClaw\projects\展示项目\SUM\.codex\cinematic-redesign\v4-desktop-final.png`
-- Desktop project-state evidence: `D:\0A OpenClaw\projects\展示项目\SUM\.codex\cinematic-redesign\v4-desktop-notice-final.png`
-- Mobile evidence: `D:\0A OpenClaw\projects\展示项目\SUM\.codex\cinematic-redesign\v4-mobile-top.png` and `D:\0A OpenClaw\projects\展示项目\SUM\.codex\cinematic-redesign\v4-mobile-notice-final.png`
-- Viewports: 1440 x 1024 desktop; 390 x 844 mobile
-- States: entry frame, grinding bullet-time frame, case-study project frame, reduced-motion chapter navigation
-- Current streamed-cinematic comparison: `production/renders/browser-qa/v12-interaction-audit/21-production-local-comparison.png`
-- Current mobile evidence: `production/renders/browser-qa/v12-interaction-audit/15-mobile-notice.png` and `production/renders/browser-qa/v12-interaction-audit/16-mobile-control-deck.png`
+## Scope
 
-## Comparison Evidence
+Five-zone factory project hub at `/#control`, preserving the accepted cinematic
+control-room environment and the existing portfolio design language.
 
-- Full-view comparison: `D:\0A OpenClaw\projects\展示项目\SUM\.codex\cinematic-redesign\design-comparison.png`
-- Focused project-frame comparison: `D:\0A OpenClaw\projects\展示项目\SUM\.codex\cinematic-redesign\design-comparison-project-sharp.png`
-- The focused comparison was required because the source direction's key fidelity surfaces are screen scale, arm placement, rail depth, and foreground/background separation.
+## Visual Truth
 
-## Findings
+- Source state: `production/renders/browser-qa/v16-goal2-before/control-deck-1280x720.jpg`
+- Final desktop overview: `production/renders/browser-qa/v16-goal2-work/08-overview-desktop-final.jpg`
+- Final desktop project state: `production/renders/browser-qa/v16-goal2-work/09-planning-desktop-final.jpg`
+- Final mobile overview: `production/renders/browser-qa/v16-goal2-work/05-overview-mobile-v2.jpg`
+- Final mobile project state: `production/renders/browser-qa/v16-goal2-work/04-wip-mobile.jpg`
+- Full comparison: `production/renders/browser-qa/v16-goal2-compare/full-desktop-side-by-side.jpg`
+- Focused comparison: `production/renders/browser-qa/v16-goal2-compare/lower-third-side-by-side.jpg`
 
-- No actionable P0, P1, or P2 findings remain.
-- [P3] The implementation deliberately uses less factory background density than the generated source. This follows the selected-direction feedback: remove ambiguous machinery, reduce element accumulation, and retain a single rail-led visual path.
-- [P3] The generated source uses a conspicuous architectural `Felix Zuo` sign. The implementation reduces the name to navigation and a low-contrast entry caption, matching the requested restraint.
+Desktop comparisons use the same 1280 x 720 viewport and the same control-room
+film state. Mobile validation uses a 390 x 844 viewport.
 
-## Required Fidelity Surfaces
+## Fidelity Review
 
-- Fonts and typography: Geist/Geist Mono create a controlled industrial hierarchy. Desktop and mobile headings wrap without clipping; letter spacing remains zero; small labels remain legible.
-- Spacing and layout rhythm: the fixed viewport keeps HUD controls stable while the camera moves. Desktop captions alternate away from the active screen. Mobile captions collapse to one safe lower region with no horizontal overflow.
-- Colors and visual tokens: graphite, steel blue, restrained amber, and emerald status accents match the established portfolio system. Bloom and chromatic aberration are intentionally subtle.
-- Image quality and asset fidelity: all project screens use the real 1920 x 1200 public evidence images. No placeholder product imagery, custom SVG illustration, or generated machine interior is used.
-- Copy and content: all eight chapters preserve the manufacturing narrative, measurable outcomes, three primary cases, connected systems, and contact path.
-- Icons: Lucide controls are consistently sized and labelled. Chapter, menu, hotspot, and return controls expose unique accessible names.
-- Accessibility and behavior: focus-visible styling remains global; reduced motion compresses the experience to one viewport and changes chapter controls into direct scene selection; mobile removes the arm where it would occlude content.
+- Typography: existing sans-serif and industrial monospace hierarchy retained;
+  project names now receive the strongest lower-third emphasis.
+- Spacing and layout: the factory remains the dominant layer; five labels occupy
+  real scene zones and the briefing stays below the primary machinery sightline.
+- Colors and tokens: black metal, hairline gray, amber signals, and white type
+  reuse the established control-room palette without introducing a new theme.
+- Image quality: the accepted control-room loop remains uncropped and continuously
+  visible; no placeholder or newly synthesized scene asset was introduced.
+- Copy and content: all five supplied management projects are represented with a
+  distinct operating scope, outcome signal, and three concise project signals.
+
+## Interaction Review
+
+- Scene hotspots and the bottom project rail select the same project state.
+- Direction keys move focus spatially between scene zones; Enter selects.
+- Home and End move to the first and final scene zones.
+- Escape returns from a project to the overview, then from the overview to the
+  cinematic journey.
+- Direct `/#control` loading starts the ambient film without a user gesture.
+- Reduced-motion mode pauses the film and removes nonessential transitions.
+- The film continues playing while project selection changes.
+- Desktop and 390 px mobile states have zero horizontal overflow.
+- Browser console inspection returned no warnings or errors.
 
 ## Comparison History
 
-1. Initial implementation pass
-   - Earlier P1: camera intersected the grinding enclosure and project screens filled almost the entire viewport.
-   - Earlier P2: spark particles became oversized squares and bloom obscured the scene.
-   - Fixes: moved the grinding cell off the camera path, reduced spark count/size/light intensity, lengthened the rear camera path, moved project rigs 10-16 world units ahead, reduced screen size, and lowered bloom.
-   - Post-fix evidence: `v4-desktop-process-final.png`, `v4-desktop-notice-final.png`.
+### Iteration 1
 
-2. Responsive and interaction pass
-   - Earlier P2: the arm crossed the project screenshot and became disconnected-looking on mobile.
-   - Earlier P2: the home footer extended the reduced-motion page beyond one viewport.
-   - Fixes: side-mounted and rescaled the desktop arm, removed it below 700 px, conditionally removed the footer on the home route, and added direct reduced-motion chapter selection.
-   - Post-fix evidence: `v4-desktop-notice-final.png`, `v4-mobile-notice-final.png`; browser check reports 390 px viewport with no horizontal overflow and reduced-motion scroll height equal to viewport height.
+The first mobile overview left too much empty space below the scene, hotspot labels
+were too small, and a direct `/#control` visit could leave the background film
+paused because of an autoplay timing race.
 
-## Interaction Verification
+### Iteration 2
 
-- The main 20 MB journey video now uses native browser streaming; only the smaller control-room and evidence media use the Blob preloader.
-- Wheel and swipe scrubbing no longer drive the film. A click or tap on the scene plays exactly one adjacent chapter; duplicate input is locked until the next approved hold frame.
-- Adjacent forward travel uses native `1.0x` playback instead of accelerated timeline chasing. Idle chapters run no persistent animation-frame loop; a three-second idle measurement recorded zero layouts, zero style recalculations, and under one millisecond of main-thread task time.
-- The visibly intersecting mechanical-handoff interval is removed from the public interaction path without re-rendering the master: the opening plays through the clean AGV/bearing move, fades briefly through black before the collision window, and lands at the clean F217 chapter anchor.
-- Chapter copy clears as motion starts and re-enters only after the camera has stopped. Backward and non-adjacent navigation use a covered seek rather than simulated reverse playback.
-- The contact-to-control-room transition follows the final rendered frames at native speed, fades through black, and transfers interaction at the end frame. The reverse transition uses the same covered-seek language.
-- The control room opens with Release selected, keeps selected hotspots visible, and exposes the mapped project screen, links, contact, replay, and keyboard return behavior.
-- 390 x 844 mobile checks passed for entry, project, menu, and control-room states with no horizontal overflow. Project copy fits without an internal scroll region, and previous/next controls expose 44 x 44 pixel touch targets.
-- Browser checks reported no runtime errors. `npm run lint`, `npx tsc --noEmit`, and `npm run build` passed.
-
-## Follow-up Polish
-
-- P3 only: tune the desktop entry spotlight after deployment if the production GPU tone mapping differs materially from local rendering.
+Added a compact overview lower third, increased hotspot and rail label legibility,
+and replayed the ambient loop from its `canplay` event. The second desktop/mobile
+comparison found no P0, P1, or P2 visual or interaction issues.
 
 final result: passed

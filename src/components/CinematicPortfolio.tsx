@@ -1167,15 +1167,7 @@ export function CinematicPortfolio() {
       <JourneyControlDeck
         active={controlDeckActive}
         backdropSrc={controlRoomVideo(mediaProfile ?? "desktop")}
-        mediaUrls={{
-          "control-room": "/media/control-room-loop.webm?v=14",
-          "scene-notice": "/evidence/notice-cinematic.png",
-          "scene-system": "/evidence/lab-cinematic.png",
-          "scene-visibility": "/evidence/visibility-cinematic.png",
-          "takt-live": "/evidence/takt-live-workbench.mp4",
-        }}
         onReturn={returnFromControlDeck}
-        taktVideoSrc="/evidence/takt-live-workbench.mp4"
         visible={controlDeckVisible}
       />
     </section>

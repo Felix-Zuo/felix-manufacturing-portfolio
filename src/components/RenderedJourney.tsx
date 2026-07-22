@@ -1406,9 +1406,7 @@ export function RenderedJourney({
       <JourneyControlDeck
         active={controlDeckActive}
         backdropSrc={preloader.urls["control-room"]}
-        mediaUrls={preloader.urls}
         onReturn={returnFromControlDeck}
-        taktVideoSrc={preloader.urls["takt-live"]}
         visible={controlDeckVisible}
       />
 
