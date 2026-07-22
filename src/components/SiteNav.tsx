@@ -15,7 +15,7 @@ const LOCALE_CHANGE_EVENT = "felix-portfolio-locale-change";
 
 const NAV_LABELS: Readonly<Record<string, Readonly<Record<Locale, string>>>> = {
   "#impact": { en: "Impact", zh: "成果" },
-  "#project-map": { en: "Project Map", zh: "项目地图" },
+  "#control": { en: "Project Console", zh: "项目控制台" },
   "#case-studies": { en: "Case Studies", zh: "案例研究" },
   "#portfolio-lab": { en: "Portfolio Lab", zh: "作品实验室" },
   "#methodology": { en: "Methodology", zh: "方法论" },

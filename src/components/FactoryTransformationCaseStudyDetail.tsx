@@ -115,13 +115,26 @@ const VISUALIZATION_ICONS: Readonly<Record<VisualizationKind, LucideIcon>> = {
 
 const UI_COPY = {
   en: {
-    back: "Return to portfolio",
+    back: "Return to project console",
+    consoleShortcut: "Project console",
+    consoleReturnLabel: "Return to all factory projects",
+    consoleReturnHint: "Back to the selected zone in the factory control room",
     caseFile: "Factory transformation case",
     publicSafe: "Public-safe evidence",
     localeLabel: "Language",
     overview: "Operating context",
     overviewIntro:
       "The operating condition, control gap, and transformation intent behind the system.",
+    article: "Project narrative",
+    articleIntro:
+      "A continuous account of the operating problem, the decisions made, and the system introduced on the factory floor.",
+    articleNav: "Narrative sections",
+    articleBackground: "Project background",
+    articleChallenges: "What had to change",
+    articleMethod: "Operating method",
+    articleDelivery: "Implementation",
+    articleResults: "Results",
+    articleRole: "Felix's role",
     facts: "Fact register",
     factNote:
       "Measured results stay separate from structural operating parameters.",
@@ -188,12 +201,24 @@ const UI_COPY = {
     networkCore: "Integrity control",
   },
   zh: {
-    back: "返回作品集",
+    back: "返回项目控制台",
+    consoleShortcut: "项目控制台",
+    consoleReturnLabel: "返回全部工厂项目",
+    consoleReturnHint: "回到工厂控制室中的当前项目区域",
     caseFile: "工厂改善案例",
     publicSafe: "公开安全证据",
     localeLabel: "语言",
     overview: "运营背景",
     overviewIntro: "说明体系改善前的运行状态、控制缺口与改造意图。",
+    article: "项目全文",
+    articleIntro: "以连续文章形式说明现场问题、关键判断、实施方法与最终形成的运行体系。",
+    articleNav: "文章目录",
+    articleBackground: "项目背景",
+    articleChallenges: "需要解决的问题",
+    articleMethod: "方法与运行机制",
+    articleDelivery: "实施过程",
+    articleResults: "项目成果",
+    articleRole: "Felix 的项目职责",
     facts: "事实指标",
     factNote: "量化结果与结构性运行参数严格分开呈现。",
     measured: "实测结果",
@@ -475,6 +500,7 @@ export function FactoryTransformationCaseStudyDetail({
     "--hero-desktop": `url("${heroMedia.desktop}")`,
     "--hero-mobile": `url("${heroMedia.mobile}")`,
   } as CSSProperties;
+  const consoleHref = `/#control-${caseStudy.id}`;
 
   useEffect(() => {
     document.documentElement.lang = locale === "zh" ? "zh-CN" : "en";
@@ -537,7 +563,7 @@ export function FactoryTransformationCaseStudyDetail({
 
         <div className={styles.heroInner}>
           <div className={styles.heroUtility}>
-            <Link className={styles.backLink} href="/#factory-transformation">
+            <Link className={styles.backLink} href={consoleHref}>
               <ArrowLeft aria-hidden="true" />
               {copy.back}
             </Link>
@@ -596,6 +622,15 @@ export function FactoryTransformationCaseStudyDetail({
         </div>
       </section>
 
+      <Link
+        aria-label={copy.consoleReturnLabel}
+        className={styles.consoleReturn}
+        href={consoleHref}
+      >
+        <ArrowLeft aria-hidden="true" />
+        <span>{copy.consoleShortcut}</span>
+      </Link>
+
       <section
         className={`${styles.section} ${styles.reveal}`}
         data-case-reveal
@@ -614,6 +649,159 @@ export function FactoryTransformationCaseStudyDetail({
               <p>{localize(paragraph, locale)}</p>
             </article>
           ))}
+        </div>
+      </section>
+
+      <section
+        aria-labelledby={`article-title-${caseStudy.id}`}
+        className={`${styles.articleBand} ${styles.reveal}`}
+        data-case-reveal
+      >
+        <div className={styles.articleInner}>
+          <aside className={styles.articleRail}>
+            <span className={styles.sectionIndex}>READ / PROJECT RECORD</span>
+            <h2 id={`article-title-${caseStudy.id}`}>{copy.article}</h2>
+            <p>{copy.articleIntro}</p>
+            <nav aria-label={copy.articleNav}>
+              {[
+                ["background", copy.articleBackground],
+                ["challenges", copy.articleChallenges],
+                ["method", copy.articleMethod],
+                ["delivery", copy.articleDelivery],
+                ["results", copy.articleResults],
+                ["role", copy.articleRole],
+              ].map(([anchor, label], index) => (
+                <a href={`#article-${caseStudy.id}-${anchor}`} key={anchor}>
+                  <span>{String(index + 1).padStart(2, "0")}</span>
+                  {label}
+                </a>
+              ))}
+            </nav>
+          </aside>
+
+          <div className={styles.articleBody}>
+            <article
+              className={styles.articleChapter}
+              id={`article-${caseStudy.id}-background`}
+            >
+              <div className={styles.articleChapterHeading}>
+                <span>01</span>
+                <h3>{copy.articleBackground}</h3>
+              </div>
+              <div className={styles.articleProse}>
+                {caseStudy.background.map((paragraph, index) => (
+                  <p key={`${caseStudy.id}-article-background-${index}`}>
+                    {localize(paragraph, locale)}
+                  </p>
+                ))}
+              </div>
+            </article>
+
+            <article
+              className={styles.articleChapter}
+              id={`article-${caseStudy.id}-challenges`}
+            >
+              <div className={styles.articleChapterHeading}>
+                <span>02</span>
+                <h3>{copy.articleChallenges}</h3>
+              </div>
+              <div className={styles.articlePointList}>
+                {caseStudy.challenges.map((challenge, index) => (
+                  <section key={challenge.id}>
+                    <span>{String(index + 1).padStart(2, "0")}</span>
+                    <div>
+                      <h4>{localize(challenge.title, locale)}</h4>
+                      <p>{localize(challenge.detail, locale)}</p>
+                    </div>
+                  </section>
+                ))}
+              </div>
+            </article>
+
+            <article
+              className={styles.articleChapter}
+              id={`article-${caseStudy.id}-method`}
+            >
+              <div className={styles.articleChapterHeading}>
+                <span>03</span>
+                <h3>{copy.articleMethod}</h3>
+              </div>
+              <div className={styles.articlePointList}>
+                {caseStudy.methods.map((method, index) => (
+                  <section key={method.id}>
+                    <span>{String(index + 1).padStart(2, "0")}</span>
+                    <div>
+                      <h4>{localize(method.title, locale)}</h4>
+                      <p>{localize(method.detail, locale)}</p>
+                    </div>
+                  </section>
+                ))}
+              </div>
+            </article>
+
+            <article
+              className={styles.articleChapter}
+              id={`article-${caseStudy.id}-delivery`}
+            >
+              <div className={styles.articleChapterHeading}>
+                <span>04</span>
+                <h3>{copy.articleDelivery}</h3>
+              </div>
+              <div className={styles.articlePointList}>
+                {caseStudy.implementationSteps.map((step) => (
+                  <section key={step.id}>
+                    <span>{String(step.sequence).padStart(2, "0")}</span>
+                    <div>
+                      <h4>{localize(step.title, locale)}</h4>
+                      <p>{localize(step.detail, locale)}</p>
+                      <ul>
+                        {step.actions.map((action) => (
+                          <li key={localize(action, locale)}>
+                            {localize(action, locale)}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </section>
+                ))}
+              </div>
+            </article>
+
+            <article
+              className={styles.articleChapter}
+              id={`article-${caseStudy.id}-results`}
+            >
+              <div className={styles.articleChapterHeading}>
+                <span>05</span>
+                <h3>{copy.articleResults}</h3>
+              </div>
+              <ol className={styles.articleOutcomeList}>
+                {caseStudy.outcomes.map((outcome) => (
+                  <li key={outcome.id}>
+                    <p>{localize(outcome.statement, locale)}</p>
+                    {outcome.qualification ? (
+                      <small>{localize(outcome.qualification, locale)}</small>
+                    ) : null}
+                  </li>
+                ))}
+              </ol>
+            </article>
+
+            <article
+              className={styles.articleChapter}
+              id={`article-${caseStudy.id}-role`}
+            >
+              <div className={styles.articleChapterHeading}>
+                <span>06</span>
+                <h3>{copy.articleRole}</h3>
+              </div>
+              <ol className={styles.articleRoleList}>
+                {caseStudy.roles.map((role) => (
+                  <li key={localize(role, locale)}>{localize(role, locale)}</li>
+                ))}
+              </ol>
+            </article>
+          </div>
         </div>
       </section>
 
@@ -945,6 +1133,16 @@ export function FactoryTransformationCaseStudyDetail({
           </ol>
         </div>
       </section>
+
+      <div className={styles.consoleBand}>
+        <Link href={consoleHref}>
+          <ArrowLeft aria-hidden="true" />
+          <span>
+            <small>{copy.consoleReturnLabel}</small>
+            <strong>{copy.consoleReturnHint}</strong>
+          </span>
+        </Link>
+      </div>
 
       <nav aria-label="Case study navigation" className={styles.caseNavigation}>
         <Link href={previousCase.href}>

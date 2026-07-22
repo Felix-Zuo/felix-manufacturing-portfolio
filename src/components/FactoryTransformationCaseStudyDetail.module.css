@@ -119,6 +119,44 @@
   transform: translateX(-3px);
 }
 
+.consoleReturn {
+  position: fixed;
+  z-index: 30;
+  right: max(22px, env(safe-area-inset-right));
+  bottom: max(22px, env(safe-area-inset-bottom));
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 9px;
+  padding: 0 15px;
+  border: 1px solid rgba(239, 183, 64, 0.48);
+  border-radius: 4px;
+  background: rgba(5, 9, 13, 0.88);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.38);
+  color: #e9eef1;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 10px;
+  text-decoration: none;
+  text-transform: uppercase;
+  backdrop-filter: blur(14px) saturate(1.1);
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.consoleReturn svg {
+  width: 15px;
+  height: 15px;
+  color: var(--case-amber);
+}
+
+.consoleReturn:hover {
+  border-color: rgba(239, 183, 64, 0.9);
+  background: rgba(12, 18, 23, 0.96);
+  transform: translateY(-3px);
+}
+
 .localeSwitch {
   display: inline-grid;
   grid-template-columns: 18px 48px 58px;
@@ -250,6 +288,8 @@
 .visualizationRegister,
 .metricBandInner,
 .outcomeInner,
+.articleInner,
+.consoleBand,
 .caseNavigation {
   width: min(1180px, calc(100% - 48px));
   margin-inline: auto;
@@ -329,6 +369,220 @@
   color: #c2ccd3;
   font-size: 15px;
   line-height: 1.75;
+}
+
+.articleBand {
+  border-block: 1px solid var(--case-line);
+  background:
+    linear-gradient(90deg, rgba(115, 166, 202, 0.035), transparent 42%),
+    #060a0f;
+}
+
+.articleInner {
+  display: grid;
+  padding: 120px 0 132px;
+  grid-template-columns: minmax(250px, 0.58fr) minmax(0, 1.42fr);
+  gap: 96px;
+}
+
+.articleRail {
+  position: sticky;
+  top: 7rem;
+  align-self: start;
+}
+
+.articleRail h2 {
+  max-width: 330px;
+  margin-top: 14px;
+  color: #f1f5f7;
+  font-size: 3.15rem;
+  font-weight: 540;
+  line-height: 1.02;
+}
+
+.articleRail > p {
+  max-width: 360px;
+  margin-top: 24px;
+  color: var(--case-muted);
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.articleRail nav {
+  display: grid;
+  margin-top: 38px;
+  border-top: 1px solid var(--case-line-strong);
+}
+
+.articleRail nav a {
+  display: grid;
+  min-height: 44px;
+  align-items: center;
+  border-bottom: 1px solid var(--case-line);
+  color: #9eacb7;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 10px;
+  text-decoration: none;
+  grid-template-columns: 36px minmax(0, 1fr);
+  transition: color 160ms ease, padding-left 180ms ease;
+}
+
+.articleRail nav a span {
+  color: var(--case-amber);
+  font-size: 9px;
+}
+
+.articleRail nav a:hover {
+  padding-left: 6px;
+  color: #f0f4f6;
+}
+
+.articleBody {
+  border-top: 1px solid rgba(181, 198, 214, 0.34);
+}
+
+.articleChapter {
+  display: grid;
+  padding: 54px 0 70px;
+  border-bottom: 1px solid var(--case-line);
+  scroll-margin-top: 6.5rem;
+  grid-template-columns: minmax(180px, 0.52fr) minmax(0, 1.48fr);
+  gap: 52px;
+}
+
+.articleChapterHeading span {
+  color: var(--case-amber);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 10px;
+}
+
+.articleChapterHeading h3 {
+  margin-top: 12px;
+  color: #e9eef2;
+  font-size: 2rem;
+  font-weight: 520;
+  line-height: 1.1;
+}
+
+.articleProse,
+.articlePointList {
+  display: grid;
+  gap: 26px;
+}
+
+.articleProse p,
+.articlePointList p,
+.articleOutcomeList p {
+  color: #c2ccd3;
+  font-size: 16px;
+  line-height: 1.82;
+}
+
+.articlePointList > section {
+  display: grid;
+  padding-bottom: 27px;
+  border-bottom: 1px solid rgba(181, 198, 214, 0.1);
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 16px;
+}
+
+.articlePointList > section:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.articlePointList > section > span {
+  padding-top: 3px;
+  color: var(--case-dim);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 9px;
+}
+
+.articlePointList h4 {
+  margin: 0 0 9px;
+  color: #e5ebee;
+  font-size: 17px;
+  font-weight: 580;
+  line-height: 1.35;
+}
+
+.articlePointList ul {
+  display: grid;
+  gap: 8px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.articlePointList li {
+  position: relative;
+  padding-left: 18px;
+  color: #9eadb8;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.articlePointList li::before {
+  position: absolute;
+  top: 0.64em;
+  left: 0;
+  width: 6px;
+  height: 1px;
+  background: var(--case-amber);
+  content: "";
+}
+
+.articleOutcomeList,
+.articleRoleList {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: article-item;
+}
+
+.articleOutcomeList li,
+.articleRoleList li {
+  position: relative;
+  padding: 0 0 24px 42px;
+  border-bottom: 1px solid rgba(181, 198, 214, 0.1);
+  counter-increment: article-item;
+}
+
+.articleOutcomeList li + li,
+.articleRoleList li + li {
+  padding-top: 24px;
+}
+
+.articleOutcomeList li::before,
+.articleRoleList li::before {
+  position: absolute;
+  top: 4px;
+  left: 0;
+  color: var(--case-amber);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 9px;
+  content: counter(article-item, decimal-leading-zero);
+}
+
+.articleOutcomeList li + li::before,
+.articleRoleList li + li::before {
+  top: 28px;
+}
+
+.articleOutcomeList small {
+  display: block;
+  margin-top: 10px;
+  color: var(--case-dim);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.articleRoleList li {
+  color: #cbd4da;
+  font-size: 15px;
+  line-height: 1.7;
 }
 
 .metricBand {
@@ -1357,6 +1611,62 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.consoleBand {
+  padding: 0 0 24px;
+}
+
+.consoleBand a {
+  display: grid;
+  min-height: 104px;
+  align-items: center;
+  padding: 24px 28px;
+  border: 1px solid rgba(239, 183, 64, 0.32);
+  border-radius: 6px;
+  background:
+    linear-gradient(90deg, rgba(239, 183, 64, 0.07), transparent 52%),
+    rgba(9, 14, 20, 0.68);
+  color: inherit;
+  text-decoration: none;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 20px;
+  transition: border-color 180ms ease, background-color 180ms ease;
+}
+
+.consoleBand a:hover {
+  border-color: rgba(239, 183, 64, 0.7);
+  background-color: rgba(13, 20, 27, 0.9);
+}
+
+.consoleBand svg {
+  width: 20px;
+  height: 20px;
+  color: var(--case-amber);
+  transition: transform 180ms ease;
+}
+
+.consoleBand a:hover svg {
+  transform: translateX(-4px);
+}
+
+.consoleBand small,
+.consoleBand strong {
+  display: block;
+}
+
+.consoleBand small {
+  color: var(--case-amber);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.consoleBand strong {
+  margin-top: 9px;
+  color: #e8edf0;
+  font-size: 16px;
+  font-weight: 540;
+}
+
 .caseNavigation a {
   display: grid;
   min-height: 148px;
@@ -1507,6 +1817,8 @@
   .visualizationRegister,
   .metricBandInner,
   .outcomeInner,
+  .articleInner,
+  .consoleBand,
   .caseNavigation {
     width: min(100% - 32px, 1180px);
   }
@@ -1518,6 +1830,58 @@
 
   .heroUtility {
     align-items: flex-start;
+  }
+
+  .consoleReturn {
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom));
+    min-height: 40px;
+    padding-inline: 12px;
+    font-size: 8px;
+  }
+
+  .articleInner {
+    padding: 78px 0 88px;
+    grid-template-columns: 1fr;
+    gap: 54px;
+  }
+
+  .articleRail {
+    position: static;
+  }
+
+  .articleRail h2 {
+    font-size: 2.45rem;
+  }
+
+  .articleRail nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .articleRail nav a:nth-child(odd) {
+    padding-right: 10px;
+    border-right: 1px solid var(--case-line);
+  }
+
+  .articleRail nav a:nth-child(even) {
+    padding-left: 12px;
+  }
+
+  .articleChapter {
+    padding: 42px 0 54px;
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+
+  .articleChapterHeading h3 {
+    font-size: 1.75rem;
+  }
+
+  .articleProse p,
+  .articlePointList p,
+  .articleOutcomeList p {
+    font-size: 15px;
+    line-height: 1.78;
   }
 
   .backLink {
@@ -1707,6 +2071,15 @@
     grid-template-columns: 1fr;
   }
 
+  .consoleBand {
+    padding-bottom: 16px;
+  }
+
+  .consoleBand a {
+    min-height: 92px;
+    padding: 20px;
+  }
+
   .caseNavigation a,
   .caseNavigation a:last-child {
     min-height: 120px;
@@ -1754,12 +2127,16 @@
 
   .metric,
   .backLink svg,
+  .consoleReturn,
+  .consoleBand svg,
   .caseNavigation svg {
     transition: none;
   }
 
   .metric:hover,
   .backLink:hover svg,
+  .consoleReturn:hover,
+  .consoleBand a:hover svg,
   .caseNavigation a:hover svg {
     transform: none;
   }

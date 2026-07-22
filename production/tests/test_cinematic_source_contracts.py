@@ -117,6 +117,42 @@ class CinematicSourceContracts(unittest.TestCase):
                 self.assertNotIn("pointerFollower", source)
                 self.assertNotIn("cursor: none", source)
 
+    def test_factory_console_state_is_deep_linkable_and_restorable(self) -> None:
+        cinematic = (
+            ROOT / "src" / "components" / "CinematicPortfolio.tsx"
+        ).read_text(encoding="utf-8")
+        deck = (ROOT / "src" / "components" / "JourneyControlDeck.tsx").read_text(
+            encoding="utf-8"
+        )
+        detail = (
+            ROOT
+            / "src"
+            / "components"
+            / "FactoryTransformationCaseStudyDetail.tsx"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("projectFromControlHash", cinematic)
+        self.assertIn("`#control-${projectId}`", cinematic)
+        self.assertIn("selectedProjectId={controlProjectId}", cinematic)
+        self.assertIn("onSelectedProjectChange={handleControlProjectChange}", cinematic)
+        self.assertIn("selectedProjectId?: FactoryProjectId | null", deck)
+        self.assertIn("const consoleHref = `/#control-${caseStudy.id}`", detail)
+        self.assertNotIn('/#factory-transformation', detail)
+
+    def test_factory_cases_keep_visuals_and_add_longform_narrative(self) -> None:
+        source = (
+            ROOT
+            / "src"
+            / "components"
+            / "FactoryTransformationCaseStudyDetail.tsx"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("styles.articleBand", source)
+        self.assertIn("styles.articleProse", source)
+        self.assertIn("caseStudy.implementationSteps.map", source)
+        self.assertIn("<OperationalVisualization", source)
+        self.assertIn("styles.visualizationRegister", source)
+
 
 if __name__ == "__main__":
     unittest.main()

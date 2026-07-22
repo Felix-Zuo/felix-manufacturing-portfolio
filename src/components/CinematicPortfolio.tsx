@@ -19,6 +19,10 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 
+import {
+  factoryProjectAtlas,
+  type FactoryProjectId,
+} from "@/data/factoryProjectAtlas";
 import { profile } from "@/data/profile";
 
 import { JourneyControlDeck } from "./JourneyControlDeck";
@@ -393,6 +397,20 @@ const HASH_CHAPTER_INDEX: Readonly<Record<string, number>> = {
   close: 7,
   contact: 7,
 };
+
+const FACTORY_PROJECT_IDS = new Set<FactoryProjectId>(
+  factoryProjectAtlas.map(({ id }) => id),
+);
+
+function projectFromControlHash(
+  hash: string,
+): FactoryProjectId | null | undefined {
+  if (hash === "control") return null;
+  if (!hash.startsWith("control-")) return undefined;
+
+  const projectId = hash.slice("control-".length) as FactoryProjectId;
+  return FACTORY_PROJECT_IDS.has(projectId) ? projectId : undefined;
+}
 
 const TRANSITION_MS = 760;
 const START_GATE_MS = 820;
@@ -857,6 +875,8 @@ export function CinematicPortfolio() {
   const [doorOpening, setDoorOpening] = useState(false);
   const [controlDeckVisible, setControlDeckVisible] = useState(false);
   const [controlDeckActive, setControlDeckActive] = useState(false);
+  const [controlProjectId, setControlProjectId] =
+    useState<FactoryProjectId | null>(null);
 
   const copy = UI_COPY[locale];
   const activeChapter = CHAPTERS[activeIndex];
@@ -1057,6 +1077,7 @@ export function CinematicPortfolio() {
 
   const openControlDeck = useCallback(() => {
     if (transitioning || doorOpening || controlDeckActive) return;
+    setControlProjectId(null);
     window.history.replaceState(null, "", "#control");
     if (reducedMotion) {
       setControlDeckVisible(true);
@@ -1082,8 +1103,21 @@ export function CinematicPortfolio() {
     setDoorOpening(false);
     setJourneyMotion(null);
     setTransitioning(false);
+    setControlProjectId(null);
     window.history.replaceState(null, "", "#contact");
   }, []);
+
+  const handleControlProjectChange = useCallback(
+    (projectId: FactoryProjectId | null) => {
+      setControlProjectId(projectId);
+      window.history.replaceState(
+        null,
+        "",
+        projectId ? `#control-${projectId}` : "#control",
+      );
+    },
+    [],
+  );
 
   const goForward = useCallback(() => {
     if (isLast) {
@@ -1097,10 +1131,12 @@ export function CinematicPortfolio() {
     const followHash = () => {
       const hash = window.location.hash.slice(1);
       if (!hash) return;
-      if (hash === "control") {
+      const controlProject = projectFromControlHash(hash);
+      if (controlProject !== undefined) {
         setStarted(true);
         setStartGateVisible(false);
         setActiveIndex(CHAPTERS.length - 1);
+        setControlProjectId(controlProject);
         setControlDeckVisible(true);
         setControlDeckActive(true);
         return;
@@ -1114,6 +1150,9 @@ export function CinematicPortfolio() {
       setOutgoingIndex(null);
       setJourneyMotion(null);
       setTransitioning(false);
+      setControlProjectId(null);
+      setControlDeckActive(false);
+      setControlDeckVisible(false);
     };
 
     followHash();
@@ -1534,7 +1573,9 @@ export function CinematicPortfolio() {
       <JourneyControlDeck
         active={controlDeckActive}
         backdropSrc={controlRoomVideo(mediaProfile ?? "desktop")}
+        onSelectedProjectChange={handleControlProjectChange}
         onReturn={returnFromControlDeck}
+        selectedProjectId={controlProjectId}
         visible={controlDeckVisible}
       />
     </section>

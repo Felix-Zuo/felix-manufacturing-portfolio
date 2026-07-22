@@ -18,12 +18,14 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   useEffect,
+  useCallback,
   useMemo,
   useRef,
   useState,
   useSyncExternalStore,
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
 } from "react";
 
 import {
@@ -72,9 +74,11 @@ const UI_COPY = {
     select: "Select",
     chooseAnother: "Choose another",
     selectHint: "Select a signal",
+    resetFocus: "Click the scene to return to all zones",
     briefingAria: "Selected factory project briefing",
   },
   zh: {
+    resetFocus: "点击场景空白处返回全部区域",
     atlasAria: "Felix Zuo 工厂项目总览",
     inspect: "查看",
     identityStatus: "工厂项目总览 / 05 个系统在线",
@@ -161,7 +165,9 @@ function targetPosition(targetId: FactoryProjectId): ScenePosition {
 type JourneyControlDeckProps = {
   active: boolean;
   backdropSrc?: string;
+  onSelectedProjectChange?: (projectId: FactoryProjectId | null) => void;
   onReturn: () => void;
+  selectedProjectId?: FactoryProjectId | null;
   visible: boolean;
 };
 
@@ -197,7 +203,9 @@ function directionalTarget(
 export function JourneyControlDeck({
   active,
   backdropSrc,
+  onSelectedProjectChange,
   onReturn,
+  selectedProjectId,
   visible,
 }: JourneyControlDeckProps) {
   const locale = useSyncExternalStore(
@@ -205,7 +213,10 @@ export function JourneyControlDeck({
     getLocaleSnapshot,
     getServerLocaleSnapshot,
   );
-  const [selection, setSelection] = useState<FactoryProjectId | null>(null);
+  const [internalSelection, setInternalSelection] =
+    useState<FactoryProjectId | null>(null);
+  const selection =
+    selectedProjectId === undefined ? internalSelection : selectedProjectId;
   const [focusChanging, setFocusChanging] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const backdropVideoRef = useRef<HTMLVideoElement>(null);
@@ -222,13 +233,30 @@ export function JourneyControlDeck({
   const copy = UI_COPY[locale];
   const SelectedIcon = selectedProject ? ZONE_ICONS[selectedProject.id] : null;
 
+  const commitSelection = useCallback(
+    (nextSelection: FactoryProjectId | null) => {
+      if (selectedProjectId === undefined) {
+        setInternalSelection(nextSelection);
+      }
+      onSelectedProjectChange?.(nextSelection);
+    },
+    [onSelectedProjectChange, selectedProjectId],
+  );
+
   const deckStyle = {
-    "--scene-scale": selectedProject ? "1.048" : "1",
+    "--scene-scale": selectedProject ? "1.09" : "1",
+    "--scene-scale-mobile": selectedProject ? "1.055" : "1",
     "--scene-shift-x": selectedProject
-      ? `${((50 - selectedProject.scene.x) * 0.045).toFixed(2)}vw`
+      ? `${((50 - selectedProject.scene.x) * 0.09).toFixed(2)}vw`
       : "0vw",
     "--scene-shift-y": selectedProject
-      ? `${((50 - selectedProject.scene.y) * 0.035).toFixed(2)}vh`
+      ? `${((50 - selectedProject.scene.y) * 0.065).toFixed(2)}vh`
+      : "0vh",
+    "--scene-shift-x-mobile": selectedProject
+      ? `${((50 - selectedProject.scene.x) * 0.035).toFixed(2)}vw`
+      : "0vw",
+    "--scene-shift-y-mobile": selectedProject
+      ? `${((50 - selectedProject.scene.y) * 0.018).toFixed(2)}vh`
       : "0vh",
   } as CSSProperties;
 
@@ -249,11 +277,17 @@ export function JourneyControlDeck({
     const enteringDeck = active && !wasActiveRef.current;
     wasActiveRef.current = active;
 
-    if (enteringDeck) {
-      setSelection(null);
+    if (!enteringDeck) return;
+
+    const resetFrame = window.requestAnimationFrame(() => {
+      if (selectedProjectId === undefined) {
+        setInternalSelection(null);
+      }
       setFocusChanging(false);
-    }
-  }, [active]);
+    });
+
+    return () => window.cancelAnimationFrame(resetFrame);
+  }, [active, selectedProjectId]);
 
   useEffect(() => {
     const video = backdropVideoRef.current;
@@ -290,7 +324,7 @@ export function JourneyControlDeck({
       event.preventDefault();
       if (selection) {
         const previousSelection = selection;
-        setSelection(null);
+        commitSelection(null);
         window.requestAnimationFrame(() => {
           hotspotRefs.current.get(previousSelection)?.focus();
         });
@@ -301,7 +335,7 @@ export function JourneyControlDeck({
 
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
-  }, [active, onReturn, selection]);
+  }, [active, commitSelection, onReturn, selection]);
 
   const selectTarget = (targetId: FactoryProjectId) => {
     if (targetId === selection) {
@@ -313,7 +347,7 @@ export function JourneyControlDeck({
       window.clearTimeout(focusTimerRef.current);
     }
     setFocusChanging(true);
-    setSelection(targetId);
+    commitSelection(targetId);
     focusTimerRef.current = window.setTimeout(() => {
       setFocusChanging(false);
       briefingRef.current?.focus({ preventScroll: true });
@@ -325,7 +359,7 @@ export function JourneyControlDeck({
     if (!selection) return;
     const previousSelection = selection;
     setFocusChanging(true);
-    setSelection(null);
+    commitSelection(null);
     if (focusTimerRef.current !== null) {
       window.clearTimeout(focusTimerRef.current);
     }
@@ -334,6 +368,12 @@ export function JourneyControlDeck({
       hotspotRefs.current.get(previousSelection)?.focus();
       focusTimerRef.current = null;
     }, reducedMotion ? 0 : 640);
+  };
+
+  const handleSceneClick = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (!selection) return;
+    if ((event.target as HTMLElement).closest("button, a")) return;
+    clearSelection();
   };
 
   const handleBriefingKeyDown = (
@@ -418,7 +458,7 @@ export function JourneyControlDeck({
       ref={deckRef}
       style={deckStyle}
     >
-      <div className={styles.sceneFrame}>
+      <div className={styles.sceneFrame} onClick={handleSceneClick}>
         <div aria-hidden="true" className={styles.backdrop}>
           <Image
             alt=""
@@ -580,6 +620,7 @@ export function JourneyControlDeck({
                 <p className={styles.summaryCopy}>
                   {localize(selectedProject.description, locale)}
                 </p>
+                <p className={styles.resetHint}>{copy.resetFocus}</p>
               </div>
               <div className={styles.metricBlock}>
                 <strong>{localize(selectedProject.metric, locale)}</strong>
