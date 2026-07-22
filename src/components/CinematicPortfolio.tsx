@@ -17,12 +17,12 @@ import {
   useSyncExternalStore,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
-  type PointerEvent as ReactPointerEvent,
 } from "react";
 
 import { profile } from "@/data/profile";
 
 import { JourneyControlDeck } from "./JourneyControlDeck";
+import { PrecisionPointer, usePrecisionPointer } from "./PrecisionPointer";
 import styles from "./CinematicPortfolio.module.css";
 
 type MediaProfile = "desktop" | "mobile";
@@ -737,6 +737,7 @@ function LocaleSwitch({
       <button
         aria-pressed={locale === "en"}
         data-active={locale === "en" || undefined}
+        data-pointer-role="action"
         lang="en"
         onClick={() => onChange("en")}
         title={copy.switchEnglish}
@@ -747,6 +748,7 @@ function LocaleSwitch({
       <button
         aria-pressed={locale === "zh"}
         data-active={locale === "zh" || undefined}
+        data-pointer-role="action"
         lang="zh-CN"
         onClick={() => onChange("zh")}
         title={copy.switchChinese}
@@ -774,17 +776,17 @@ function ExperienceLink({
 
   if (link.external) {
     return (
-      <a href={link.href} rel="noreferrer" target="_blank">
+      <a data-pointer-role="link" href={link.href} rel="noreferrer" target="_blank">
         {content}
       </a>
     );
   }
 
   if (link.href.startsWith("mailto:") || link.href.startsWith("tel:")) {
-    return <a href={link.href}>{content}</a>;
+    return <a data-pointer-role="link" href={link.href}>{content}</a>;
   }
 
-  return <Link href={link.href}>{content}</Link>;
+  return <Link data-pointer-role="link" href={link.href}>{content}</Link>;
 }
 
 function SceneImage({
@@ -839,7 +841,6 @@ export function CinematicPortfolio() {
   const reducedMotion = useReducedMotion();
   const rootRef = useRef<HTMLElement>(null);
   const transitionVideoRef = useRef<HTMLVideoElement>(null);
-  const pointerFrameRef = useRef<number | null>(null);
   const timersRef = useRef(new Set<number>());
   const [activeIndex, setActiveIndex] = useState(0);
   const preloader = useMediaPreloader(mediaProfile, activeIndex);
@@ -889,9 +890,6 @@ export function CinematicPortfolio() {
     return () => {
       timers.forEach((timer) => window.clearTimeout(timer));
       timers.clear();
-      if (pointerFrameRef.current !== null) {
-        window.cancelAnimationFrame(pointerFrameRef.current);
-      }
     };
   }, []);
 
@@ -1170,35 +1168,22 @@ export function CinematicPortfolio() {
     goForward();
   };
 
-  const handlePointerMove = (event: ReactPointerEvent<HTMLElement>) => {
-    if (event.pointerType === "touch") return;
-    const root = rootRef.current;
-    if (!root) return;
-    const x = event.clientX;
-    const y = event.clientY;
-    const target = event.target as HTMLElement;
-    const interactive = Boolean(target.closest("a, button, [role='button']"));
-    if (pointerFrameRef.current !== null) {
-      window.cancelAnimationFrame(pointerFrameRef.current);
-    }
-    pointerFrameRef.current = window.requestAnimationFrame(() => {
-      const width = Math.max(root.clientWidth, 1);
-      const height = Math.max(root.clientHeight, 1);
-      root.style.setProperty("--pointer-x", `${x}px`);
-      root.style.setProperty("--pointer-y", `${y}px`);
-      root.style.setProperty("--panel-tilt-x", `${((0.5 - y / height) * 1.1).toFixed(3)}deg`);
-      root.style.setProperty("--panel-tilt-y", `${((x / width - 0.5) * 1.35).toFixed(3)}deg`);
-      root.toggleAttribute("data-pointer-interactive", interactive);
-      pointerFrameRef.current = null;
-    });
-  };
-
-  const handlePointerLeave = () => {
-    const root = rootRef.current;
-    root?.style.setProperty("--panel-tilt-x", "0deg");
-    root?.style.setProperty("--panel-tilt-y", "0deg");
-    root?.removeAttribute("data-pointer-interactive");
-  };
+  const updatePanelPerspective = useCallback(
+    ({ nx, ny, root }: { nx: number; ny: number; root: HTMLElement }) => {
+      root.style.setProperty("--panel-tilt-x", `${(-ny * 1.1).toFixed(3)}deg`);
+      root.style.setProperty("--panel-tilt-y", `${(nx * 1.35).toFixed(3)}deg`);
+    },
+    [],
+  );
+  const resetPanelPerspective = useCallback((root: HTMLElement) => {
+    root.style.setProperty("--panel-tilt-x", "0deg");
+    root.style.setProperty("--panel-tilt-y", "0deg");
+  }, []);
+  const { handlePointerLeave, handlePointerMove } = usePrecisionPointer(rootRef, {
+    enabled: !controlDeckActive,
+    onFrame: updatePanelPerspective,
+    onLeave: resetPanelPerspective,
+  });
 
   return (
     <section
@@ -1212,6 +1197,7 @@ export function CinematicPortfolio() {
       data-locale={locale}
       data-motion-arrival={motionArrival || undefined}
       data-motion-playing={journeyMotion ? true : undefined}
+      data-precision-pointer=""
       data-started={started || undefined}
       data-transitioning={transitioning || undefined}
       onClick={handleSceneClick}
@@ -1324,6 +1310,7 @@ export function CinematicPortfolio() {
             <button
               aria-label={preloader.ready ? copy.startAria : copy.loadingAria}
               className={styles.startButton}
+              data-pointer-role="primary"
               disabled={!preloader.ready}
               onClick={(event) => {
                 event.stopPropagation();
@@ -1432,7 +1419,7 @@ export function CinematicPortfolio() {
 
             <div className={styles.chapterActions}>
               {isLast && (
-                <button onClick={openControlDeck} type="button">
+                <button data-pointer-role="primary" onClick={openControlDeck} type="button">
                   <span>{copy.openControlRoom}</span>
                   <ArrowUpRight aria-hidden="true" size={16} />
                 </button>
@@ -1464,6 +1451,7 @@ export function CinematicPortfolio() {
             <button
               aria-label={copy.previousChapter}
               className={styles.transportBack}
+              data-pointer-role="transport"
               disabled={isFirst || transitioning}
               onClick={playPreviousSegment}
               title={copy.previousChapter}
@@ -1488,6 +1476,7 @@ export function CinematicPortfolio() {
                         localize(chapter.label, locale),
                       )}
                       disabled={transitioning || index === activeIndex}
+                      data-pointer-role="waypoint"
                       onClick={() => requestNavigation(index)}
                       title={localize(chapter.label, locale)}
                       type="button"
@@ -1502,6 +1491,7 @@ export function CinematicPortfolio() {
             <button
               aria-label={isLast ? copy.openControlRoom : copy.nextChapter(nextChapterLabel)}
               className={styles.transportNext}
+              data-pointer-role="transport"
               disabled={transitioning}
               onClick={goForward}
               type="button"
@@ -1528,11 +1518,7 @@ export function CinematicPortfolio() {
         </div>
       )}
 
-      {!controlDeckActive && started && (
-        <span aria-hidden="true" className={styles.pointerFollower}>
-          <MousePointer2 size={18} strokeWidth={1.7} />
-        </span>
-      )}
+      <PrecisionPointer />
 
       {doorOpening && (
         <div aria-hidden="true" className={styles.doorTransition}>

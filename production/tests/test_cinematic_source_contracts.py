@@ -87,6 +87,36 @@ class CinematicSourceContracts(unittest.TestCase):
             source,
         )
 
+    def test_precision_pointer_keeps_position_and_scale_on_separate_layers(self) -> None:
+        source = (ROOT / "src" / "components" / "PrecisionPointer.tsx").read_text(
+            encoding="utf-8"
+        )
+        styles = (
+            ROOT / "src" / "components" / "PrecisionPointer.module.css"
+        ).read_text(encoding="utf-8")
+        field_rule = re.search(r"\.field\s*\{(?P<body>.*?)\n\}", styles, re.DOTALL)
+
+        self.assertIsNotNone(field_rule)
+        self.assertIn("event.clientX - bounds.left", source)
+        self.assertIn("event.clientY - bounds.top", source)
+        self.assertIn("translate3d(var(--pointer-x", field_rule.group("body"))
+        self.assertNotIn("scale:", field_rule.group("body"))
+        self.assertIn("scale(var(--pointer-scale))", styles)
+
+    def test_legacy_pointer_followers_and_hidden_native_cursor_are_removed(self) -> None:
+        for filename in (
+            "CinematicPortfolio.tsx",
+            "CinematicPortfolio.module.css",
+            "JourneyControlDeck.tsx",
+            "JourneyControlDeck.module.css",
+        ):
+            with self.subTest(filename=filename):
+                source = (ROOT / "src" / "components" / filename).read_text(
+                    encoding="utf-8"
+                )
+                self.assertNotIn("pointerFollower", source)
+                self.assertNotIn("cursor: none", source)
+
 
 if __name__ == "__main__":
     unittest.main()

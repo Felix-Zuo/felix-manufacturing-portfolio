@@ -24,7 +24,6 @@ import {
   useSyncExternalStore,
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
-  type PointerEvent as ReactPointerEvent,
 } from "react";
 
 import {
@@ -35,6 +34,7 @@ import {
 } from "@/data/factoryProjectAtlas";
 import { profile } from "@/data/profile";
 
+import { PrecisionPointer, usePrecisionPointer } from "./PrecisionPointer";
 import styles from "./JourneyControlDeck.module.css";
 
 const LOCALE_STORAGE_KEY = "felix-portfolio-locale";
@@ -212,7 +212,6 @@ export function JourneyControlDeck({
   const briefingRef = useRef<HTMLDivElement>(null);
   const deckRef = useRef<HTMLElement>(null);
   const focusTimerRef = useRef<number | null>(null);
-  const pointerFrameRef = useRef<number | null>(null);
   const hotspotRefs = useRef(new Map<FactoryProjectId, HTMLButtonElement>());
   const wasActiveRef = useRef(false);
 
@@ -278,9 +277,6 @@ export function JourneyControlDeck({
     return () => {
       if (focusTimerRef.current !== null) {
         window.clearTimeout(focusTimerRef.current);
-      }
-      if (pointerFrameRef.current !== null) {
-        window.cancelAnimationFrame(pointerFrameRef.current);
       }
     };
   }, []);
@@ -402,29 +398,9 @@ export function JourneyControlDeck({
     }
   };
 
-  const handlePointerMove = (event: ReactPointerEvent<HTMLElement>) => {
-    if (event.pointerType === "touch") return;
-    const deck = deckRef.current;
-    if (!deck) return;
-
-    const x = event.clientX;
-    const y = event.clientY;
-    const target = event.target as HTMLElement;
-    const interactive = Boolean(target.closest("a, button, [role='button']"));
-    if (pointerFrameRef.current !== null) {
-      window.cancelAnimationFrame(pointerFrameRef.current);
-    }
-    pointerFrameRef.current = window.requestAnimationFrame(() => {
-      deck.style.setProperty("--pointer-x", `${x}px`);
-      deck.style.setProperty("--pointer-y", `${y}px`);
-      deck.toggleAttribute("data-pointer-interactive", interactive);
-      pointerFrameRef.current = null;
-    });
-  };
-
-  const handlePointerLeave = () => {
-    deckRef.current?.removeAttribute("data-pointer-interactive");
-  };
+  const { handlePointerLeave, handlePointerMove } = usePrecisionPointer(deckRef, {
+    enabled: active,
+  });
 
   return (
     <section
@@ -433,6 +409,7 @@ export function JourneyControlDeck({
       className={styles.deck}
       data-active={active || undefined}
       data-focus-changing={focusChanging || undefined}
+      data-precision-pointer=""
       data-reduced-motion={reducedMotion || undefined}
       data-selection={selection ?? undefined}
       data-visible={visible || undefined}
@@ -486,6 +463,7 @@ export function JourneyControlDeck({
               aria-pressed={selected}
               className={styles.hotspot}
               data-label-side={project.scene.labelSide}
+              data-pointer-role="focus"
               data-selected={selected || undefined}
               key={project.id}
               onClick={() => selectTarget(project.id)}
@@ -525,6 +503,7 @@ export function JourneyControlDeck({
               aria-label={copy.switchEnglish}
               aria-pressed={locale === "en"}
               data-active={locale === "en" || undefined}
+              data-pointer-role="action"
               onClick={() => changeLocale("en")}
               tabIndex={active ? 0 : -1}
               type="button"
@@ -535,6 +514,7 @@ export function JourneyControlDeck({
               aria-label={copy.switchChinese}
               aria-pressed={locale === "zh"}
               data-active={locale === "zh" || undefined}
+              data-pointer-role="action"
               onClick={() => changeLocale("zh")}
               tabIndex={active ? 0 : -1}
               type="button"
@@ -544,6 +524,7 @@ export function JourneyControlDeck({
           </div>
           <a
             aria-label={copy.email}
+            data-pointer-role="action"
             href={`mailto:${profile.email}`}
             tabIndex={active ? 0 : -1}
             title={copy.email}
@@ -552,6 +533,7 @@ export function JourneyControlDeck({
           </a>
           <button
             aria-label={copy.returnAria}
+            data-pointer-role="action"
             onClick={onReturn}
             tabIndex={active ? 0 : -1}
             title={copy.returnTitle}
@@ -614,6 +596,7 @@ export function JourneyControlDeck({
                 <button
                   aria-label={copy.allZonesAria}
                   className={styles.secondaryAction}
+                  data-pointer-role="action"
                   onClick={clearSelection}
                   tabIndex={active ? 0 : -1}
                   type="button"
@@ -624,6 +607,7 @@ export function JourneyControlDeck({
                 <Link
                   aria-label={`${copy.openFullCaseAria}: ${localize(selectedProject.title, locale)}`}
                   className={styles.primaryAction}
+                  data-pointer-role="primary"
                   href={selectedProject.futureHref}
                   tabIndex={active ? 0 : -1}
                 >
@@ -685,6 +669,7 @@ export function JourneyControlDeck({
                 <button
                   aria-label={`${copy.select} ${localize(project.title, locale)}`}
                   aria-pressed={selected}
+                  data-pointer-role="waypoint"
                   data-selected={selected || undefined}
                   onClick={() => selectTarget(project.id)}
                   tabIndex={active ? 0 : -1}
@@ -704,9 +689,7 @@ export function JourneyControlDeck({
         </div>
       </nav>
 
-      <span aria-hidden="true" className={styles.pointerFollower}>
-        <Crosshair size={18} strokeWidth={1.5} />
-      </span>
+      <PrecisionPointer />
       <span aria-hidden="true" className={styles.focusVeil} />
     </section>
   );
