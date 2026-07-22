@@ -73,8 +73,9 @@ automation aid rather than the core DCC pipeline.
 5. **Complete:** record AmbientCG CC0 PBR sources and replace proof materials.
 6. **Complete:** validate Twinmotion scale import and retain it as a lookdev
    reference rather than an unchecked final-animation path.
-7. **Complete:** preserve adjacent one-way camera transitions and replace the
-   rejected reverse-camera holds with independent fixed-camera process loops.
+7. **Complete:** preserve adjacent one-way camera transitions, publish only the
+   independently validated robot and grinding fixed-camera loops, and keep all
+   other chapter anchors on still frames.
 8. **Complete locally:** integrate desktop/mobile media, click navigation,
    reverse playback, bilingual content, five-zone finale, and case-study routes.
    Production URL verification remains part of the deployment gate.

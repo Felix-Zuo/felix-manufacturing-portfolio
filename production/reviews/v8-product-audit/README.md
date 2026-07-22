@@ -21,6 +21,7 @@ PASS. No visual or interaction blocker remains in the reviewed journey.
 - Previous chapter plays the reverse transition.
 - Non-adjacent route jumps use a cover-and-reveal transition.
 - Robot and grinding chapter holds continue moving while the camera remains fixed.
+- Non-mechanical chapter anchors use still frames and never mount a camera-derived loop.
 - The final control room exposes five keyboard-reachable project targets.
 - English and Chinese state remains synchronized across the journey and case pages.
 - Production console completed without errors or warnings.

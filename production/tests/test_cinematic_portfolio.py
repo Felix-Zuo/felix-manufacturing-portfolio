@@ -33,6 +33,14 @@ class CinematicPortfolioPreloadContracts(unittest.TestCase):
         self.assertIn("BACKGROUND_PRELOAD_DELAY_MS", self.source)
         self.assertNotIn("Promise.all(\n      assets.map", self.source)
 
+    def test_only_explicit_fixed_camera_holds_can_loop(self) -> None:
+        self.assertIn("return chapter.ambient?.[profile] ?? null;", self.source)
+        self.assertNotIn(
+            "`/media/holds/${chapterMediaId(chapter)}-${profile}.mp4",
+            self.source,
+        )
+        self.assertEqual(self.source.count("ambient: {"), 2)
+
     def test_navigation_error_fallback_remains_in_place(self) -> None:
         self.assertIn("Math.abs(targetIndex - activeIndex) !== 1", self.source)
         self.assertIn('setJumpPhase("cover")', self.source)

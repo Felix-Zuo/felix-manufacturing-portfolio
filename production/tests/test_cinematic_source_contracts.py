@@ -16,6 +16,21 @@ class CinematicSourceContracts(unittest.TestCase):
         self.assertNotRegex(source, re.compile(r"\breverse\b", re.IGNORECASE))
         self.assertNotIn("split=2[f][r0]", source)
 
+    def test_camera_derived_chapter_holds_are_not_publishable(self) -> None:
+        hold_root = ROOT / "public" / "media" / "holds"
+        for chapter in (
+            "origin",
+            "impact",
+            "notice",
+            "takt",
+            "visibility",
+            "system",
+            "close",
+        ):
+            for profile in ("desktop", "mobile"):
+                with self.subTest(chapter=chapter, profile=profile):
+                    self.assertFalse((hold_root / f"{chapter}-{profile}.mp4").exists())
+
     def test_robot_hold_does_not_fake_transfer_with_visibility_swaps(self) -> None:
         source = (ROOT / "production" / "blender" / "render_hold_loop.py").read_text(
             encoding="utf-8"

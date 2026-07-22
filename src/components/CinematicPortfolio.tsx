@@ -142,6 +142,10 @@ const CHAPTERS: readonly Chapter[] = [
   },
   {
     align: "left",
+    ambient: {
+      desktop: "/media/holds/process-desktop.mp4?v=18",
+      mobile: "/media/holds/process-mobile.mp4?v=18",
+    },
     eyebrow: { en: "Trial production / process observation", zh: "试生产 / 过程观察" },
     id: "process",
     kind: "process",
@@ -499,8 +503,7 @@ function chapterImage(chapter: Chapter, profile: MediaProfile) {
 }
 
 function chapterHold(chapter: Chapter, profile: MediaProfile) {
-  return chapter.ambient?.[profile]
-    ?? `/media/holds/${chapterMediaId(chapter)}-${profile}.mp4?v=${MEDIA_VERSION}`;
+  return chapter.ambient?.[profile] ?? null;
 }
 
 function transitionVideoBetween(
@@ -532,14 +535,15 @@ function chapterNeighborhoodAssets(
   const images = neighborIndexes.map((index) =>
     chapterImage(CHAPTERS[index], profile),
   );
-  const videos = [chapterHold(CHAPTERS[activeIndex], profile)];
+  const videos: string[] = [];
+  const activeHold = chapterHold(CHAPTERS[activeIndex], profile);
+  if (activeHold) videos.push(activeHold);
 
   neighborIndexes.forEach((index) => {
     if (index === activeIndex) return;
-    videos.push(
-      transitionVideoBetween(activeIndex, index, profile),
-      chapterHold(CHAPTERS[index], profile),
-    );
+    videos.push(transitionVideoBetween(activeIndex, index, profile));
+    const neighborHold = chapterHold(CHAPTERS[index], profile);
+    if (neighborHold) videos.push(neighborHold);
   });
 
   if (neighborIndexes.includes(CHAPTERS.length - 1)) {
