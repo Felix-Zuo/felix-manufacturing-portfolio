@@ -14,6 +14,7 @@ control-room environment and the existing portfolio design language.
 - Final desktop project state: `production/renders/browser-qa/v16-goal2-work/09-planning-desktop-final.jpg`
 - Final mobile overview: `production/renders/browser-qa/v16-goal2-work/05-overview-mobile-v2.jpg`
 - Final mobile project state: `production/renders/browser-qa/v16-goal2-work/04-wip-mobile.jpg`
+- Production project state: `production/renders/browser-qa/v16-goal2-production/project-selected-1280x720.jpg`
 - Full comparison: `production/renders/browser-qa/v16-goal2-compare/full-desktop-side-by-side.jpg`
 - Focused comparison: `production/renders/browser-qa/v16-goal2-compare/lower-third-side-by-side.jpg`
 

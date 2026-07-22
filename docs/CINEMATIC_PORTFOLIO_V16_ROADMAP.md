@@ -2,14 +2,14 @@
 
 Date: 2026-07-22
 
-Status: Goal 1 completed and released on 2026-07-22. The implementation commit is
-`ee8b9b7`, and the production alias is
-`https://felix-manufacturing-portfolio.vercel.app/`. Goals 2-6 remain pending
+Status: Goals 1 and 2 completed and released on 2026-07-22. Goal 1 is recorded in
+`ee8b9b7`; the Goal 2 implementation commit is `ee13ad1`. The production alias is
+`https://felix-manufacturing-portfolio.vercel.app/`. Goals 3-6 remain pending
 until the user explicitly says to continue.
 
 This roadmap is the durable scope contract for the next portfolio release. Work is
-delivered one goal at a time. Goal 1 is the only implementation scope for the
-current task; Goals 2-6 remain explicitly pending until the user says to continue.
+delivered one goal at a time. Goal 2 is now complete; Goals 3-6 remain explicitly
+pending until the user says to continue.
 
 ## Product Direction
 
@@ -79,6 +79,8 @@ black fade so the visitor can move directly without scrubbing through several cl
 
 ## Goal 2 - Build the Five-Zone Factory Project Hub
 
+**Completion:** Implemented and released on `codex/v8-streamed-cinematic`.
+
 ### Steps
 
 1. Rebuild the post-door destination as one premium, continuously alive factory
@@ -89,6 +91,22 @@ black fade so the visitor can move directly without scrubbing through several cl
    return path into the cinematic journey.
 4. Use a seamless, subtle control-room/factory background loop that remains visible
    beneath the interface.
+
+### Delivered
+
+- Rebuilt the post-door destination as one continuous factory control environment
+  with five spatial project zones rather than a card grid.
+- Added planning, WIP/inventory, procurement, supplier-resilience, and skills zones
+  with distinct scene positions, operating signals, and outcome evidence.
+- Added synchronized scene hotspots and a persistent project atlas rail, plus a
+  compact overview and project-specific lower-third briefing.
+- Added restrained camera focus, hover and focus states, a custom desktop pointer,
+  spatial arrow-key navigation, Enter selection, and two-stage Escape behavior.
+- Preserved continuous control-room film playback during selection and added a
+  reliable direct-route autoplay recovery plus reduced-motion pause behavior.
+- Verified the production deployment at 1280 x 720 and 390 x 844 with zero
+  horizontal overflow and no browser warnings or errors.
+- Released at `https://felix-manufacturing-portfolio.vercel.app/#control`.
 
 ## Goal 3 - Add the Bilingual Foundation
 

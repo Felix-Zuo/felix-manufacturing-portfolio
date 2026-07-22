@@ -70,3 +70,14 @@ instead of covering the scene with a dashboard or card grid.
 - Direct `/#control` loading, continuous video playback, and reduced-motion pause
   behavior were verified.
 - Browser console inspection returned no warnings or errors.
+
+## Release Evidence
+
+- Implementation commit: `ee13ad1`
+- Branch: `codex/v8-streamed-cinematic`
+- Production: `https://felix-manufacturing-portfolio.vercel.app/#control`
+- Production HTTP checks: root `200`; control-room WebM `200`, `video/webm`, and
+  byte-range delivery enabled.
+- Vercel production build completed with all seven static outputs generated.
+- Final production screenshot:
+  `production/renders/browser-qa/v16-goal2-production/project-selected-1280x720.jpg`
