@@ -563,10 +563,10 @@ export function FactoryTransformationCaseStudyDetail({
 
         <div className={styles.heroInner}>
           <div className={styles.heroUtility}>
-            <Link className={styles.backLink} href={consoleHref}>
+            <a className={styles.backLink} href={consoleHref}>
               <ArrowLeft aria-hidden="true" />
               {copy.back}
-            </Link>
+            </a>
 
             <div
               aria-label={copy.localeLabel}
@@ -622,14 +622,14 @@ export function FactoryTransformationCaseStudyDetail({
         </div>
       </section>
 
-      <Link
+      <a
         aria-label={copy.consoleReturnLabel}
         className={styles.consoleReturn}
         href={consoleHref}
       >
         <ArrowLeft aria-hidden="true" />
         <span>{copy.consoleShortcut}</span>
-      </Link>
+      </a>
 
       <section
         className={`${styles.section} ${styles.reveal}`}
@@ -1135,13 +1135,13 @@ export function FactoryTransformationCaseStudyDetail({
       </section>
 
       <div className={styles.consoleBand}>
-        <Link href={consoleHref}>
+        <a href={consoleHref}>
           <ArrowLeft aria-hidden="true" />
           <span>
             <small>{copy.consoleReturnLabel}</small>
             <strong>{copy.consoleReturnHint}</strong>
           </span>
-        </Link>
+        </a>
       </div>
 
       <nav aria-label="Case study navigation" className={styles.caseNavigation}>

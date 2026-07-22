@@ -137,6 +137,8 @@ class CinematicSourceContracts(unittest.TestCase):
         self.assertIn("onSelectedProjectChange={handleControlProjectChange}", cinematic)
         self.assertIn("selectedProjectId?: FactoryProjectId | null", deck)
         self.assertIn("const consoleHref = `/#control-${caseStudy.id}`", detail)
+        self.assertGreaterEqual(detail.count("href={consoleHref}"), 3)
+        self.assertNotIn("<Link className={styles.backLink} href={consoleHref}", detail)
         self.assertNotIn('/#factory-transformation', detail)
 
     def test_factory_cases_keep_visuals_and_add_longform_narrative(self) -> None:
